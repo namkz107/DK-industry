@@ -1,4 +1,4 @@
-import { Boxes, ClipboardClock, ClipboardList, Image, LayoutDashboard, LogOut, ShieldCheck, UserCog } from "lucide-react"
+import { Boxes, ClipboardClock, ClipboardList, FileLock2, Image, LayoutDashboard, LogOut, ShieldCheck, UserCog } from "lucide-react"
 import type { PropsWithChildren, ReactNode } from "react"
 import { NavLink, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,7 @@ const navigation = [
   { to: "/admin/noi-dung", label: "Sản phẩm & nội dung", icon: Boxes },
   { to: "/admin/gioi-thieu", label: "Ảnh giới thiệu", icon: Image },
   { to: "/admin/nhat-ky", label: "Nhật ký", icon: ClipboardClock },
+  { to: "/admin/quyen-rieng-tu", label: "Quyền riêng tư", icon: FileLock2 },
   { to: "/staff", label: "Vận hành", icon: ClipboardList },
 ]
 

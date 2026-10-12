@@ -20,6 +20,8 @@ npm run audit:prod
 npm run backup:db
 ```
 
+Khi chạy test tích hợp, tuyệt đối không chỉ định database đang vận hành. Tạo database Atlas riêng, ví dụ `dk_industry_test`, sau đó đặt `TEST_MONGODB_URI` trỏ chính xác tới database đó. Test sẽ từ chối chạy nếu tên database không kết thúc bằng `_test` hoặc `-test`.
+
 Sau backup, ghi lại đường dẫn và SHA256 được in ra. Ít nhất một lần trước go-live, phục hồi bản backup vào **database thử nghiệm riêng**, không phục hồi đè vào database thật:
 
 ```powershell

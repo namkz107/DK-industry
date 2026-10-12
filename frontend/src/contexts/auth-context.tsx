@@ -8,6 +8,7 @@ interface AuthContextValue {
   user: AuthUser | null
   ready: boolean
   login: (payload: { identifier: string; password: string }) => Promise<AuthUser>
+  completeMfa: (challengeToken: string, code: string) => Promise<AuthUser>
   register: (payload: { name: string; email: string; phone: string; password: string }) => Promise<AuthUser>
   logout: () => Promise<void>
   updateUser: (values: Partial<AuthUser>) => void
@@ -37,6 +38,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     user,
     ready,
     login: async payload => { const next = await authClient.login(payload); queryClient.removeQueries({ queryKey: ["customer"] }); queryClient.removeQueries({ queryKey: ["notifications"] }); setUser(next); return next },
+    completeMfa: async (challengeToken, code) => { const next = await authClient.completeMfa(challengeToken, code); queryClient.clear(); setUser(next); return next },
     register: async payload => { const next = await authClient.register(payload); queryClient.removeQueries({ queryKey: ["customer"] }); queryClient.removeQueries({ queryKey: ["notifications"] }); setUser(next); return next },
     logout: async () => { try { await authClient.logout() } finally { queryClient.removeQueries({ queryKey: ["customer"] }); queryClient.removeQueries({ queryKey: ["staff"] }); queryClient.removeQueries({ queryKey: ["admin"] }); queryClient.removeQueries({ queryKey: ["notifications"] }); setUser(null) } },
     updateUser: values => setUser(current => current ? { ...current, ...values } : current),

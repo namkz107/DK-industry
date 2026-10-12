@@ -43,6 +43,7 @@ export const router = createBrowserRouter([{ element: <AppLayout />, errorElemen
       { path: "/admin/noi-dung", lazy: async () => { const module = await import("@/pages/admin-content-page"); return { Component: module.AdminContentPage } } },
       { path: "/admin/gioi-thieu", lazy: async () => { const module = await import("@/pages/admin-about-page"); return { Component: module.AdminAboutPage } } },
       { path: "/admin/nhat-ky", lazy: async () => { const module = await import("@/pages/admin-audit-page"); return { Component: module.AdminAuditPage } } },
+      { path: "/admin/quyen-rieng-tu", lazy: async () => { const module = await import("@/pages/admin-privacy-page"); return { Component: module.AdminPrivacyPage } } },
     ] },
   ] },
   { path: "*", lazy: async () => { const module = await import("@/pages/not-found-page"); return { Component: module.NotFoundPage } } },

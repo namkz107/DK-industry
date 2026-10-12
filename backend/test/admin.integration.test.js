@@ -1,10 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
 const path = require('node:path');
 const mongoose = require('mongoose');
 
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+require('../test-utils/integrationDatabase');
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET ||= 'local_admin_integration_secret_longer_than_32_characters';
 
@@ -16,6 +16,8 @@ const RefreshSession = require('../src/models/RefreshSession');
 const Service = require('../src/models/Service');
 const User = require('../src/models/User');
 const { createAccessToken } = require('../src/services/authService');
+const { removeContentImage } = require('../src/services/fileStorageService');
+const { storageDriver } = require('../src/config/runtime');
 const { uniqueToken, uniqueVietnamesePhone } = require('../test-utils/uniqueTestData');
 
 const runIntegration = process.env.RUN_ADMIN_INTEGRATION === '1';
@@ -53,7 +55,8 @@ test('Admin quản lý nhân sự, nội dung và nhật ký đúng quyền', { 
     const uploadResponse = await call('/admin/uploads/images', adminToken, { method: 'POST', body: imageForm });
     const uploadBody = await uploadResponse.json();
     assert.equal(uploadResponse.status, 201);
-    assert.match(uploadBody.data.url, /\/uploads\/content\/[a-f0-9-]+\.png$/);
+    if (storageDriver() === 'cloudinary') assert.match(uploadBody.data.url, /^https:\/\/res\.cloudinary\.com\//);
+    else assert.match(uploadBody.data.url, /\/uploads\/content\/[a-f0-9-]+\.png$/);
     createdIds.uploads.push(uploadBody.data.filename);
     assert.equal((await fetch(uploadBody.data.url)).status, 200);
 
@@ -92,7 +95,7 @@ test('Admin quản lý nhân sự, nội dung và nhật ký đúng quyền', { 
       AuditLog.deleteMany({ actor: { $in: createdIds.users } }), RefreshSession.deleteMany({ user: { $in: createdIds.users } }),
       Product.deleteMany({ _id: { $in: createdIds.products } }), Service.deleteMany({ _id: { $in: createdIds.services } }), Project.deleteMany({ _id: { $in: createdIds.projects } }), User.deleteMany({ _id: { $in: createdIds.users } })
     ]);
-    await Promise.all(createdIds.uploads.map(filename => fs.promises.unlink(path.join(__dirname, '..', 'storage', 'content-images', filename)).catch(() => {})));
+    await Promise.all(createdIds.uploads.map(removeContentImage));
     await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
     await mongoose.disconnect();
   }

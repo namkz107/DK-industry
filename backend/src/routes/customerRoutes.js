@@ -4,12 +4,16 @@ const express = require('express');
 const mongoose = require('mongoose');
 const multer = require('multer');
 const Cart = require('../models/Cart');
+const DataPrivacyRequest = require('../models/DataPrivacyRequest');
+const Notification = require('../models/Notification');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Quotation = require('../models/Quotation');
 const RequestMessage = require('../models/RequestMessage');
 const ServiceRequest = require('../models/ServiceRequest');
 const WorkOrder = require('../models/WorkOrder');
+const SupportConversation = require('../models/SupportConversation');
+const SupportMessage = require('../models/SupportMessage');
 const { transitionOrder, transitionPayment, transitionServiceRequest } = require('../services/workflowService');
 const { withTransaction } = require('../services/transactionService');
 const { writeAudit } = require('../services/auditService');
@@ -17,6 +21,7 @@ const { notifyOperations, dispatchSoon } = require('../services/notificationServ
 const { validateUploadedFiles } = require('../services/fileSecurityService');
 const { removeStoredFiles, sendStoredFile, storeCustomerFiles } = require('../services/fileStorageService');
 const { reverseLocation, searchLocations } = require('../services/openStreetMapService');
+const { requireVerifiedEmail } = require('../middleware/authenticate');
 const { createIdempotentMessage, messagePage, publicMessage } = require('../services/chatMessageService');
 const { emitMessage, emitRequestEvent, emitRequestUpdated } = require('../services/realtimeService');
 
@@ -25,6 +30,7 @@ const phonePattern = /^(?:\+84|0)[0-9]{9,10}$/;
 const requestTypes = new Set(['machining', 'product_quote', 'consulting']);
 const paymentMethods = new Set(['cod', 'bank_transfer']);
 const allowedExtensions = new Set(['.pdf', '.dxf', '.dwg', '.step', '.stp', '.iges', '.igs', '.png', '.jpg', '.jpeg', '.zip']);
+const termsVersion = String(process.env.TERMS_VERSION || '2026-10-12').trim().slice(0, 30);
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -46,6 +52,81 @@ const finiteCoordinate = (value, min, max) => {
   const number = Number(value);
   return Number.isFinite(number) && number >= min && number <= max ? number : undefined;
 };
+
+const safeAttachment = attachment => ({
+  id: attachment._id, originalName: attachment.originalName,
+  mimeType: attachment.mimeType, size: attachment.size
+});
+
+router.get('/privacy/export', requireVerifiedEmail, async (req, res, next) => {
+  try {
+    const customer = req.user._id;
+    const [cart, orders, requests, quotations, workOrders, conversations, notifications, privacyRequests] = await Promise.all([
+      Cart.findOne({ customer }).select('items createdAt updatedAt').lean(),
+      Order.find({ customer }).select('-internalNote -paymentLockedAt -assignedTo').sort({ createdAt: 1 }).lean(),
+      ServiceRequest.find({ customer }).select('-internalSummary -assignedTo -sourceLead').sort({ createdAt: 1 }).lean(),
+      Quotation.find({ customer, status: { $ne: 'draft' } }).select('-createdBy').sort({ createdAt: 1 }).lean(),
+      WorkOrder.find({ customer }).select('-assignedTo').sort({ createdAt: 1 }).lean(),
+      SupportConversation.find({ customer }).select('contact status lastMessageAt createdAt updatedAt').sort({ createdAt: 1 }).lean(),
+      Notification.find({ recipient: customer }).select('type title message link readAt createdAt').sort({ createdAt: 1 }).lean(),
+      DataPrivacyRequest.find({ customer }).select('type status reason resolution handledAt completedAt cancelledAt createdAt updatedAt').sort({ createdAt: 1 }).lean()
+    ]);
+    const requestIds = requests.map(item => item._id);
+    const conversationIds = conversations.map(item => item._id);
+    const [requestMessages, ownSupportMessages] = await Promise.all([
+      RequestMessage.find({ request: { $in: requestIds }, visibility: 'customer' }).select('-sender -readByStaffAt').sort({ createdAt: 1 }).lean(),
+      SupportMessage.find({ conversation: { $in: conversationIds }, sender: customer, senderRole: 'customer' }).select('conversation content createdAt').sort({ createdAt: 1 }).lean()
+    ]);
+    const safeRequests = requests.map(item => ({ ...item, attachments: (item.attachments || []).map(safeAttachment) }));
+    const safeRequestMessages = requestMessages.map(item => ({ ...item, attachments: (item.attachments || []).map(safeAttachment) }));
+    const exportData = {
+      exportedAt: new Date().toISOString(), formatVersion: '1.0',
+      account: {
+        id: req.user._id, name: req.user.name, email: req.user.email, phone: req.user.phone,
+        company: req.user.company, taxCode: req.user.taxCode, addresses: req.user.addresses,
+        emailVerifiedAt: req.user.emailVerifiedAt, createdAt: req.user.createdAt, updatedAt: req.user.updatedAt
+      },
+      cart, orders, serviceRequests: safeRequests, requestMessages: safeRequestMessages,
+      quotations, workOrders, supportConversations: conversations,
+      messagesSentToSupport: ownSupportMessages, notifications, privacyRequests
+    };
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="dk-industry-data-${new Date().toISOString().slice(0, 10)}.json"`);
+    res.send(JSON.stringify(exportData, null, 2));
+  } catch (error) { next(error); }
+});
+
+router.get('/privacy/requests', async (req, res, next) => {
+  try {
+    const items = await DataPrivacyRequest.find({ customer: req.user._id }).sort({ createdAt: -1 }).lean();
+    res.json({ success: true, data: items });
+  } catch (error) { next(error); }
+});
+
+router.post('/privacy/requests', requireVerifiedEmail, async (req, res, next) => {
+  try {
+    const reason = clean(req.body.reason).slice(0, 2000);
+    if (reason.length < 10) fail('Vui lòng mô tả lý do ít nhất 10 ký tự');
+    const existing = await DataPrivacyRequest.findOne({ customer: req.user._id, type: 'deletion', status: { $in: ['submitted', 'reviewing', 'approved'] } });
+    if (existing) fail('Bạn đã có một yêu cầu xóa tài khoản đang được xử lý', 409);
+    const item = await DataPrivacyRequest.create({ customer: req.user._id, type: 'deletion', reason });
+    await writeAudit({ actor: req.user._id, action: 'privacy.deletion_requested', entity: 'privacy_request', entityId: item._id, summary: `Khách hàng ${req.user.name} yêu cầu xóa tài khoản` });
+    await notifyOperations({ type: 'privacy.deletion_requested', title: 'Có yêu cầu xóa tài khoản mới', message: `${req.user.name} đã gửi yêu cầu xóa tài khoản.`, link: '/admin/quyen-rieng-tu', metadata: { privacyRequestId: item._id } });
+    dispatchSoon();
+    res.status(201).json({ success: true, message: 'Đã tiếp nhận yêu cầu xóa tài khoản', data: item });
+  } catch (error) { next(error); }
+});
+
+router.patch('/privacy/requests/:id/cancel', async (req, res, next) => {
+  try {
+    if (!validId(req.params.id)) fail('Yêu cầu không hợp lệ', 404);
+    const item = await DataPrivacyRequest.findOne({ _id: req.params.id, customer: req.user._id, status: { $in: ['submitted', 'reviewing'] } });
+    if (!item) fail('Yêu cầu không còn có thể hủy', 409);
+    item.status = 'cancelled'; item.cancelledAt = new Date(); await item.save();
+    await writeAudit({ actor: req.user._id, action: 'privacy.deletion_cancelled', entity: 'privacy_request', entityId: item._id, summary: `Khách hàng ${req.user.name} hủy yêu cầu xóa tài khoản` });
+    res.json({ success: true, message: 'Đã hủy yêu cầu xóa tài khoản', data: item });
+  } catch (error) { next(error); }
+});
 
 function addressValues(body) {
   const values = {
@@ -248,7 +329,7 @@ router.get('/orders/:id', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-router.post('/orders', async (req, res, next) => {
+router.post('/orders', requireVerifiedEmail, async (req, res, next) => {
   try {
     const address = req.user.addresses.id(req.body.addressId);
     if (!address) fail('Vui lòng chọn địa chỉ giao hàng hợp lệ');
@@ -282,7 +363,7 @@ router.post('/orders', async (req, res, next) => {
           accuracyMeters: address.accuracyMeters, locationConfirmed: address.locationConfirmed
         },
         subtotal, shippingFee: 0, total: subtotal, paymentMethod,
-        termsAcceptedAt: new Date(), termsVersion: '2026-09-29',
+        termsAcceptedAt: new Date(), termsVersion,
         customerNote: clean(req.body.customerNote),
         paymentTimeline: [{ status: 'unpaid', message: paymentMethod === 'cod' ? 'Thanh toán khi nhận hàng.' : 'Chờ nhân viên xác nhận thông tin chuyển khoản.' }],
         timeline: [{ status: 'pending', message: 'Đơn hàng đã được tiếp nhận, đang chờ xác nhận tồn kho và vận chuyển.', actorType: 'customer', actor: req.user._id }]
@@ -395,7 +476,7 @@ router.get('/requests/:id/messages', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-router.post('/requests', upload.array('attachments', 5), async (req, res, next) => {
+router.post('/requests', requireVerifiedEmail, upload.array('attachments', 5), async (req, res, next) => {
   let storedFiles = [];
   let filesCommitted = false;
   try {
@@ -481,7 +562,7 @@ router.get('/requests/:requestId/messages/:messageId/attachments/:attachmentId',
     const message = await RequestMessage.findOne({ _id: req.params.messageId, request: req.params.requestId, visibility: 'customer' }).select('+attachments.storedName');
     const attachment = message?.attachments.id(req.params.attachmentId);
     if (!attachment?.storedName) fail('Không tìm thấy tệp đính kèm', 404);
-    return sendStoredFile(res, attachment);
+    return await sendStoredFile(res, attachment);
   } catch (error) { next(error); }
 });
 
@@ -546,7 +627,7 @@ router.get('/requests/:requestId/attachments/:attachmentId', async (req, res, ne
     const request = await ServiceRequest.findOne({ _id: req.params.requestId, customer: req.user._id });
     const attachment = request?.attachments.id(req.params.attachmentId);
     if (!attachment) fail('Không tìm thấy tệp đính kèm', 404);
-    return sendStoredFile(res, attachment);
+    return await sendStoredFile(res, attachment);
   } catch (error) { next(error); }
 });
 

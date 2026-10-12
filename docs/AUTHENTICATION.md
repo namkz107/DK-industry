@@ -16,7 +16,7 @@ API đăng ký không đọc trường `role` từ client. Vì vậy người d�
 
 1. Đăng nhập/đăng ký đúng sẽ trả access token có hạn 15 phút. Frontend chỉ giữ token trong bộ nhớ, không ghi vào `localStorage`.
 2. Backend đồng thời tạo refresh token ngẫu nhiên, gửi bằng session cookie `HttpOnly`, `SameSite=Lax`; cookie không có `Max-Age` lưu dài hạn.
-3. MongoDB chỉ lưu SHA-256 hash của refresh token trong collection `refreshsessions`, không lưu token gốc.
+3. MongoDB chỉ lưu SHA-256 hash của refresh token và CSRF token trong collection `refreshsessions`, không lưu token gốc. Frontend giữ CSRF token trong `sessionStorage` và gửi header `X-CSRF-Token` khi refresh/đăng xuất, bảo vệ cả cấu hình cross-site `SameSite=None`.
 4. Trong cùng một tab, tải lại trang vẫn giữ phiên để tránh bắt đăng nhập lại không cần thiết. Khi đóng tab/trình duyệt, dấu phiên phía frontend mất; lần mở sau cookie cũ được thu hồi và người dùng phải đăng nhập lại. Khi access token hết hạn trong lúc sử dụng, frontend gọi `/api/auth/refresh` và xoay token cũ.
 5. Đăng xuất thu hồi session hiện tại. Đổi mật khẩu tăng `tokenVersion` và thu hồi toàn bộ refresh session của tài khoản.
 
@@ -52,7 +52,7 @@ Khi terminal báo `Admin account: ready (...)`, đăng nhập tại `http://loca
 ## Collection MongoDB
 
 - `users`: hồ sơ, role, trạng thái và bcrypt hash của mật khẩu. Các trường `passwordHash` và `tokenVersion` bị ẩn khỏi query mặc định.
-- `refreshsessions`: hash token, hạn dùng, thời điểm thu hồi, user-agent và IP. TTL index tự dọn session hết hạn.
+- `refreshsessions`: hash refresh/CSRF token, hạn dùng, thời điểm thu hồi, user-agent và IP. TTL index tự dọn session hết hạn.
 
 Có thể xem cả hai collection bằng MongoDB Compass và MongoDB Atlas. Không sửa `passwordHash`, `tokenVersion` hoặc `tokenHash` thủ công trừ khi đang phục hồi hệ thống có kiểm soát.
 
@@ -62,5 +62,11 @@ Có thể xem cả hai collection bằng MongoDB Compass và MongoDB Atlas. Khô
 - Đặt `CLIENT_URL` đúng origin frontend; nhiều origin phải phân tách bằng dấu phẩy.
 - Không commit bất kỳ file `.env` nào và bật secret scanning trên repository public.
 - Không ghi access/refresh token, mật khẩu hoặc toàn bộ header cookie vào log.
-- Luồng quên mật khẩu, xác minh email và gửi lại liên kết xác minh đã có. MFA cho Admin vẫn là bước hardening trước production.
-- Khi frontend và API nằm khác site, cần cấu hình cookie `SameSite=None; Secure` và bổ sung CSRF token trước khi deploy.
+- Luồng quên mật khẩu, xác minh email và gửi lại liên kết xác minh đã có.
+- Admin hỗ trợ MFA TOTP tương thích Google Authenticator/Microsoft Authenticator. Secret được mã hóa AES-256-GCM bằng `MFA_ENCRYPTION_KEY`; mười mã khôi phục chỉ lưu dạng hash và mỗi mã chỉ dùng một lần.
+- Khi bật/tắt MFA, mọi phiên khác của Admin bị thu hồi. Đăng nhập Admin đã bật MFA cần hoàn tất challenge 5 phút trước khi được tạo session.
+- Trước khi thiết lập MFA lần đầu, chạy `npm run setup:mfa-key`. Script ghi khóa ngẫu nhiên riêng vào `backend/.env` mà không in khóa ra màn hình; phải sao lưu khóa này trong secret manager khi deploy.
+- Customer phải xác minh email trước khi đặt hàng hoặc gửi yêu cầu/bản vẽ kỹ thuật. Các thao tác cần bảo vệ quyền lợi như hủy đơn và hậu mãi không bị chặn chỉ vì trạng thái xác minh.
+- Trang tài khoản liệt kê tối đa 20 phiên đang hoạt động, cho phép thu hồi từng phiên hoặc đăng xuất toàn bộ thiết bị. Đăng xuất toàn bộ tăng `tokenVersion` và thu hồi mọi refresh session.
+- Quên mật khẩu và gửi lại email xác minh dùng giới hạn riêng 5 yêu cầu/giờ/IP để tránh lạm dụng hộp thư.
+- Khi frontend và API nằm khác site, cấu hình cookie `SameSite=None; Secure`; CSRF token đã được áp dụng cho refresh/đăng xuất và frontend phải giữ `VITE_API_URL` đúng origin API.

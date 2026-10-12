@@ -4,6 +4,7 @@ const path = require('node:path');
 const mongoose = require('mongoose');
 
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+require('../test-utils/integrationDatabase');
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET ||= 'local_staff_integration_secret_longer_than_32_characters';
 

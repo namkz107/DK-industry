@@ -7,21 +7,22 @@ Tài liệu này phân biệt phần hệ thống đã kiểm soát trong mã ng
 - Dùng MongoDB replica set hoặc MongoDB Atlas. Các thao tác đơn hàng, tồn kho, giỏ hàng, báo giá và lệnh sản xuất dùng transaction; production sẽ từ chối khởi động nếu MongoDB không hỗ trợ transaction, trừ khi chủ động đặt `ALLOW_NON_TRANSACTIONAL_WRITES=true` (không khuyến nghị).
 - Đặt `NODE_ENV=production`, `JWT_SECRET` đủ mạnh, `CLIENT_URL` đúng origin HTTPS và `TRUST_PROXY` phù hợp với reverse proxy thực tế.
 - Không dùng tài khoản seed hoặc mật khẩu mẫu. Sau khi bootstrap Admin, xóa `ADMIN_SEED_PASSWORD` khỏi môi trường chạy.
-- Bật HTTPS, backup MongoDB định kỳ, kiểm thử phục hồi backup, log tập trung, cảnh báo lỗi và giám sát endpoint `/api/health`.
+- Bật HTTPS, backup MongoDB định kỳ, kiểm thử phục hồi backup, log tập trung, cảnh báo lỗi và giám sát endpoint `/api/health`. Script backup tạo tệp `.sha256`; script restore kiểm tra hash trước khi khôi phục.
 - Reverse proxy phải cho phép WebSocket upgrade tại đường dẫn `/socket.io`; cấu hình `VITE_SOCKET_URL` trỏ tới public origin của API realtime.
 - Nếu chạy nhiều instance API, thêm Socket.IO Redis Streams Adapter, chuyển rate limit sang kho dùng chung và chỉ chạy tác vụ định kỳ trên một worker để tránh sự kiện hoặc giới hạn bị lệch giữa các node.
 
 ## Email, tệp và bản đồ
 
 - Cấu hình SMTP để xác minh email, khôi phục mật khẩu và gửi thông báo nghiệp vụ. Nếu không có SMTP, thông báo trong ứng dụng vẫn hoạt động nhưng email sẽ không được gửi.
-- Cấu hình Google Places/Geocoding bằng server key giới hạn IP và Maps Embed bằng browser key giới hạn referrer. Footer chỉ chứa địa chỉ và liên kết điều hướng; bản đồ nhúng chỉ tải theo yêu cầu tại trang Liên hệ.
+- OpenStreetMap/Nominatim không cần API key; backend phải giữ cache và giới hạn tối đa một truy vấn mỗi giây. Bản đồ nhúng chỉ tải theo yêu cầu tại trang Liên hệ. Khi lưu lượng tăng, tự host Nominatim hoặc chọn nhà cung cấp có SLA thay vì phụ thuộc máy chủ công khai.
 - Môi trường nhiều instance cần object storage riêng (S3-compatible hoặc nhà cung cấp tương đương), antivirus/quarantine và URL ký thời hạn ngắn. Kiểm tra chữ ký tệp hiện tại chỉ là lớp phòng vệ đầu vào, không thay thế quét malware.
 
 ## Thông tin doanh nghiệp và pháp lý
 
 - Điền đầy đủ các biến `VITE_COMPANY_*`, đặc biệt tên pháp lý, mã số thuế/đăng ký và người đại diện. Không xuất bản nội dung placeholder.
 - Nhờ đơn vị pháp lý rà soát điều khoản, quyền riêng tư, vận chuyển, thanh toán, đổi trả và bảo hành theo mô hình kinh doanh thực tế.
-- Checkout bắt buộc khách đồng ý điều khoản và lưu thời điểm/phiên bản vào đơn hàng. Khi sửa nội dung chính sách, cập nhật `termsVersion` tại endpoint tạo đơn.
+- Đào tạo người xử lý yêu cầu dữ liệu cá nhân theo [`PRIVACY-OPERATIONS.md`](PRIVACY-OPERATIONS.md) trước khi mở chức năng cho khách thật.
+- Checkout bắt buộc khách đồng ý điều khoản và lưu thời điểm/phiên bản vào đơn hàng. Khi sửa nội dung chính sách, tăng đồng thời `TERMS_VERSION` (backend) và `VITE_POLICY_VERSION` (frontend) trước khi phát hành.
 - Hoàn tất thủ tục thông báo/đăng ký website thương mại điện tử và quy trình hóa đơn điện tử theo yêu cầu áp dụng cho doanh nghiệp.
 
 ## Tích hợp phải chọn nhà cung cấp

@@ -1,15 +1,16 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
 const path = require('node:path');
 const mongoose = require('mongoose');
 
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+require('../test-utils/integrationDatabase');
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET ||= 'local_customer_integration_secret_longer_than_32_characters';
 
 const app = require('../src/app');
 const Cart = require('../src/models/Cart');
+const DataPrivacyRequest = require('../src/models/DataPrivacyRequest');
 const Order = require('../src/models/Order');
 const Product = require('../src/models/Product');
 const Quotation = require('../src/models/Quotation');
@@ -19,6 +20,7 @@ const ServiceRequest = require('../src/models/ServiceRequest');
 const User = require('../src/models/User');
 const WorkOrder = require('../src/models/WorkOrder');
 const Notification = require('../src/models/Notification');
+const { removeStoredFiles } = require('../src/services/fileStorageService');
 const { uniqueToken, uniqueVietnamesePhone } = require('../test-utils/uniqueTestData');
 
 const runIntegration = process.env.RUN_CUSTOMER_INTEGRATION === '1';
@@ -49,6 +51,7 @@ test('Customer quản lý hồ sơ, giỏ hàng, đơn hàng và yêu cầu riê
   try {
     const customer = await register('owner', ownerPhone);
     const other = await register('other', otherPhone);
+    await User.updateMany({ _id: { $in: users } }, { emailVerifiedAt: new Date() });
     const productToken = uniqueToken('customer-product');
     product = await Product.create({ name: 'Sản phẩm kiểm thử Customer', slug: productToken, sku: productToken, category: 'Kiểm thử', price: 125000, unit: 'chiếc', stock: 20, active: true, image: 'https://example.com/test.jpg' });
 
@@ -143,17 +146,37 @@ test('Customer quản lý hồ sơ, giỏ hàng, đơn hàng và yêu cầu riê
     assert.equal(summaryBody.data.orders, 1);
     assert.equal(summaryBody.data.requests, 2);
     assert.equal(summaryBody.data.cartItems, 0);
+
+    const privacyResponse = await request('/customer/privacy/requests', customer.accessToken, { method: 'POST', body: JSON.stringify({ reason: 'Tôi không còn nhu cầu sử dụng tài khoản này.' }) });
+    const privacyBody = await privacyResponse.json();
+    assert.equal(privacyResponse.status, 201);
+    assert.equal(privacyBody.data.status, 'submitted');
+    assert.equal((await request('/customer/privacy/requests', customer.accessToken, { method: 'POST', body: JSON.stringify({ reason: 'Đây là một yêu cầu trùng lặp để kiểm thử.' }) })).status, 409);
+    const privacyList = await request('/customer/privacy/requests', customer.accessToken);
+    assert.equal((await privacyList.json()).data.length, 1);
+    assert.equal((await request(`/customer/privacy/requests/${privacyBody.data._id}/cancel`, other.accessToken, { method: 'PATCH' })).status, 409);
+
+    const exportResponse = await request('/customer/privacy/export', customer.accessToken);
+    const exportText = await exportResponse.text();
+    assert.equal(exportResponse.status, 200);
+    assert.match(exportResponse.headers.get('content-disposition'), /attachment/);
+    assert.equal(exportText.includes('storedName'), false);
+    assert.equal(exportText.includes('internalNote'), false);
+    assert.equal(exportText.includes('passwordHash'), false);
+    assert.equal(JSON.parse(exportText).account.email, customer.user.email);
+
+    const cancelPrivacy = await request(`/customer/privacy/requests/${privacyBody.data._id}/cancel`, customer.accessToken, { method: 'PATCH' });
+    assert.equal(cancelPrivacy.status, 200);
+    assert.equal((await cancelPrivacy.json()).data.status, 'cancelled');
   } finally {
     const storedRequests = await ServiceRequest.find({ customer: { $in: users } });
     const storedMessages = await RequestMessage.find({ request: { $in: storedRequests.map(item => item._id) } }).select('+attachments.storedName');
-    for (const item of storedRequests) for (const attachment of item.attachments) {
-      await fs.promises.unlink(path.join(__dirname, '..', 'storage', 'customer-requests', attachment.storedName)).catch(() => {});
-    }
-    for (const item of storedMessages) for (const attachment of item.attachments) {
-      await fs.promises.unlink(path.join(__dirname, '..', 'storage', 'customer-requests', attachment.storedName)).catch(() => {});
-    }
+    await removeStoredFiles([
+      ...storedRequests.flatMap(item => item.attachments || []),
+      ...storedMessages.flatMap(item => item.attachments || [])
+    ]);
     await Promise.all([
-      Cart.deleteMany({ customer: { $in: users } }), Order.deleteMany({ customer: { $in: users } }), WorkOrder.deleteMany({ customer: { $in: users } }), Notification.deleteMany({ recipient: { $in: users } }),
+      Cart.deleteMany({ customer: { $in: users } }), Order.deleteMany({ customer: { $in: users } }), WorkOrder.deleteMany({ customer: { $in: users } }), Notification.deleteMany({ recipient: { $in: users } }), DataPrivacyRequest.deleteMany({ customer: { $in: users } }),
       Quotation.deleteMany({ customer: { $in: users } }), RequestMessage.deleteMany({ request: { $in: storedRequests.map(item => item._id) } }), ServiceRequest.deleteMany({ customer: { $in: users } }), RefreshSession.deleteMany({ user: { $in: users } }),
       User.deleteMany({ _id: { $in: users } }), product ? Product.deleteOne({ _id: product._id }) : Promise.resolve()
     ]);

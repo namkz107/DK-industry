@@ -1,5 +1,5 @@
 import { authClient } from "@/lib/auth-client"
-import type { AboutSiteSetting, AdminDashboard, AdminPaged, AdminProduct, AdminProject, AdminService, AdminUser, AuditLog } from "@/types/admin"
+import type { AboutSiteSetting, AdminDashboard, AdminPaged, AdminPrivacyRequest, AdminProduct, AdminProject, AdminService, AdminUser, AuditLog } from "@/types/admin"
 
 type Result<T> = { success: boolean; data: T; message?: string }
 const json = (method: string, body?: unknown): RequestInit => ({ method, body: body === undefined ? undefined : JSON.stringify(body) })
@@ -27,4 +27,6 @@ export const adminClient = {
   updateProject: (id: string, body: Record<string, unknown>) => authClient.authenticated<Result<AdminProject>>(`/admin/projects/${id}`, json("PATCH", body)),
   hideProject: (id: string) => authClient.authenticated<Result<AdminProject>>(`/admin/projects/${id}`, { method: "DELETE" }),
   auditLogs: (entity = "", page = 1) => authClient.authenticated<Result<AdminPaged<AuditLog>>>(`/admin/audit-logs?${query({ entity, page })}`),
+  privacyRequests: (status = "", page = 1) => authClient.authenticated<Result<AdminPaged<AdminPrivacyRequest>>>(`/admin/privacy-requests?${query({ status, page })}`),
+  updatePrivacyRequest: (id: string, body: { status: string; resolution: string }) => authClient.authenticated<Result<AdminPrivacyRequest>>(`/admin/privacy-requests/${id}`, json("PATCH", body)),
 }

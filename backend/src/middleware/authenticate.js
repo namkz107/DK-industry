@@ -30,4 +30,10 @@ function requireRole(...roles) {
     : res.status(403).json({ success: false, message: 'Bạn không có quyền thực hiện thao tác này' });
 }
 
-module.exports = { authenticate, requireRole };
+function requireVerifiedEmail(req, res, next) {
+  return req.user?.emailVerifiedAt
+    ? next()
+    : res.status(403).json({ success: false, code: 'EMAIL_VERIFICATION_REQUIRED', message: 'Vui lòng xác minh email trước khi thực hiện thao tác này' });
+}
+
+module.exports = { authenticate, requireRole, requireVerifiedEmail };

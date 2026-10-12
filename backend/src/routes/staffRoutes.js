@@ -380,7 +380,7 @@ router.get('/requests/:requestId/attachments/:attachmentId', async (req, res, ne
     const request = await ServiceRequest.findById(req.params.requestId);
     const attachment = request?.attachments.id(req.params.attachmentId);
     if (!attachment) fail('Không tìm thấy tệp', 404);
-    return sendStoredFile(res, attachment);
+    return await sendStoredFile(res, attachment);
   } catch (error) { next(error); }
 });
 
@@ -390,7 +390,7 @@ router.get('/requests/:requestId/messages/:messageId/attachments/:attachmentId',
     const message = await RequestMessage.findOne({ _id: req.params.messageId, request: req.params.requestId }).select('+attachments.storedName');
     const attachment = message?.attachments.id(req.params.attachmentId);
     if (!attachment) fail('Không tìm thấy tệp', 404);
-    return sendStoredFile(res, attachment);
+    return await sendStoredFile(res, attachment);
   } catch (error) { next(error); }
 });
 

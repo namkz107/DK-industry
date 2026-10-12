@@ -8,35 +8,55 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/contexts/auth-context"
 import { usePageMeta } from "@/hooks/use-page-meta"
+import { MfaRequiredError } from "@/lib/auth-client"
 
 const schema = z.object({ identifier: z.string().trim().min(5, "Nhập email hoặc số điện thoại"), password: z.string().min(1, "Nhập mật khẩu") })
 type LoginData = z.infer<typeof schema>
 
 export function LoginPage() {
   usePageMeta("Đăng nhập", "Đăng nhập tài khoản khách hàng Cơ khí Đăng Khoa.")
-  const { user, ready, login } = useAuth()
+  const { user, ready, login, completeMfa } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [showPassword, setShowPassword] = useState(false)
   const [serverError, setServerError] = useState("")
+  const [mfaChallenge, setMfaChallenge] = useState("")
+  const [mfaCode, setMfaCode] = useState("")
+  const [mfaBusy, setMfaBusy] = useState(false)
   const form = useForm<LoginData>({ resolver: zodResolver(schema), defaultValues: { identifier: "", password: "" } })
   const homeForRole = (role: "customer" | "staff" | "admin") => role === "admin" ? "/admin" : role === "staff" ? "/staff" : "/tai-khoan"
   if (ready && user) return <Navigate to={homeForRole(user.role)} replace/>
   const submit = form.handleSubmit(async data => {
     setServerError("")
     try { const nextUser = await login(data); navigate((location.state as { from?: string } | null)?.from || homeForRole(nextUser.role), { replace: true }) }
-    catch (error) { setServerError(error instanceof Error ? error.message : "Không thể đăng nhập") }
+    catch (error) {
+      if (error instanceof MfaRequiredError) { setMfaChallenge(error.challengeToken); setServerError(""); return }
+      setServerError(error instanceof Error ? error.message : "Không thể đăng nhập")
+    }
   })
 
+  const submitMfa = async (event: React.FormEvent) => {
+    event.preventDefault(); setServerError(""); setMfaBusy(true)
+    try { const nextUser = await completeMfa(mfaChallenge, mfaCode); navigate((location.state as { from?: string } | null)?.from || homeForRole(nextUser.role), { replace: true }) }
+    catch (error) { setServerError(error instanceof Error ? error.message : "Không thể xác thực MFA") }
+    finally { setMfaBusy(false) }
+  }
+
   return <AuthShell title="Chào mừng bạn trở lại" description="Đăng nhập để theo dõi đơn hàng, yêu cầu gia công và báo giá của bạn.">
-    <form onSubmit={submit} noValidate>
+    {mfaChallenge ? <form onSubmit={submitMfa}>
+      <Field label="Mã xác thực"><Input autoFocus required inputMode="numeric" autoComplete="one-time-code" value={mfaCode} onChange={event => setMfaCode(event.target.value)} placeholder="6 chữ số hoặc mã khôi phục"/></Field>
+      <p className="mb-5 text-sm leading-6 text-slate-600">Mở ứng dụng Authenticator và nhập mã đang hiển thị. Bạn cũng có thể dùng một mã khôi phục chưa sử dụng.</p>
+      {serverError && <p role="alert" className="mb-5 rounded-xl bg-red-50 p-4 text-sm font-semibold text-red-700">{serverError}</p>}
+      <Button className="w-full" size="lg" disabled={mfaBusy || mfaCode.trim().length < 6}>{mfaBusy ? <LoaderCircle className="size-5 animate-spin"/> : <ShieldCheck className="size-5"/>}Xác nhận</Button>
+      <Button className="mt-3 w-full" type="button" variant="ghost" onClick={() => { setMfaChallenge(""); setMfaCode(""); setServerError("") }}>Quay lại đăng nhập</Button>
+    </form> : <form onSubmit={submit} noValidate>
       <Field label="Email hoặc số điện thoại" error={form.formState.errors.identifier?.message}><Input autoFocus autoComplete="username" placeholder="email@congty.vn hoặc 096..." {...form.register("identifier")}/></Field>
       <Field label="Mật khẩu" error={form.formState.errors.password?.message}><div className="relative"><Input className="pr-12" type={showPassword ? "text" : "password"} autoComplete="current-password" placeholder="Nhập mật khẩu" {...form.register("password")}/><button type="button" className="absolute right-1 top-1 grid size-10 place-items-center rounded-lg text-slate-500 hover:bg-slate-100" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}>{showPassword ? <EyeOff className="size-5"/> : <Eye className="size-5"/>}</button></div></Field>
       <p className="mb-5 text-right text-sm"><Link className="font-bold text-orange-700 hover:underline" to="/quen-mat-khau">Quên mật khẩu?</Link></p>
       {serverError && <p role="alert" className="mb-5 rounded-xl bg-red-50 p-4 text-sm font-semibold text-red-700">{serverError}</p>}
       <Button className="w-full" size="lg" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? <><LoaderCircle className="size-5 animate-spin"/>Đang đăng nhập...</> : <><LogIn className="size-5"/>Đăng nhập</>}</Button>
       <p className="mt-6 text-center text-sm text-slate-600">Chưa có tài khoản? <Link className="font-bold text-orange-700 hover:underline" to="/dang-ky">Đăng ký Customer</Link></p>
-    </form>
+    </form>}
   </AuthShell>
 }
 

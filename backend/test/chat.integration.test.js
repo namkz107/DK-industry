@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 const { io: createClient } = require('socket.io-client');
 
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+require('../test-utils/integrationDatabase');
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET ||= 'local_chat_integration_secret_longer_than_32_characters';
 

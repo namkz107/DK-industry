@@ -26,6 +26,20 @@ function verifyAccessToken(token) {
   return jwt.verify(token, jwtSecret(), { issuer: 'dk-industry-api', audience: 'dk-industry-web' });
 }
 
+function createMfaChallenge(user) {
+  return jwt.sign(
+    { purpose: 'mfa_login', tv: user.tokenVersion || 0 },
+    jwtSecret(),
+    { subject: String(user._id), expiresIn: '5m', issuer: 'dk-industry-api', audience: 'dk-industry-mfa' }
+  );
+}
+
+function verifyMfaChallenge(token) {
+  const payload = jwt.verify(token, jwtSecret(), { issuer: 'dk-industry-api', audience: 'dk-industry-mfa' });
+  if (payload.purpose !== 'mfa_login') throw new Error('MFA challenge is invalid');
+  return payload;
+}
+
 function createSupportSocketToken(conversationId) {
   return jwt.sign({ purpose: 'support_guest', conversationId: String(conversationId) }, jwtSecret(), { expiresIn: '15m', issuer: 'dk-industry-api', audience: 'dk-industry-support' });
 }
@@ -40,6 +54,10 @@ function newRefreshToken() {
   return crypto.randomBytes(64).toString('base64url');
 }
 
+function newCsrfToken() {
+  return crypto.randomBytes(32).toString('base64url');
+}
+
 function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
@@ -50,14 +68,16 @@ function refreshExpiry() {
 
 async function createSession(user, req) {
   const refreshToken = newRefreshToken();
+  const csrfToken = newCsrfToken();
   const session = await RefreshSession.create({
     user: user._id,
     tokenHash: hashToken(refreshToken),
+    csrfTokenHash: hashToken(csrfToken),
     expiresAt: refreshExpiry(),
     userAgent: req.get('user-agent') || '',
     ip: req.ip
   });
-  return { accessToken: createAccessToken(user, session._id), refreshToken, session };
+  return { accessToken: createAccessToken(user, session._id), refreshToken, csrfToken, session };
 }
 
 function publicUser(user) {
@@ -69,11 +89,12 @@ function publicUser(user) {
     role: user.role,
     company: user.company || '',
     status: user.status,
-    emailVerified: Boolean(user.emailVerifiedAt)
+    emailVerified: Boolean(user.emailVerifiedAt),
+    mfaEnabled: Boolean(user.mfaEnabledAt)
   };
 }
 
 const refreshCookieOptions = () => cookieOptions('/api/auth');
 const cookieBaseOptions = () => cookieOptions('/api/auth');
 
-module.exports = { createAccessToken, verifyAccessToken, createSupportSocketToken, verifySupportSocketToken, createSession, hashToken, newRefreshToken, refreshExpiry, publicUser, refreshCookieOptions, cookieBaseOptions };
+module.exports = { createAccessToken, verifyAccessToken, createMfaChallenge, verifyMfaChallenge, createSupportSocketToken, verifySupportSocketToken, createSession, hashToken, newCsrfToken, newRefreshToken, refreshExpiry, publicUser, refreshCookieOptions, cookieBaseOptions };

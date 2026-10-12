@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { Readable } = require('stream');
 const { v2: cloudinary } = require('cloudinary');
 const { storageDriver } = require('../config/runtime');
 
@@ -69,12 +70,40 @@ async function removeStoredFiles(files = []) {
   }));
 }
 
-function sendStoredFile(res, attachment) {
+function downloadFilename(value) {
+  const filename = path.basename(String(value || 'download'))
+    .replace(/[\r\n"]/g, '_')
+    .trim();
+  return filename || 'download';
+}
+
+async function sendStoredFile(res, attachment) {
   const descriptor = decodeDescriptor(attachment.storedName);
   if (descriptor) {
     configureCloudinary();
     const url = cloudinary.utils.private_download_url(descriptor.publicId, descriptor.format, { resource_type: 'raw', type: 'authenticated', expires_at: Math.floor(Date.now() / 1000) + 60, attachment: true });
-    return res.redirect(302, url);
+    // Do not redirect the browser to Cloudinary: the frontend downloads through
+    // fetch(), whose CORS policy blocks that authenticated cross-origin redirect.
+    // The application has already authorized this route, so proxy the short-lived
+    // signed URL server-side and keep the file private from unauthenticated users.
+    const response = await fetch(url);
+    if (!response.ok || !response.body) {
+      throw Object.assign(new Error('Không thể tải tệp từ kho lưu trữ'), { status: 502 });
+    }
+    const filename = downloadFilename(attachment.originalName);
+    const asciiFilename = filename.replace(/[^\x20-\x7E]/g, '_');
+    res.setHeader('Content-Type', response.headers.get('content-type') || attachment.mimeType || 'application/octet-stream');
+    const contentLength = response.headers.get('content-length');
+    if (contentLength) res.setHeader('Content-Length', contentLength);
+    res.setHeader('Content-Disposition', `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    await new Promise((resolve, reject) => {
+      const stream = Readable.fromWeb(response.body);
+      stream.on('error', reject);
+      res.on('error', reject);
+      res.on('finish', resolve);
+      stream.pipe(res);
+    });
+    return;
   }
   const safeName = path.basename(String(attachment.storedName || ''));
   if (!safeName || safeName !== attachment.storedName) throw Object.assign(new Error('Tệp đính kèm không hợp lệ'), { status: 404 });
@@ -93,4 +122,18 @@ async function storeContentImage(file, baseUrl) {
   return { url: `${baseUrl}/uploads/content/${filename}`, filename };
 }
 
-module.exports = { contentStorageDirectory, decodeDescriptor, removeStoredFiles, sendStoredFile, storeContentImage, storeCustomerFiles };
+async function removeContentImage(filename) {
+  const value = String(filename || '');
+  if (storageDriver() === 'cloudinary') {
+    // Content images are public, but only generated IDs inside this namespace
+    // may be deleted by this service.
+    if (!/^dk-industry\/content\/[A-Za-z0-9_-]+$/.test(value)) return;
+    configureCloudinary();
+    await cloudinary.uploader.destroy(value, { resource_type: 'image', invalidate: true }).catch(() => {});
+    return;
+  }
+  const safeName = path.basename(value);
+  if (safeName && safeName === value) await fs.promises.unlink(path.join(contentDirectory(), safeName)).catch(() => {});
+}
+
+module.exports = { contentStorageDirectory, decodeDescriptor, removeContentImage, removeStoredFiles, sendStoredFile, storeContentImage, storeCustomerFiles };

@@ -72,3 +72,8 @@ export interface MessagePage { hasMore: boolean; nextCursor: string | null }
 export interface RequestDetail { request: CustomerRequest; messages: RequestMessage[]; messagePage?: MessagePage; quotations: Quotation[]; workOrder?: WorkOrder | null }
 
 export interface CustomerSummary { orders: number; openOrders: number; requests: number; openRequests: number; cartItems: number }
+export type PrivacyRequestStatus = "submitted" | "reviewing" | "approved" | "rejected" | "completed" | "cancelled"
+export interface PrivacyRequest {
+  _id: string; type: "deletion"; status: PrivacyRequestStatus; reason: string; resolution?: string
+  handledAt?: string; completedAt?: string; cancelledAt?: string; createdAt: string; updatedAt: string
+}

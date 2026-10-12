@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const multer = require('multer');
 const AuditLog = require('../models/AuditLog');
+const DataPrivacyRequest = require('../models/DataPrivacyRequest');
 const Lead = require('../models/Lead');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
@@ -13,6 +14,7 @@ const SiteSetting = require('../models/SiteSetting');
 const User = require('../models/User');
 const { validateImageFile } = require('../services/fileSecurityService');
 const { storeContentImage } = require('../services/fileStorageService');
+const { createNotification, dispatchSoon } = require('../services/notificationService');
 
 const router = express.Router();
 const phonePattern = /^(?:\+84|0)[0-9]{9,10}$/;
@@ -21,6 +23,15 @@ const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,72}$/;
 const staffRoles = new Set(['staff', 'admin']);
 const userRoles = new Set(['customer', 'staff', 'admin']);
 const userStatuses = new Set(['active', 'blocked']);
+const privacyStatuses = new Set(['submitted', 'reviewing', 'approved', 'rejected', 'completed']);
+const privacyTransitions = {
+  submitted: new Set(['submitted', 'reviewing', 'approved', 'rejected']),
+  reviewing: new Set(['reviewing', 'approved', 'rejected']),
+  approved: new Set(['approved', 'completed', 'rejected']),
+  rejected: new Set(['rejected']),
+  completed: new Set(['completed']),
+  cancelled: new Set(['cancelled'])
+};
 const imageExtensions = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' };
 const imageUpload = multer({
   storage: multer.memoryStorage(),
@@ -34,7 +45,7 @@ const fail = (message, status = 400) => { throw Object.assign(new Error(message)
 const pageValues = query => ({ page: Math.max(1, Number(query.page) || 1), limit: Math.min(50, Math.max(1, Number(query.limit) || 20)) });
 const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const slugify = value => clean(value, 200).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-const publicUser = user => ({ _id: user._id, name: user.name, email: user.email, phone: user.phone || '', role: user.role, status: user.status, lastLoginAt: user.lastLoginAt, createdAt: user.createdAt });
+const publicUser = user => ({ _id: user._id, name: user.name, email: user.email, phone: user.phone || '', role: user.role, status: user.status, emailVerified: Boolean(user.emailVerifiedAt), mfaEnabled: Boolean(user.mfaEnabledAt), lastLoginAt: user.lastLoginAt, createdAt: user.createdAt });
 
 async function audit(req, action, entity, entityId, summary, metadata = {}) {
   await AuditLog.create({ actor: req.user._id, action, entity, entityId, summary, metadata });
@@ -66,6 +77,42 @@ router.get('/dashboard', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+router.get('/privacy-requests', async (req, res, next) => {
+  try {
+    const { page, limit } = pageValues(req.query);
+    const filter = {};
+    if (privacyStatuses.has(req.query.status) || req.query.status === 'cancelled') filter.status = req.query.status;
+    const [items, total] = await Promise.all([
+      DataPrivacyRequest.find(filter).populate('customer', 'name email phone status').populate('handledBy', 'name email').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+      DataPrivacyRequest.countDocuments(filter)
+    ]);
+    res.json({ success: true, data: { items, total, page, pages: Math.ceil(total / limit) } });
+  } catch (error) { next(error); }
+});
+
+router.patch('/privacy-requests/:id', async (req, res, next) => {
+  try {
+    if (!validId(req.params.id)) fail('Yêu cầu không hợp lệ', 404);
+    const status = clean(req.body.status, 30);
+    const resolution = clean(req.body.resolution, 3000);
+    if (!privacyStatuses.has(status)) fail('Trạng thái xử lý không hợp lệ');
+    if (['rejected', 'completed'].includes(status) && resolution.length < 10) fail('Cần ghi rõ kết quả xử lý ít nhất 10 ký tự');
+    const item = await DataPrivacyRequest.findById(req.params.id).populate('customer', 'name email');
+    if (!item) fail('Không tìm thấy yêu cầu', 404);
+    if (['cancelled', 'completed'].includes(item.status)) fail('Yêu cầu này đã kết thúc', 409);
+    if (!privacyTransitions[item.status]?.has(status)) fail('Không thể chuyển yêu cầu theo trạng thái này', 409);
+    item.status = status; item.resolution = resolution; item.handledBy = req.user._id; item.handledAt = new Date();
+    if (status === 'completed') item.completedAt = new Date();
+    await item.save();
+    await audit(req, `privacy.${status}`, 'privacy_request', item._id, `Đã cập nhật yêu cầu xóa tài khoản của ${item.customer?.name || 'khách hàng'}`, { status });
+    if (item.customer) {
+      await createNotification({ recipient: item.customer._id, type: `privacy.${status}`, title: 'Cập nhật yêu cầu xóa tài khoản', message: `Yêu cầu của bạn hiện ở trạng thái: ${status}. ${resolution || ''}`.trim(), link: '/tai-khoan', email: item.customer.email, metadata: { privacyRequestId: item._id } });
+      dispatchSoon();
+    }
+    res.json({ success: true, message: 'Đã cập nhật yêu cầu quyền riêng tư', data: item });
+  } catch (error) { next(error); }
+});
+
 router.get('/users', async (req, res, next) => {
   try {
     const { page, limit } = pageValues(req.query);
@@ -83,7 +130,7 @@ router.post('/users', async (req, res, next) => {
     const role = staffRoles.has(req.body.role) ? req.body.role : 'staff';
     if (name.length < 2 || !emailPattern.test(email) || !phonePattern.test(phone)) fail('Họ tên, email hoặc số điện thoại không hợp lệ');
     if (!passwordPattern.test(password)) fail('Mật khẩu tạm thời cần từ 8 đến 72 ký tự, gồm chữ hoa, chữ thường và số');
-    const user = await User.create({ name, email, phone, role, passwordHash: await User.hashPassword(password), status: 'active' });
+    const user = await User.create({ name, email, phone, role, passwordHash: await User.hashPassword(password), status: 'active', emailVerifiedAt: new Date() });
     await audit(req, 'user.created', 'user', user._id, `Đã tạo tài khoản ${role}: ${user.name}`);
     res.status(201).json({ success: true, message: 'Đã tạo tài khoản nhân sự', data: publicUser(user) });
   } catch (error) { next(error); }
@@ -105,7 +152,7 @@ router.patch('/users/:id', async (req, res, next) => {
     }
     const before = { role: user.role, status: user.status };
     if (req.body.name !== undefined) { const name = clean(req.body.name, 100); if (name.length < 2) fail('Họ tên không hợp lệ'); user.name = name; }
-    if (req.body.email !== undefined) { const email = clean(req.body.email, 200).toLowerCase(); if (!emailPattern.test(email)) fail('Email không hợp lệ'); user.email = email; }
+    if (req.body.email !== undefined) { const email = clean(req.body.email, 200).toLowerCase(); if (!emailPattern.test(email)) fail('Email không hợp lệ'); if (email !== user.email) user.emailVerifiedAt = undefined; user.email = email; }
     if (req.body.phone !== undefined) { const phone = normalizePhone(req.body.phone); if (!phonePattern.test(phone)) fail('Số điện thoại không hợp lệ'); user.phone = phone; }
     user.role = nextRole; user.status = nextStatus;
     const securityChanged = before.role !== user.role || before.status !== user.status;
@@ -204,7 +251,7 @@ for (const [path, kind, Model, activeField, searchable] of [
 }
 
 router.get('/audit-logs', async (req, res, next) => {
-  try { const { page, limit } = pageValues(req.query); const filter = {}; if (req.query.entity && ['user', 'product', 'service', 'project', 'site_setting'].includes(req.query.entity)) filter.entity = req.query.entity; const [items, total] = await Promise.all([AuditLog.find(filter).populate('actor', 'name email').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(), AuditLog.countDocuments(filter)]); res.json({ success: true, data: { items, total, page, pages: Math.ceil(total / limit) } }); } catch (error) { next(error); }
+  try { const { page, limit } = pageValues(req.query); const filter = {}; if (req.query.entity && ['user', 'product', 'service', 'project', 'site_setting', 'privacy_request'].includes(req.query.entity)) filter.entity = req.query.entity; const [items, total] = await Promise.all([AuditLog.find(filter).populate('actor', 'name email').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(), AuditLog.countDocuments(filter)]); res.json({ success: true, data: { items, total, page, pages: Math.ceil(total / limit) } }); } catch (error) { next(error); }
 });
 
 module.exports = router;

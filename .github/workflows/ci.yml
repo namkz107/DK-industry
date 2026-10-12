@@ -20,7 +20,10 @@ jobs:
     env:
       NODE_ENV: test
       MONGODB_URI: mongodb://127.0.0.1:27017/dk_industry_ci
+      TEST_MONGODB_URI: mongodb://127.0.0.1:27017/dk_industry_ci_test
+      TEST_MONGODB_URI: mongodb://127.0.0.1:27017/dk_industry_ci_test
       JWT_SECRET: ci_only_random_secret_that_is_longer_than_48_characters_123456789
+      MFA_ENCRYPTION_KEY: ci_only_mfa_encryption_secret_longer_than_32_characters
       CLIENT_URL: http://localhost:3000
       FILE_STORAGE_DRIVER: local
       RUN_AUTH_INTEGRATION: '1'

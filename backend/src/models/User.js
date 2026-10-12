@@ -30,7 +30,12 @@ const userSchema = new mongoose.Schema({
   addresses: { type: [addressSchema], default: [] },
   tokenVersion: { type: Number, default: 0, select: false },
   lastLoginAt: Date,
-  emailVerifiedAt: Date
+  emailVerifiedAt: Date,
+  mfaEnabledAt: Date,
+  mfaSecretEncrypted: { type: String, select: false },
+  mfaPendingSecretEncrypted: { type: String, select: false },
+  mfaPendingExpiresAt: { type: Date, select: false },
+  mfaRecoveryCodeHashes: { type: [String], default: undefined, select: false }
 }, { timestamps: true });
 
 userSchema.methods.verifyPassword = function verifyPassword(password) {
