@@ -2,6 +2,7 @@ const express = require('express');
 const Product = require('../models/Product');
 const Project = require('../models/Project');
 const Service = require('../models/Service');
+const SiteSetting = require('../models/SiteSetting');
 const mongoose = require('mongoose');
 const { createPublicLead } = require('../services/leadService');
 const { notifyOperations, dispatchSoon } = require('../services/notificationService');
@@ -21,6 +22,14 @@ const readiness = (req, res) => {
 
 router.get('/ready', readiness);
 router.get('/health', readiness);
+
+router.get('/site-settings/about', async (_req, res, next) => {
+  try {
+    const setting = await SiteSetting.findOne({ key: 'about' }).lean();
+    const leaderImage = setting ? setting.leaderImage : null;
+    res.json({ success: true, data: { leaderImage } });
+  } catch (error) { next(error); }
+});
 
 router.get('/projects', async (req, res, next) => {
   try {

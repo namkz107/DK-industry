@@ -1,6 +1,7 @@
 import type { Paged } from "@/types/staff"
 
-export type AdminEntity = "user" | "product" | "service" | "project"
+export type AdminEntity = "user" | "product" | "service" | "project" | "site_setting"
+export interface AboutSiteSetting { leaderImage: string | null }
 export interface AdminUser { _id: string; name: string; email: string; phone: string; role: "customer" | "staff" | "admin"; status: "active" | "blocked"; lastLoginAt?: string; createdAt: string }
 export interface AuditLog { _id: string; action: string; entity: AdminEntity; entityId: string; summary: string; metadata?: Record<string, unknown>; actor?: { _id: string; name: string; email: string }; createdAt: string }
 export interface AdminOrderSummary { _id: string; code: string; total: number; status: string; paymentStatus: string; customer?: { name: string }; createdAt: string }

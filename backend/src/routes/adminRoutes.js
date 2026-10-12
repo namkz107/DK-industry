@@ -9,6 +9,7 @@ const Project = require('../models/Project');
 const RefreshSession = require('../models/RefreshSession');
 const Service = require('../models/Service');
 const ServiceRequest = require('../models/ServiceRequest');
+const SiteSetting = require('../models/SiteSetting');
 const User = require('../models/User');
 const { validateImageFile } = require('../services/fileSecurityService');
 const { storeContentImage } = require('../services/fileStorageService');
@@ -141,6 +142,32 @@ router.post('/uploads/images', imageUpload.single('image'), async (req, res, nex
   } catch (error) { next(error); }
 });
 
+router.get('/site-settings/about', async (_req, res, next) => {
+  try {
+    const setting = await SiteSetting.findOne({ key: 'about' }).lean();
+    const leaderImage = setting ? setting.leaderImage : null;
+    res.json({ success: true, data: { leaderImage } });
+  } catch (error) { next(error); }
+});
+
+router.patch('/site-settings/about', async (req, res, next) => {
+  try {
+    const leaderImage = clean(req.body.leaderImage, 2000);
+    if (leaderImage) {
+      let parsed;
+      try { parsed = new URL(leaderImage); } catch { fail('Đường dẫn ảnh không hợp lệ'); }
+      if (!['http:', 'https:'].includes(parsed.protocol)) fail('Đường dẫn ảnh phải sử dụng HTTP hoặc HTTPS');
+    }
+    const setting = await SiteSetting.findOneAndUpdate(
+      { key: 'about' },
+      { $set: { leaderImage }, $setOnInsert: { key: 'about' } },
+      { new: true, upsert: true, runValidators: true }
+    );
+    await audit(req, 'site_setting.updated', 'site_setting', setting._id, 'Đã cập nhật ảnh người dẫn đường trong trang Giới thiệu');
+    res.json({ success: true, message: 'Đã cập nhật ảnh phần Giới thiệu', data: { leaderImage: setting.leaderImage } });
+  } catch (error) { next(error); }
+});
+
 function contentValues(kind, body, current = {}) {
   const name = clean(body.name ?? body.title ?? current.name ?? current.title, 200);
   const values = { ...current, ...body, slug: slugify(body.slug || name || current.slug) };
@@ -177,7 +204,7 @@ for (const [path, kind, Model, activeField, searchable] of [
 }
 
 router.get('/audit-logs', async (req, res, next) => {
-  try { const { page, limit } = pageValues(req.query); const filter = {}; if (req.query.entity && ['user', 'product', 'service', 'project'].includes(req.query.entity)) filter.entity = req.query.entity; const [items, total] = await Promise.all([AuditLog.find(filter).populate('actor', 'name email').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(), AuditLog.countDocuments(filter)]); res.json({ success: true, data: { items, total, page, pages: Math.ceil(total / limit) } }); } catch (error) { next(error); }
+  try { const { page, limit } = pageValues(req.query); const filter = {}; if (req.query.entity && ['user', 'product', 'service', 'project', 'site_setting'].includes(req.query.entity)) filter.entity = req.query.entity; const [items, total] = await Promise.all([AuditLog.find(filter).populate('actor', 'name email').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(), AuditLog.countDocuments(filter)]); res.json({ success: true, data: { items, total, page, pages: Math.ceil(total / limit) } }); } catch (error) { next(error); }
 });
 
 module.exports = router;

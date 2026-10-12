@@ -1,7 +1,9 @@
 import { ArrowRight, BadgeCheck, DraftingCompass, Handshake, HeartHandshake, Lightbulb, ShieldCheck, TrendingUp, Users } from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
 import { Link } from "react-router-dom"
 import { FadeContent } from "@/components/react-bits/fade-content"
 import { Button } from "@/components/ui/button"
+import { api } from "@/lib/api"
 
 const services = [
   { icon: DraftingCompass, title: "Tư vấn & thiết kế", text: "Khảo sát, phân tích yêu cầu và thiết kế giải pháp kỹ thuật phù hợp với từng công trình." },
@@ -16,9 +18,9 @@ const values = [
   { icon: TrendingUp, title: "Phát triển", text: "Không ngừng cải tiến để tạo ra giá trị lâu dài." },
 ]
 
-const ceoImage = import.meta.env.VITE_CLOUDINARY_CEO_IMAGE_URL
-
 export function AboutPage() {
+  const aboutSettings = useQuery({ queryKey: ["site-settings", "about"], queryFn: api.aboutSettings, staleTime: 60_000 })
+  const ceoImage = aboutSettings.data?.data.leaderImage ?? import.meta.env.VITE_CLOUDINARY_CEO_IMAGE_URL
   return <>
     <section className="industrial-hero text-white">
       <img className="industrial-hero__image" src="/images/heroes/about-hero.jpg" alt="" fetchPriority="high"/>

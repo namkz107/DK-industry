@@ -1,5 +1,5 @@
 import { CheckCircle2, Crosshair, ExternalLink, LoaderCircle, MapPin, Search } from "lucide-react"
-import { type FormEvent, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { customerClient } from "@/lib/customer-client"
@@ -16,8 +16,7 @@ export function LocationPicker({ value, onLocation }: {
   const [message, setMessage] = useState("")
   const positionRequestId = useRef(0)
 
-  async function search(event: FormEvent) {
-    event.preventDefault()
+  async function search() {
     const input = query.trim()
     if (input.length < 4) { setSuggestions([]); setMessage("Nhập ít nhất 4 ký tự rồi bấm Tìm"); return }
     try {
@@ -85,14 +84,14 @@ export function LocationPicker({ value, onLocation }: {
   return <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
     <div className="flex items-center gap-2 text-sm font-bold text-emerald-950"><MapPin className="size-5 text-orange-600"/>Chọn chính xác điểm giao hàng</div>
     <p className="mt-1 text-xs leading-5 text-slate-600">Nhập địa chỉ rồi bấm Tìm, hoặc cho phép trình duyệt lấy vị trí hiện tại. Dữ liệu địa chỉ từ OpenStreetMap.</p>
-    <form className="mt-4 flex items-start gap-2" onSubmit={search}>
+    <div className="mt-4 flex items-start gap-2" role="search">
       <div className="relative min-w-0 flex-1">
         <Search className="pointer-events-none absolute left-3 top-3.5 size-5 text-slate-400"/>
-        <Input className="pl-10" value={query} onChange={event => setQuery(event.target.value)} placeholder="Nhập tên đường, tòa nhà, công ty…" autoComplete="off"/>
+        <Input className="pl-10" value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void search() } }} placeholder="Nhập tên đường, tòa nhà, công ty…" autoComplete="off"/>
         {suggestions.length > 0 && <ul className="absolute z-20 mt-2 max-h-72 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">{suggestions.map(item => <li key={item.placeId}><button type="button" className="w-full rounded-lg px-3 py-3 text-left hover:bg-slate-50" onClick={() => choose(item)}><strong className="block text-sm text-slate-800">{item.mainText}</strong>{item.secondaryText && <span className="mt-1 block text-xs text-slate-500">{item.secondaryText}</span>}</button></li>)}</ul>}
       </div>
-      <Button type="submit" disabled={searching || query.trim().length < 4}>{searching ? <LoaderCircle className="size-4 animate-spin"/> : <Search className="size-4"/>}Tìm</Button>
-    </form>
+      <Button type="button" onClick={() => void search()} disabled={searching || query.trim().length < 4}>{searching ? <LoaderCircle className="size-4 animate-spin"/> : <Search className="size-4"/>}Tìm</Button>
+    </div>
     <div className="mt-3 flex flex-wrap items-center gap-3">
       <Button type="button" size="sm" variant="outline" disabled={locating || searching} onClick={useCurrentLocation}>{locating ? <LoaderCircle className="size-4 animate-spin"/> : <Crosshair className="size-4"/>}Vị trí của tôi</Button>
       {mapUrl && <a className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-emerald-800 hover:text-orange-700" href={mapUrl} target="_blank" rel="noreferrer">Kiểm tra điểm ghim <ExternalLink className="size-4"/></a>}

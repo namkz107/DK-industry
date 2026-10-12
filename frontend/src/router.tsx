@@ -41,6 +41,7 @@ export const router = createBrowserRouter([{ element: <AppLayout />, errorElemen
       { path: "/admin", lazy: async () => { const module = await import("@/pages/admin-dashboard-page"); return { Component: module.AdminDashboardPage } } },
       { path: "/admin/nhan-su", lazy: async () => { const module = await import("@/pages/admin-users-page"); return { Component: module.AdminUsersPage } } },
       { path: "/admin/noi-dung", lazy: async () => { const module = await import("@/pages/admin-content-page"); return { Component: module.AdminContentPage } } },
+      { path: "/admin/gioi-thieu", lazy: async () => { const module = await import("@/pages/admin-about-page"); return { Component: module.AdminAboutPage } } },
       { path: "/admin/nhat-ky", lazy: async () => { const module = await import("@/pages/admin-audit-page"); return { Component: module.AdminAuditPage } } },
     ] },
   ] },

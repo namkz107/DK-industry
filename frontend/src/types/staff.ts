@@ -38,7 +38,8 @@ export type WorkOrderStatus = "awaiting_contract" | "awaiting_deposit" | "schedu
 export interface StaffWorkOrder {
   _id: string; code: string; status: WorkOrderStatus; agreedTotal: number; depositRequired: number; depositPaid: number
   contractReference?: string; purchaseOrderReference?: string; plannedStartAt?: string; plannedDeliveryAt?: string; createdAt: string
-  customer: { _id: string; name: string; email: string; phone?: string; company?: string }; assignedTo?: StaffMember | null
-  request: { _id: string; code: string; title: string }; quotation: { _id: string; code: string; total: number }
+  customer: { _id: string; name: string; email: string; phone?: string; company?: string } | null; assignedTo?: StaffMember | null
+  request: { _id: string; code: string; title: string } | null; quotation: { _id: string; code: string; total: number } | null
+  integrityIssues?: Array<"customer" | "request" | "quotation">
   timeline: Array<{ status: string; message?: string; at: string }>
 }

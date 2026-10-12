@@ -33,6 +33,14 @@ const workOrderTransitions = {
   completed: [], cancelled: []
 };
 const validId = value => mongoose.isValidObjectId(value);
+const workOrderWithIntegrity = item => ({
+  ...item,
+  integrityIssues: [
+    !item.customer && 'customer',
+    !item.request && 'request',
+    !item.quotation && 'quotation'
+  ].filter(Boolean)
+});
 const clean = (value, max = 3000) => String(value || '').trim().slice(0, max);
 const fail = (message, status = 400) => { throw Object.assign(new Error(message), { status }); };
 const pageValues = query => ({ page: Math.max(1, Number(query.page) || 1), limit: Math.min(50, Math.max(1, Number(query.limit) || 20)) });
@@ -399,7 +407,7 @@ router.get('/work-orders', async (req, res, next) => {
       WorkOrder.find(filter).populate('customer', 'name email phone company').populate('assignedTo', 'name email').populate('request', 'code title').populate('quotation', 'code total').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
       WorkOrder.countDocuments(filter)
     ]);
-    res.json({ success: true, data: { items, total, page, pages: Math.ceil(total / limit) } });
+    res.json({ success: true, data: { items: items.map(workOrderWithIntegrity), total, page, pages: Math.ceil(total / limit) } });
   } catch (error) { next(error); }
 });
 
@@ -408,7 +416,7 @@ router.get('/work-orders/:id', async (req, res, next) => {
     if (!validId(req.params.id)) fail('Công việc không hợp lệ', 404);
     const data = await WorkOrder.findById(req.params.id).populate('customer', 'name email phone company').populate('assignedTo', 'name email').populate('request', 'code title description').populate('quotation').populate('timeline.actor', 'name role').lean();
     if (!data) fail('Không tìm thấy công việc', 404);
-    res.json({ success: true, data });
+    res.json({ success: true, data: workOrderWithIntegrity(data) });
   } catch (error) { next(error); }
 });
 
@@ -420,6 +428,12 @@ router.patch('/work-orders/:id', async (req, res, next) => {
       if (session) query.session(session);
       const current = await query;
       if (!current) fail('Không tìm thấy công việc', 404);
+      const [customerExists, requestExists, quotationExists] = await Promise.all([
+        User.exists({ _id: current.customer }),
+        ServiceRequest.exists({ _id: current.request }),
+        Quotation.exists({ _id: current.quotation })
+      ]);
+      if (!customerExists || !requestExists || !quotationExists) fail('Hồ sơ công việc bị thiếu dữ liệu liên kết và không thể cập nhật', 409);
       ensureOwnership(current, req.user, 'Công việc');
       const before = { status: current.status, assignedTo: current.assignedTo, depositRequired: current.depositRequired, depositPaid: current.depositPaid };
       if (req.body.assignedTo !== undefined) current.assignedTo = await assignUser(req.body.assignedTo, req.user);

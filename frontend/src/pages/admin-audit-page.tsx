@@ -6,7 +6,7 @@ import { Pagination } from "@/components/pagination"
 import { usePageMeta } from "@/hooks/use-page-meta"
 import { adminClient } from "@/lib/admin-client"
 
-const entityNames: Record<string, string> = { user: "Tài khoản", product: "Sản phẩm", service: "Dịch vụ", project: "Dự án" }
+const entityNames: Record<string, string> = { user: "Tài khoản", product: "Sản phẩm", service: "Dịch vụ", project: "Dự án", site_setting: "Cấu hình website" }
 
 export function AdminAuditPage() {
   usePageMeta("Nhật ký quản trị", "Theo dõi các thay đổi nhạy cảm trong hệ thống.")
