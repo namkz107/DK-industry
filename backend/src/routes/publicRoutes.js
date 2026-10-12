@@ -5,14 +5,22 @@ const Service = require('../models/Service');
 const mongoose = require('mongoose');
 const { createPublicLead } = require('../services/leadService');
 const { notifyOperations, dispatchSoon } = require('../services/notificationService');
+const { integrationStatus } = require('../config/runtime');
 
 const router = express.Router();
 const parseBoolean = value => value === undefined ? undefined : value === 'true';
 
-router.get('/health', (req, res) => {
-  const databaseReady = mongoose.connection.readyState === 1;
-  res.status(databaseReady ? 200 : 503).json({ success: databaseReady, service: 'DK Industry API', database: databaseReady ? 'ready' : 'unavailable', timestamp: new Date() });
+router.get('/live', (req, res) => {
+  res.json({ success: true, service: 'DK Industry API', status: 'alive', uptimeSeconds: Math.round(process.uptime()), timestamp: new Date() });
 });
+
+const readiness = (req, res) => {
+  const databaseReady = mongoose.connection.readyState === 1;
+  res.status(databaseReady ? 200 : 503).json({ success: databaseReady, service: 'DK Industry API', status: databaseReady ? 'ready' : 'unavailable', database: databaseReady ? 'ready' : 'unavailable', integrations: integrationStatus(), timestamp: new Date() });
+};
+
+router.get('/ready', readiness);
+router.get('/health', readiness);
 
 router.get('/projects', async (req, res, next) => {
   try {

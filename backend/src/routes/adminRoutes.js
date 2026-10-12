@@ -1,6 +1,3 @@
-const crypto = require('crypto');
-const fs = require('fs');
-const path = require('path');
 const express = require('express');
 const mongoose = require('mongoose');
 const multer = require('multer');
@@ -13,6 +10,8 @@ const RefreshSession = require('../models/RefreshSession');
 const Service = require('../models/Service');
 const ServiceRequest = require('../models/ServiceRequest');
 const User = require('../models/User');
+const { validateImageFile } = require('../services/fileSecurityService');
+const { storeContentImage } = require('../services/fileStorageService');
 
 const router = express.Router();
 const phonePattern = /^(?:\+84|0)[0-9]{9,10}$/;
@@ -21,14 +20,9 @@ const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,72}$/;
 const staffRoles = new Set(['staff', 'admin']);
 const userRoles = new Set(['customer', 'staff', 'admin']);
 const userStatuses = new Set(['active', 'blocked']);
-const imageDirectory = path.join(__dirname, '..', '..', 'storage', 'content-images');
 const imageExtensions = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' };
-fs.mkdirSync(imageDirectory, { recursive: true });
 const imageUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, callback) => callback(null, imageDirectory),
-    filename: (_req, file, callback) => callback(null, `${crypto.randomUUID()}${imageExtensions[file.mimetype]}`)
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024, files: 1 },
   fileFilter: (_req, file, callback) => imageExtensions[file.mimetype] ? callback(null, true) : callback(Object.assign(new Error('Chỉ chấp nhận ảnh JPG, PNG hoặc WEBP'), { status: 400 }))
 });
@@ -40,17 +34,6 @@ const pageValues = query => ({ page: Math.max(1, Number(query.page) || 1), limit
 const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const slugify = value => clean(value, 200).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const publicUser = user => ({ _id: user._id, name: user.name, email: user.email, phone: user.phone || '', role: user.role, status: user.status, lastLoginAt: user.lastLoginAt, createdAt: user.createdAt });
-
-async function hasValidImageSignature(file) {
-  const handle = await fs.promises.open(file.path, 'r');
-  try {
-    const buffer = Buffer.alloc(12); const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
-    if (file.mimetype === 'image/jpeg') return bytesRead >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
-    if (file.mimetype === 'image/png') return bytesRead >= 8 && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
-    if (file.mimetype === 'image/webp') return bytesRead >= 12 && buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP';
-    return false;
-  } finally { await handle.close(); }
-}
 
 async function audit(req, action, entity, entityId, summary, metadata = {}) {
   await AuditLog.create({ actor: req.user._id, action, entity, entityId, summary, metadata });
@@ -150,12 +133,11 @@ router.post('/users/:id/reset-password', async (req, res, next) => {
 router.post('/uploads/images', imageUpload.single('image'), async (req, res, next) => {
   try {
     if (!req.file) fail('Vui lòng chọn một ảnh để tải lên');
-    if (!await hasValidImageSignature(req.file)) {
-      await fs.promises.unlink(req.file.path).catch(() => {});
+    if (!validateImageFile(req.file)) {
       fail('Nội dung tệp không phải ảnh hợp lệ');
     }
-    const url = `${req.protocol}://${req.get('host')}/uploads/content/${req.file.filename}`;
-    res.status(201).json({ success: true, message: 'Đã tải ảnh lên', data: { url, filename: req.file.filename } });
+    const stored = await storeContentImage(req.file, `${req.protocol}://${req.get('host')}`);
+    res.status(201).json({ success: true, message: 'Đã tải ảnh lên', data: stored });
   } catch (error) { next(error); }
 });
 

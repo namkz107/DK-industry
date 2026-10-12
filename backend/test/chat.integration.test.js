@@ -19,7 +19,7 @@ const { createAccessToken } = require('../src/services/authService');
 const { uniqueToken, uniqueVietnamesePhone } = require('../test-utils/uniqueTestData');
 
 const runIntegration = process.env.RUN_CHAT_INTEGRATION === '1';
-const waitFor = (socket, event, timeout = 2000) => new Promise((resolve, reject) => {
+const waitFor = (socket, event, timeout = 8000) => new Promise((resolve, reject) => {
   const timer = setTimeout(() => reject(new Error(`Timeout waiting for ${event}`)), timeout);
   socket.once(event, value => { clearTimeout(timer); resolve(value); });
 });

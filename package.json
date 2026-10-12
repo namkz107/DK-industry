@@ -10,6 +10,8 @@
     "backend": "npm run dev --prefix backend",
     "build": "npm run build --prefix frontend",
     "check": "npm run lint --prefix frontend && npm test --prefix backend && npm run build --prefix frontend",
+    "audit:prod": "npm audit --omit=dev --prefix backend && npm audit --omit=dev --prefix frontend",
+    "backup:db": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/backup-mongodb.ps1",
     "seed": "npm run seed --prefix backend",
     "seed:admin": "npm run seed:admin --prefix backend",
     "migrate:lead-service": "npm run migrate:lead-service --prefix backend"

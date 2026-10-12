@@ -1,5 +1,4 @@
 const crypto = require('crypto');
-const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const mongoose = require('mongoose');
@@ -16,6 +15,7 @@ const { withTransaction } = require('../services/transactionService');
 const { writeAudit } = require('../services/auditService');
 const { notifyOperations, dispatchSoon } = require('../services/notificationService');
 const { validateUploadedFiles } = require('../services/fileSecurityService');
+const { removeStoredFiles, sendStoredFile, storeCustomerFiles } = require('../services/fileStorageService');
 const { createIdempotentMessage, messagePage, publicMessage } = require('../services/chatMessageService');
 const { emitMessage, emitRequestEvent, emitRequestUpdated } = require('../services/realtimeService');
 
@@ -23,16 +23,10 @@ const router = express.Router();
 const phonePattern = /^(?:\+84|0)[0-9]{9,10}$/;
 const requestTypes = new Set(['machining', 'product_quote', 'consulting']);
 const paymentMethods = new Set(['cod', 'bank_transfer']);
-const uploadDirectory = path.join(__dirname, '..', '..', 'storage', 'customer-requests');
 const allowedExtensions = new Set(['.pdf', '.dxf', '.dwg', '.step', '.stp', '.iges', '.igs', '.png', '.jpg', '.jpeg', '.zip']);
 
-fs.mkdirSync(uploadDirectory, { recursive: true });
-
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: uploadDirectory,
-    filename: (req, file, callback) => callback(null, `${crypto.randomUUID()}${path.extname(file.originalname).toLowerCase()}`)
-  }),
+  storage: multer.memoryStorage(),
   limits: { files: 5, fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, callback) => {
     const extension = path.extname(file.originalname).toLowerCase();
@@ -143,10 +137,6 @@ async function populatedCart(customerId, session = null) {
   const query = Cart.findOne({ customer: customerId }).populate({ path: 'items.product', match: { active: true } });
   if (session) query.session(session);
   return query;
-}
-
-async function removeUploadedFiles(files = []) {
-  await Promise.all(files.map(file => fs.promises.unlink(file.path).catch(() => {})));
 }
 
 router.get('/summary', async (req, res, next) => {
@@ -498,6 +488,8 @@ router.get('/requests/:id/messages', async (req, res, next) => {
 });
 
 router.post('/requests', upload.array('attachments', 5), async (req, res, next) => {
+  let storedFiles = [];
+  let filesCommitted = false;
   try {
     await validateUploadedFiles(req.files);
     const requestType = clean(req.body.requestType);
@@ -516,24 +508,28 @@ router.post('/requests', upload.array('attachments', 5), async (req, res, next) 
     if (desiredDate && Number.isNaN(desiredDate.getTime())) fail('Ngày mong muốn không hợp lệ');
     const quantity = req.body.quantity ? Number(req.body.quantity) : undefined;
     if (quantity !== undefined && (!Number.isFinite(quantity) || quantity < 1 || quantity > 1000000)) fail('Số lượng không hợp lệ');
+    storedFiles = await storeCustomerFiles(req.files);
     const request = await ServiceRequest.create({
       code: code('YC'), customer: req.user._id, requestType, title, description,
       material: clean(req.body.material), quantity, dimensions: clean(req.body.dimensions), desiredDate, budget: clean(req.body.budget),
       product: product?._id,
       productSnapshot: product ? { name: product.name, sku: product.sku, unit: product.unit } : undefined,
       contact: { name: req.user.name, phone: req.user.phone, email: req.user.email, company: req.user.company },
-      attachments: (req.files || []).map(file => ({ originalName: file.originalname, storedName: file.filename, mimeType: file.mimetype, size: file.size })),
+      attachments: storedFiles,
       timeline: [{ status: 'submitted', message: 'Yêu cầu đã được tiếp nhận và chờ kỹ thuật kiểm tra.', actorType: 'customer', actor: req.user._id }],
       lastCustomerMessageAt: new Date()
     });
+    filesCommitted = true;
     await RequestMessage.create({ request: request._id, sender: req.user._id, senderRole: 'customer', visibility: 'customer', content: description, readByCustomerAt: new Date() });
     await notifyOperations({ type: 'request.created', title: `Yêu cầu mới ${request.code}`, message: `${req.user.name}: ${request.title}`, link: '/staff/requests', metadata: { requestId: request._id } });
     dispatchSoon();
     res.status(201).json({ success: true, message: 'Đã gửi yêu cầu, kỹ thuật sẽ phản hồi trong giờ làm việc', data: { id: request._id, code: request.code, status: request.status } });
-  } catch (error) { await removeUploadedFiles(req.files); next(error); }
+  } catch (error) { if (!filesCommitted) await removeStoredFiles(storedFiles); next(error); }
 });
 
 router.post('/requests/:id/messages', upload.array('attachments', 3), async (req, res, next) => {
+  let storedFiles = [];
+  let filesCommitted = false;
   try {
     await validateUploadedFiles(req.files);
     if (!validId(req.params.id)) fail('Yêu cầu không hợp lệ', 404);
@@ -543,16 +539,19 @@ router.post('/requests/:id/messages', upload.array('attachments', 3), async (req
     const content = clean(req.body.content);
     if (!content && !req.files?.length) fail('Vui lòng nhập nội dung hoặc đính kèm tệp');
     if (content.length > 3000) fail('Nội dung trao đổi tối đa 3.000 ký tự');
+    storedFiles = await storeCustomerFiles(req.files);
     const result = await createIdempotentMessage({
       request: request._id, sender: req.user._id, senderRole: 'customer', visibility: 'customer',
       clientMessageId: req.body.clientMessageId,
       content: content || 'Khách hàng đã gửi thêm tệp đính kèm.', readByCustomerAt: new Date(),
-      attachments: (req.files || []).map(file => ({ originalName: file.originalname, storedName: file.filename, mimeType: file.mimetype, size: file.size }))
+      attachments: storedFiles
     });
     if (result.duplicate) {
-      await removeUploadedFiles(req.files);
+      await removeStoredFiles(storedFiles);
+      storedFiles = [];
       return res.status(200).json({ success: true, message: 'Tin nhắn đã được gửi trước đó', data: publicMessage(result.message) });
     }
+    filesCommitted = true;
     request.lastCustomerMessageAt = new Date();
     if (request.status === 'need_more_info') {
       transitionServiceRequest(request, 'reviewing', { message: 'Khách hàng đã bổ sung thông tin.', actorType: 'customer', actor: req.user._id });
@@ -563,7 +562,7 @@ router.post('/requests/:id/messages', upload.array('attachments', 3), async (req
     emitMessage(result.message);
     emitRequestUpdated(request._id, 'customer_message');
     res.status(201).json({ success: true, message: 'Đã gửi trao đổi', data: publicMessage(result.message) });
-  } catch (error) { await removeUploadedFiles(req.files); next(error); }
+  } catch (error) { if (!filesCommitted) await removeStoredFiles(storedFiles); next(error); }
 });
 
 router.get('/requests/:requestId/messages/:messageId/attachments/:attachmentId', async (req, res, next) => {
@@ -574,7 +573,7 @@ router.get('/requests/:requestId/messages/:messageId/attachments/:attachmentId',
     const message = await RequestMessage.findOne({ _id: req.params.messageId, request: req.params.requestId, visibility: 'customer' }).select('+attachments.storedName');
     const attachment = message?.attachments.id(req.params.attachmentId);
     if (!attachment?.storedName) fail('Không tìm thấy tệp đính kèm', 404);
-    res.download(path.join(uploadDirectory, attachment.storedName), attachment.originalName);
+    return sendStoredFile(res, attachment);
   } catch (error) { next(error); }
 });
 
@@ -639,7 +638,7 @@ router.get('/requests/:requestId/attachments/:attachmentId', async (req, res, ne
     const request = await ServiceRequest.findOne({ _id: req.params.requestId, customer: req.user._id });
     const attachment = request?.attachments.id(req.params.attachmentId);
     if (!attachment) fail('Không tìm thấy tệp đính kèm', 404);
-    res.download(path.join(uploadDirectory, attachment.storedName), attachment.originalName);
+    return sendStoredFile(res, attachment);
   } catch (error) { next(error); }
 });
 

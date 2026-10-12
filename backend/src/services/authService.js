@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const RefreshSession = require('../models/RefreshSession');
+const { cookieOptions } = require('../config/runtime');
 
 const REFRESH_DAYS = 7;
 
@@ -72,13 +73,7 @@ function publicUser(user) {
   };
 }
 
-const cookieBaseOptions = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax',
-  path: '/api/auth'
-};
-
-const refreshCookieOptions = () => ({ ...cookieBaseOptions });
+const refreshCookieOptions = () => cookieOptions('/api/auth');
+const cookieBaseOptions = () => cookieOptions('/api/auth');
 
 module.exports = { createAccessToken, verifyAccessToken, createSupportSocketToken, verifySupportSocketToken, createSession, hashToken, newRefreshToken, refreshExpiry, publicUser, refreshCookieOptions, cookieBaseOptions };

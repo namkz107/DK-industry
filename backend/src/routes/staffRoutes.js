@@ -1,4 +1,3 @@
-const path = require('path');
 const express = require('express');
 const mongoose = require('mongoose');
 const Lead = require('../models/Lead');
@@ -15,9 +14,9 @@ const { writeAudit } = require('../services/auditService');
 const { createNotification, dispatchSoon } = require('../services/notificationService');
 const { createIdempotentMessage, messagePage, publicMessage } = require('../services/chatMessageService');
 const { emitMessage, emitRequestEvent, emitRequestUpdated } = require('../services/realtimeService');
+const { sendStoredFile } = require('../services/fileStorageService');
 
 const router = express.Router();
-const uploadDirectory = path.join(__dirname, '..', '..', 'storage', 'customer-requests');
 const leadStatuses = new Set(['new', 'qualified', 'contacted', 'needs_analysis', 'quoted', 'won', 'lost', 'spam']);
 const requestStatuses = new Set(['submitted', 'reviewing', 'need_more_info', 'quoted', 'accepted', 'rejected', 'cancelled']);
 const orderStatuses = new Set(['pending', 'confirmed', 'preparing', 'shipping', 'delivered', 'cancelled']);
@@ -373,7 +372,7 @@ router.get('/requests/:requestId/attachments/:attachmentId', async (req, res, ne
     const request = await ServiceRequest.findById(req.params.requestId);
     const attachment = request?.attachments.id(req.params.attachmentId);
     if (!attachment) fail('Không tìm thấy tệp', 404);
-    res.download(path.join(uploadDirectory, attachment.storedName), attachment.originalName);
+    return sendStoredFile(res, attachment);
   } catch (error) { next(error); }
 });
 
@@ -383,7 +382,7 @@ router.get('/requests/:requestId/messages/:messageId/attachments/:attachmentId',
     const message = await RequestMessage.findOne({ _id: req.params.messageId, request: req.params.requestId }).select('+attachments.storedName');
     const attachment = message?.attachments.id(req.params.attachmentId);
     if (!attachment) fail('Không tìm thấy tệp', 404);
-    res.download(path.join(uploadDirectory, attachment.storedName), attachment.originalName);
+    return sendStoredFile(res, attachment);
   } catch (error) { next(error); }
 });
 

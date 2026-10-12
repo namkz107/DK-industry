@@ -78,7 +78,7 @@ router.post('/reset-password', async (req, res, next) => {
     user.tokenVersion += 1;
     accountToken.usedAt = new Date();
     await Promise.all([user.save(), accountToken.save(), RefreshSession.updateMany({ user: user._id, revokedAt: null }, { revokedAt: new Date() })]);
-    res.clearCookie('dk_refresh', cookieBaseOptions);
+    res.clearCookie('dk_refresh', cookieBaseOptions());
     res.json({ success: true, message: 'Đã đổi mật khẩu. Vui lòng đăng nhập lại.' });
   } catch (error) { next(error); }
 });
@@ -129,9 +129,9 @@ router.post('/refresh', async (req, res, next) => {
     const session = await RefreshSession.findOne({
       tokenHash: hashToken(currentToken), revokedAt: null, expiresAt: { $gt: new Date() }
     });
-    if (!session) { res.clearCookie('dk_refresh', cookieBaseOptions); return res.status(401).json({ success: false, message: 'Phiên đăng nhập đã hết hạn' }); }
+    if (!session) { res.clearCookie('dk_refresh', cookieBaseOptions()); return res.status(401).json({ success: false, message: 'Phiên đăng nhập đã hết hạn' }); }
     const user = await User.findById(session.user).select('+tokenVersion');
-    if (!user || user.status !== 'active') { session.revokedAt = new Date(); await session.save(); res.clearCookie('dk_refresh', cookieBaseOptions); return res.status(401).json({ success: false, message: 'Tài khoản không còn hoạt động' }); }
+    if (!user || user.status !== 'active') { session.revokedAt = new Date(); await session.save(); res.clearCookie('dk_refresh', cookieBaseOptions()); return res.status(401).json({ success: false, message: 'Tài khoản không còn hoạt động' }); }
 
     const refreshToken = newRefreshToken();
     session.tokenHash = hashToken(refreshToken);
@@ -147,7 +147,7 @@ router.post('/logout', async (req, res, next) => {
   try {
     const token = req.cookies.dk_refresh;
     if (token) await RefreshSession.updateOne({ tokenHash: hashToken(token), revokedAt: null }, { revokedAt: new Date() });
-    res.clearCookie('dk_refresh', cookieBaseOptions);
+    res.clearCookie('dk_refresh', cookieBaseOptions());
     res.json({ success: true, message: 'Đã đăng xuất' });
   } catch (error) { next(error); }
 });
@@ -166,7 +166,7 @@ router.post('/change-password', authenticate, async (req, res, next) => {
     user.tokenVersion += 1;
     await user.save();
     await RefreshSession.updateMany({ user: user._id, revokedAt: null }, { revokedAt: new Date() });
-    res.clearCookie('dk_refresh', cookieBaseOptions);
+    res.clearCookie('dk_refresh', cookieBaseOptions());
     res.json({ success: true, message: 'Đổi mật khẩu thành công. Vui lòng đăng nhập lại.' });
   } catch (error) { next(error); }
 });

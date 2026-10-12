@@ -19,6 +19,12 @@ function matchesSignature(extension, buffer) {
 
 async function validateUploadedFiles(files = []) {
   for (const file of files) {
+    if (file.buffer) {
+      if (!matchesSignature(path.extname(file.originalname).toLowerCase(), file.buffer.subarray(0, 8192))) {
+        fail(`Nội dung tệp “${path.basename(file.originalname)}” không đúng định dạng đã khai báo`);
+      }
+      continue;
+    }
     const handle = await fs.promises.open(file.path, 'r');
     try {
       const buffer = Buffer.alloc(8192);
@@ -32,4 +38,13 @@ async function validateUploadedFiles(files = []) {
   }
 }
 
-module.exports = { validateUploadedFiles };
+function validateImageFile(file) {
+  const buffer = file?.buffer;
+  if (!buffer) return false;
+  if (file.mimetype === 'image/jpeg') return matchesSignature('.jpg', buffer);
+  if (file.mimetype === 'image/png') return matchesSignature('.png', buffer);
+  if (file.mimetype === 'image/webp') return buffer.length >= 12 && buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP';
+  return false;
+}
+
+module.exports = { validateImageFile, validateUploadedFiles };

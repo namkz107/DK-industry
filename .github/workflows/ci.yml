@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:8
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      MONGODB_URI: mongodb://127.0.0.1:27017/dk_industry_ci
+      JWT_SECRET: ci_only_random_secret_that_is_longer_than_48_characters_123456789
+      CLIENT_URL: http://localhost:3000
+      FILE_STORAGE_DRIVER: local
+      RUN_AUTH_INTEGRATION: '1'
+      RUN_ADMIN_INTEGRATION: '1'
+      RUN_CHAT_INTEGRATION: '1'
+      RUN_CUSTOMER_INTEGRATION: '1'
+      RUN_LEAD_INTEGRATION: '1'
+      RUN_STAFF_INTEGRATION: '1'
+      RUN_SUPPORT_INTEGRATION: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+            frontend/package-lock.json
+      - run: npm ci
+      - run: npm ci --prefix backend
+      - run: npm ci --prefix frontend
+      - run: npm test --prefix backend
+      - run: npm run lint --prefix frontend
+      - run: npm run build --prefix frontend
+      - run: npm audit --omit=dev --prefix backend
+      - run: npm audit --omit=dev --prefix frontend

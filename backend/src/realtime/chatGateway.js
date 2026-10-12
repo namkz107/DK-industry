@@ -6,6 +6,7 @@ const User = require('../models/User');
 const { verifyAccessToken } = require('../services/authService');
 const { customerRoom, staffRoom, setChatNamespace, emitRequestEvent } = require('../services/realtimeService');
 const { initializeSupportGateway } = require('./supportGateway');
+const { clientOrigins } = require('../config/runtime');
 
 const validRequestId = value => /^[a-f\d]{24}$/i.test(String(value || ''));
 
@@ -27,7 +28,7 @@ async function authorizedRequest(requestId, user) {
 }
 
 function initializeChatGateway(httpServer) {
-  const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:3000').split(',').map(value => value.trim());
+  const allowedOrigins = clientOrigins();
   const io = new Server(httpServer, {
     cors: { origin: allowedOrigins, credentials: true },
     connectionStateRecovery: { maxDisconnectionDuration: 2 * 60 * 1000, skipMiddlewares: false }

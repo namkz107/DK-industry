@@ -121,3 +121,4 @@ Nghiệp vụ Customer, trạng thái và kịch bản kiểm tra nằm tại [`
 Luồng Lead và Service Request nằm tại [`docs/LEAD-SERVICE-REQUEST.md`](docs/LEAD-SERVICE-REQUEST.md).
 Quyền hạn, workflow và kịch bản kiểm tra Staff nằm tại [`docs/STAFF.md`](docs/STAFF.md).
 Checklist cấu hình, vận hành và các tích hợp ngoài hệ thống trước khi go-live nằm tại [`docs/PRODUCTION.md`](docs/PRODUCTION.md).
+Trạng thái nghiệm thu code, backup/restore và các thông tin doanh nghiệp còn phải cung cấp nằm tại [`docs/PRE-DEPLOY-CHECKLIST.md`](docs/PRE-DEPLOY-CHECKLIST.md).

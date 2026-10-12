@@ -12,7 +12,7 @@ function errorHandler(error, req, res, next) {
   if (error.code === 11000) return res.status(409).json({ success: false, message: 'Dữ liệu đã tồn tại trong hệ thống' });
   const status = error.name === 'ValidationError' ? 400 : (error.status || 500);
   if (status >= 500) console.error(error);
-  res.status(status).json({ success: false, message: status === 500 ? 'Lỗi máy chủ, vui lòng thử lại sau' : error.message });
+  res.status(status).json({ success: false, message: status === 500 ? 'Lỗi máy chủ, vui lòng thử lại sau' : error.message, requestId: req.id });
 }
 
 module.exports = { notFound, errorHandler };
