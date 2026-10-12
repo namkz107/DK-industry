@@ -8,10 +8,12 @@ const customerRequestLimiter = rateLimit({ windowMs: 60 * 60 * 1000, limit: 20, 
 const chatMessageLimiter = rateLimit({ windowMs: 60 * 1000, limit: 30, standardHeaders: 'draft-8', legacyHeaders: false, message: { success: false, message: 'Bạn đang gửi tin nhắn quá nhanh. Vui lòng thử lại sau.' } });
 const supportMessageLimiter = rateLimit({ windowMs: 60 * 1000, limit: 12, standardHeaders: 'draft-8', legacyHeaders: false, message: { success: false, message: 'Bạn đang gửi yêu cầu hỗ trợ quá nhanh. Vui lòng chờ một chút.' } });
 
+const locationLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: 'draft-8', legacyHeaders: false, message: { success: false, message: 'Bạn đã tìm vị trí quá nhiều lần. Vui lòng thử lại sau.' } });
+
 function rejectUnsafeKeys(req, res, next) {
   const unsafe = value => value && typeof value === 'object' && Object.entries(value).some(([key, child]) => key.startsWith('$') || key.includes('.') || unsafe(child));
   if (unsafe(req.body) || unsafe(req.query) || unsafe(req.params)) return res.status(400).json({ success: false, message: 'Dữ liệu không hợp lệ' });
   next();
 }
 
-module.exports = { apiLimiter, leadLimiter, authLimiter, registrationLimiter, customerRequestLimiter, chatMessageLimiter, supportMessageLimiter, rejectUnsafeKeys };
+module.exports = { apiLimiter, leadLimiter, authLimiter, registrationLimiter, customerRequestLimiter, chatMessageLimiter, locationLimiter, supportMessageLimiter, rejectUnsafeKeys };

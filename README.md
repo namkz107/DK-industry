@@ -68,19 +68,14 @@ Frontend hiển thị đúng trạng thái trống hoặc lỗi khi MongoDB/back
 
 ### Cấu hình bản đồ và định vị
 
-Tính năng tìm địa chỉ và đổi GPS thành địa chỉ cần bật **Places API (New)** và **Geocoding API**, sau đó đặt key chỉ dùng từ server trong `backend/.env`:
+Tính năng tìm địa chỉ và đổi GPS thành địa chỉ dùng **OpenStreetMap + Nominatim**, không cần API key, thẻ thanh toán hay tài khoản billing. Cấu hình mặc định trong `backend/.env`:
 
 ```env
-GOOGLE_MAPS_SERVER_API_KEY=your_server_restricted_google_maps_key
+NOMINATIM_BASE_URL=https://nominatim.openstreetmap.org
+NOMINATIM_EMAIL=your_contact_email@example.com
 ```
 
-Bản đồ ở trang `/lien-he` chỉ tải sau khi người dùng bấm xem. Để bật bản đồ nhúng, bật **Maps Embed API** và đặt browser-restricted key trong `frontend/.env`:
-
-```env
-VITE_GOOGLE_MAPS_EMBED_KEY=your_browser_restricted_google_maps_embed_key
-```
-
-Không có hai key này, trang Liên hệ vẫn có nút mở Google Maps và form địa chỉ vẫn cho nhập tay. Khi production, giới hạn server key theo IP/API, browser key theo HTTP referrer/API và đặt billing quota để tránh lạm dụng.
+Bản đồ ở trang `/lien-he` chỉ tải sau khi người dùng bấm xem. Việc tìm địa chỉ dùng nút **Tìm địa chỉ** thay vì tự động tìm khi đang gõ, có cache và hàng đợi tối đa một yêu cầu mỗi giây để tuân thủ chính sách máy chủ Nominatim công khai. Giao diện luôn hiển thị ghi công OpenStreetMap. Khi lượng truy cập lớn, cần tự host Nominatim hoặc chuyển sang nhà cung cấp có SLA; không dùng dịch vụ công khai cho autocomplete phía client.
 
 ## API chính
 

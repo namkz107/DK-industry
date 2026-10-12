@@ -48,11 +48,21 @@ function storageDriver() {
   return value;
 }
 
+function smtpConfigured() {
+  return Boolean(
+    process.env.SMTP_HOST
+    && process.env.SMTP_USER
+    && process.env.SMTP_PASS
+    && (process.env.SMTP_FROM || process.env.EMAIL_FROM)
+  );
+}
+
 function integrationStatus() {
   return {
     database: Boolean(process.env.MONGODB_URI),
-    email: Boolean(process.env.SMTP_HOST && (process.env.SMTP_FROM || process.env.EMAIL_FROM)),
-    maps: Boolean(process.env.GOOGLE_MAPS_SERVER_API_KEY),
+    email: smtpConfigured(),
+    maps: true,
+    mapProvider: 'openstreetmap',
     aiSupport: process.env.SUPPORT_AI_ENABLED === 'true' && Boolean(process.env.GROQ_API_KEY),
     fileStorage: storageDriver(),
     cloudinary: cloudinaryConfigured()
@@ -78,8 +88,7 @@ function validateRuntimeConfig() {
     errors.push('Production requires durable file storage; set FILE_STORAGE_DRIVER=cloudinary or explicitly ALLOW_LOCAL_FILE_STORAGE=true');
   }
   if (production && origins.some(origin => !origin.startsWith('https://'))) errors.push('Production CLIENT_URL origins must use HTTPS');
-  if (!process.env.SMTP_HOST) warnings.push('SMTP is not configured; verification and recovery emails will not be delivered');
-  if (!process.env.GOOGLE_MAPS_SERVER_API_KEY) warnings.push('Google Maps server API is not configured; address search will be unavailable');
+  if (!smtpConfigured()) warnings.push('SMTP is incomplete; SMTP_HOST, SMTP_USER, SMTP_PASS and EMAIL_FROM/SMTP_FROM are required');
 
   if (errors.length) throw new Error(`Invalid runtime configuration:\n- ${errors.join('\n- ')}`);
   return { warnings, origins, integrations: integrationStatus() };
@@ -91,6 +100,7 @@ module.exports = {
   cloudinaryConfigured,
   cookieOptions,
   integrationStatus,
+  smtpConfigured,
   storageDriver,
   validateRuntimeConfig
 };

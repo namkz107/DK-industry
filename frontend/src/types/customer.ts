@@ -18,11 +18,11 @@ export interface Address {
   isDefault: boolean
 }
 
-export interface PlaceSuggestion { placeId: string; text: string; mainText: string; secondaryText: string }
 export interface LocationDetails {
   placeId?: string; formattedAddress?: string; latitude: number; longitude: number
   addressLine?: string; ward?: string; district?: string; province?: string; accuracyMeters?: number
 }
+export interface PlaceSuggestion extends LocationDetails { placeId: string; text: string; mainText: string; secondaryText: string }
 
 export interface CustomerProfile {
   name: string

@@ -70,7 +70,7 @@ function OrderDetail({ order, busy, success, error, onUpdate, onAfterSales }: { 
 
   const allowedPayments = paymentTransitions[order.paymentStatus].filter(status => (status !== "refund_pending" || order.status === "cancelled") && !(status === "paid" && order.paymentMethod === "cod"))
   const directionsUrl = order.shippingAddress.latitude !== undefined && order.shippingAddress.longitude !== undefined
-    ? `https://www.google.com/maps/dir/?api=1&destination=${order.shippingAddress.latitude},${order.shippingAddress.longitude}${order.shippingAddress.placeId ? `&destination_place_id=${encodeURIComponent(order.shippingAddress.placeId)}` : ""}`
+    ? `https://www.openstreetmap.org/?mlat=${order.shippingAddress.latitude}&mlon=${order.shippingAddress.longitude}#map=17/${order.shippingAddress.latitude}/${order.shippingAddress.longitude}`
     : ""
   const submitProgress = (event: FormEvent) => {
     event.preventDefault()

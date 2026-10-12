@@ -10,4 +10,4 @@ export const company = {
   legalRepresentative: import.meta.env.VITE_COMPANY_LEGAL_REPRESENTATIVE || "",
 }
 
-export const companyMapUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(company.mapDestination)}`
+export const companyMapUrl = `https://www.openstreetmap.org/?mlat=20.895803&mlon=105.862915#map=17/20.895803/105.862915`

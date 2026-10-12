@@ -9,6 +9,7 @@
     "seed": "node src/seed.js",
     "seed:admin": "node src/bootstrapAdmin.js",
     "migrate:lead-service": "node src/migrateLeadService.js",
+    "verify:integrations": "node src/verifyIntegrations.js",
     "test": "node --test"
   },
   "dependencies": {

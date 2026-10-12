@@ -30,7 +30,7 @@ Script restore luôn yêu cầu nhập chính xác `RESTORE`. Chỉ dùng `-Drop
 
 ## Cấu hình phải điền trước deploy
 
-- Backend: đặt `NODE_ENV=production`, `CLIENT_URL=https://...`, `COOKIE_SECURE=true`, `COOKIE_SAME_SITE=lax` (cùng site) hoặc `none` (khác site), `TRUST_PROXY`, SMTP và Google Maps nếu sử dụng.
+- Backend: đặt `NODE_ENV=production`, `CLIENT_URL=https://...`, `COOKIE_SECURE=true`, `COOKIE_SAME_SITE=lax` (cùng site) hoặc `none` (khác site), `TRUST_PROXY`, SMTP và email liên hệ Nominatim.
 - Lưu tệp: đặt `FILE_STORAGE_DRIVER=cloudinary` cùng `CLOUDINARY_URL`, hoặc bộ ba `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`. Tuyệt đối không đưa API secret sang frontend.
 - Frontend: điền `VITE_API_URL`, `VITE_SOCKET_URL`, `VITE_SITE_URL`, hình Cloudinary công khai và thông tin pháp lý `VITE_COMPANY_*`.
 - Atlas: chỉ cho phép IP thực sự cần dùng; tạo database user riêng cho ứng dụng; không dùng tài khoản Atlas cá nhân trong connection string; kiểm tra quota free tier.
@@ -40,7 +40,7 @@ Script restore luôn yêu cầu nhập chính xác `RESTORE`. Chỉ dùng `-Drop
 Các mục sau không thể tự điền bằng code vì cần hợp đồng, tài khoản hoặc dữ liệu pháp lý thật:
 
 - SMTP/email gửi thật và địa chỉ người nhận thông báo vận hành.
-- API key Google Maps và hạn mức chi phí.
+- Phương án geocoding khi lưu lượng vượt mức phù hợp của máy chủ Nominatim công khai (tự host hoặc nhà cung cấp có SLA).
 - Tên pháp lý, mã số thuế/đăng ký, người đại diện, địa chỉ, hotline và nội dung chính sách đã được duyệt.
 - Cổng thanh toán, hãng vận chuyển, hóa đơn điện tử và quy tắc đối soát/hoàn tiền.
 - Tên miền, nhà cung cấp hosting, cảnh báo lỗi/log tập trung và lịch backup.

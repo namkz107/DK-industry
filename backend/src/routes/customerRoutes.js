@@ -16,6 +16,7 @@ const { writeAudit } = require('../services/auditService');
 const { notifyOperations, dispatchSoon } = require('../services/notificationService');
 const { validateUploadedFiles } = require('../services/fileSecurityService');
 const { removeStoredFiles, sendStoredFile, storeCustomerFiles } = require('../services/fileStorageService');
+const { reverseLocation, searchLocations } = require('../services/openStreetMapService');
 const { createIdempotentMessage, messagePage, publicMessage } = require('../services/chatMessageService');
 const { emitMessage, emitRequestEvent, emitRequestUpdated } = require('../services/realtimeService');
 
@@ -75,50 +76,6 @@ function addressValues(body) {
   return values;
 }
 
-function googleMapsKey() {
-  const key = process.env.GOOGLE_MAPS_SERVER_API_KEY;
-  if (!key) fail('Tìm kiếm vị trí chưa được cấu hình', 503);
-  return key;
-}
-
-async function googleRequest(url, options = {}) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
-  try {
-    const response = await fetch(url, { ...options, signal: controller.signal });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      const error = new Error(body?.error?.message || 'Không thể kết nối dịch vụ bản đồ');
-      error.status = response.status === 429 ? 429 : 502;
-      throw error;
-    }
-    return body;
-  } catch (error) {
-    if (error.name === 'AbortError') fail('Dịch vụ bản đồ phản hồi quá chậm', 504);
-    throw error;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function componentValue(components, types) {
-  const component = (components || []).find(item => types.some(type => item.types?.includes(type)));
-  return component?.longText || component?.long_name || '';
-}
-
-function structuredAddress(components) {
-  return {
-    province: componentValue(components, ['administrative_area_level_1']),
-    district: componentValue(components, ['administrative_area_level_2', 'locality']),
-    ward: componentValue(components, ['administrative_area_level_3', 'sublocality_level_1', 'ward']),
-    addressLine: [
-      componentValue(components, ['street_number']),
-      componentValue(components, ['route']),
-      componentValue(components, ['premise', 'establishment'])
-    ].filter(Boolean).join(' ')
-  };
-}
-
 function cartView(cart) {
   const items = (cart?.items || []).filter(item => item.product).map(item => ({
     product: item.product,
@@ -152,57 +109,18 @@ router.get('/summary', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-router.get('/locations/autocomplete', async (req, res, next) => {
+router.get('/locations/search', async (req, res, next) => {
   try {
     const input = clean(req.query.input).slice(0, 200);
-    if (input.length < 3) return res.json({ success: true, data: [] });
-    const sessionToken = clean(req.query.sessionToken).slice(0, 100);
-    const latitude = finiteCoordinate(req.query.latitude, -90, 90);
-    const longitude = finiteCoordinate(req.query.longitude, -180, 180);
-    const requestBody = { input, languageCode: 'vi', regionCode: 'VN' };
-    if (sessionToken) requestBody.sessionToken = sessionToken;
-    if (latitude !== undefined && longitude !== undefined) requestBody.locationBias = {
-      circle: { center: { latitude, longitude }, radius: 50000 }
-    };
-    const result = await googleRequest('https://places.googleapis.com/v1/places:autocomplete', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': googleMapsKey(),
-        'X-Goog-FieldMask': 'suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat'
-      },
-      body: JSON.stringify(requestBody)
-    });
-    const suggestions = (result.suggestions || []).flatMap(item => item.placePrediction ? [{
-      placeId: item.placePrediction.placeId,
-      text: item.placePrediction.text?.text || '',
-      mainText: item.placePrediction.structuredFormat?.mainText?.text || item.placePrediction.text?.text || '',
-      secondaryText: item.placePrediction.structuredFormat?.secondaryText?.text || ''
-    }] : []);
-    res.json({ success: true, data: suggestions });
+    if (input.length < 4) return res.json({ success: true, data: [] });
+    const data = await searchLocations(input);
+    res.json({ success: true, data, attribution: '© OpenStreetMap contributors' });
   } catch (error) { next(error); }
 });
 
 router.get('/locations/place/:placeId', async (req, res, next) => {
   try {
-    const placeId = clean(req.params.placeId).slice(0, 300);
-    if (!placeId) fail('Địa điểm không hợp lệ');
-    const query = new URLSearchParams({ languageCode: 'vi' });
-    const sessionToken = clean(req.query.sessionToken).slice(0, 100);
-    if (sessionToken) query.set('sessionToken', sessionToken);
-    const result = await googleRequest(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}?${query}`, {
-      headers: {
-        'X-Goog-Api-Key': googleMapsKey(),
-        'X-Goog-FieldMask': 'id,formattedAddress,location,addressComponents,displayName'
-      }
-    });
-    res.json({ success: true, data: {
-      placeId: result.id || placeId,
-      formattedAddress: result.formattedAddress || '',
-      latitude: result.location?.latitude,
-      longitude: result.location?.longitude,
-      ...structuredAddress(result.addressComponents)
-    } });
+    fail('Endpoint này đã được thay bằng /locations/search để tuân thủ chính sách OpenStreetMap', 410);
   } catch (error) { next(error); }
 });
 
@@ -211,18 +129,8 @@ router.post('/locations/reverse', async (req, res, next) => {
     const latitude = finiteCoordinate(req.body.latitude, -90, 90);
     const longitude = finiteCoordinate(req.body.longitude, -180, 180);
     if (latitude === undefined || longitude === undefined) fail('Tọa độ không hợp lệ');
-    const query = new URLSearchParams({ latlng: `${latitude},${longitude}`, language: 'vi', key: googleMapsKey() });
-    const result = await googleRequest(`https://maps.googleapis.com/maps/api/geocode/json?${query}`);
-    if (result.status === 'ZERO_RESULTS' || !result.results?.length && result.status === 'OK') fail('Không tìm thấy địa chỉ tại vị trí này', 404);
-    if (result.status !== 'OK') fail(result.error_message || 'Dịch vụ bản đồ không thể xử lý vị trí', 502);
-    const match = result.results[0];
-    res.json({ success: true, data: {
-      placeId: match.place_id || '',
-      formattedAddress: match.formatted_address || '',
-      latitude,
-      longitude,
-      ...structuredAddress(match.address_components)
-    } });
+    const data = await reverseLocation(latitude, longitude);
+    res.json({ success: true, data, attribution: '© OpenStreetMap contributors' });
   } catch (error) { next(error); }
 });
 

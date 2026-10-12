@@ -1,9 +1,6 @@
 const Notification = require('../models/Notification');
 const User = require('../models/User');
-
-function smtpConfigured() {
-  return Boolean(process.env.SMTP_HOST && (process.env.SMTP_FROM || process.env.EMAIL_FROM));
-}
+const { smtpConfigured } = require('../config/runtime');
 
 function mailTransport(nodemailer) {
   return nodemailer.createTransport({
@@ -93,4 +90,4 @@ function dispatchSoon() {
   setImmediate(() => dispatchPendingEmails().catch(error => console.error('Notification email dispatch failed:', error.message)));
 }
 
-module.exports = { createNotification, notifyOperations, dispatchPendingEmails, dispatchSoon, smtpConfigured, sendDirectEmail };
+module.exports = { createNotification, notifyOperations, dispatchPendingEmails, dispatchSoon, mailTransport, smtpConfigured, sendDirectEmail };
