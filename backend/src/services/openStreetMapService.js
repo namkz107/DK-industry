@@ -1,5 +1,5 @@
 const baseUrl = () => String(process.env.NOMINATIM_BASE_URL || 'https://nominatim.openstreetmap.org').replace(/\/$/, '');
-const contactEmail = () => process.env.NOMINATIM_EMAIL || process.env.SMTP_USER || 'namkz107@gmail.com';
+const contactEmail = () => String(process.env.NOMINATIM_EMAIL || process.env.SMTP_USER || '').trim();
 const cache = new Map();
 const cacheTtlMs = 24 * 60 * 60 * 1000;
 let requestQueue = Promise.resolve();
@@ -30,9 +30,11 @@ async function nominatim(pathname, params) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 10000);
     try {
-      const query = new URLSearchParams({ ...params, format: 'jsonv2', addressdetails: '1', 'accept-language': 'vi', email: contactEmail() });
+      const email = contactEmail();
+      const query = new URLSearchParams({ ...params, format: 'jsonv2', addressdetails: '1', 'accept-language': 'vi' });
+      if (email) query.set('email', email);
       const response = await fetch(`${baseUrl()}${pathname}?${query}`, {
-        headers: { 'User-Agent': `DK-Industry/1.0 (${contactEmail()})`, Accept: 'application/json' },
+        headers: { 'User-Agent': email ? `DK-Industry/1.0 (${email})` : 'DK-Industry/1.0', Accept: 'application/json' },
         signal: controller.signal
       });
       if (!response.ok) throw Object.assign(new Error('Dịch vụ OpenStreetMap tạm thời không phản hồi'), { status: response.status === 429 ? 429 : 502 });

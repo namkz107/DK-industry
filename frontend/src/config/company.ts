@@ -1,13 +1,16 @@
+const mapDestination = import.meta.env.VITE_COMPANY_MAP_DESTINATION || "20.895803,105.862915"
+const [mapLatitude = "20.895803", mapLongitude = "105.862915"] = mapDestination.split(",").map((value: string) => value.trim())
+
 export const company = {
-  name: "CTY CPTV ĐẦU TƯ XD TM ĐĂNG KHOA",
-  phone: "0965243386",
-  phoneLabel: "096 5243 386",
-  email: "namkz107@gmail.com",
-  address: "Cụm 3, thôn Duyên Trường, xã Hồng Vân, thành phố Hà Nội, Việt Nam",
-  mapDestination: "20.895803,105.862915",
+  name: import.meta.env.VITE_COMPANY_NAME || "CTY CPTV ĐẦU TƯ XD TM ĐĂNG KHOA",
+  phone: import.meta.env.VITE_COMPANY_PHONE || "0965243386",
+  phoneLabel: import.meta.env.VITE_COMPANY_PHONE_LABEL || "096 5243 386",
+  email: import.meta.env.VITE_COMPANY_EMAIL || "namkz107@gmail.com",
+  address: import.meta.env.VITE_COMPANY_ADDRESS || "Cụm 3, thôn Duyên Trường, xã Hồng Vân, thành phố Hà Nội, Việt Nam",
+  mapDestination,
   taxCode: import.meta.env.VITE_COMPANY_TAX_CODE || "",
   registrationNumber: import.meta.env.VITE_COMPANY_REGISTRATION_NUMBER || "",
   legalRepresentative: import.meta.env.VITE_COMPANY_LEGAL_REPRESENTATIVE || "",
 }
 
-export const companyMapUrl = `https://www.openstreetmap.org/?mlat=20.895803&mlon=105.862915#map=17/20.895803/105.862915`
+export const companyMapUrl = `https://www.openstreetmap.org/?mlat=${encodeURIComponent(mapLatitude)}&mlon=${encodeURIComponent(mapLongitude)}#map=17/${encodeURIComponent(mapLatitude)}/${encodeURIComponent(mapLongitude)}`

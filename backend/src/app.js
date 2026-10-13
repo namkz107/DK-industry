@@ -28,7 +28,9 @@ app.use(productionRequestLog);
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 app.use(cookieParser());
-if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
+// Development-friendly logs include the full URL. Production already emits
+// structured, query-string-free logs through productionRequestLog above.
+if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
 app.use('/uploads/content', express.static(contentStorageDirectory(), { dotfiles: 'deny', index: false, maxAge: '7d' }));
 app.use('/api', apiLimiter, rejectUnsafeKeys);
 app.use('/api/leads', leadLimiter);

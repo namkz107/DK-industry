@@ -57,11 +57,15 @@ function smtpConfigured() {
   );
 }
 
+function nominatimConfigured() {
+  return Boolean(String(process.env.NOMINATIM_EMAIL || process.env.SMTP_USER || '').trim());
+}
+
 function integrationStatus() {
   return {
     database: Boolean(process.env.MONGODB_URI),
     email: smtpConfigured(),
-    maps: true,
+    maps: nominatimConfigured(),
     mapProvider: 'openstreetmap',
     aiSupport: process.env.SUPPORT_AI_ENABLED === 'true' && Boolean(process.env.GROQ_API_KEY),
     fileStorage: storageDriver(),
@@ -92,7 +96,9 @@ function validateRuntimeConfig() {
   if (production && (!process.env.MFA_ENCRYPTION_KEY || process.env.MFA_ENCRYPTION_KEY.length < 32 || /replace_with_|your_/i.test(process.env.MFA_ENCRYPTION_KEY))) {
     errors.push('Production requires a random MFA_ENCRYPTION_KEY of at least 32 characters');
   }
+  if (production && !nominatimConfigured()) errors.push('Production requires NOMINATIM_EMAIL or SMTP_USER for OpenStreetMap identification');
   if (!smtpConfigured()) warnings.push('SMTP is incomplete; SMTP_HOST, SMTP_USER, SMTP_PASS and EMAIL_FROM/SMTP_FROM are required');
+  if (!nominatimConfigured()) warnings.push('NOMINATIM_EMAIL or SMTP_USER is missing; OpenStreetMap requests cannot identify this application');
   if (!process.env.MFA_ENCRYPTION_KEY) warnings.push('MFA_ENCRYPTION_KEY is missing; Admin MFA setup is unavailable');
 
   if (errors.length) throw new Error(`Invalid runtime configuration:\n- ${errors.join('\n- ')}`);
@@ -105,6 +111,7 @@ module.exports = {
   cloudinaryConfigured,
   cookieOptions,
   integrationStatus,
+  nominatimConfigured,
   smtpConfigured,
   storageDriver,
   validateRuntimeConfig

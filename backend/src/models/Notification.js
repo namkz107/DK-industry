@@ -9,7 +9,10 @@ const notificationSchema = new mongoose.Schema({
   readAt: Date,
   email: {
     address: { type: String, trim: true, lowercase: true },
-    status: { type: String, enum: ['not_requested', 'pending', 'sent', 'failed'], default: 'not_requested' },
+    status: { type: String, enum: ['not_requested', 'pending', 'sending', 'sent', 'failed'], default: 'not_requested' },
+    attempts: { type: Number, default: 0, min: 0 },
+    nextAttemptAt: Date,
+    sendingAt: Date,
     sentAt: Date,
     error: { type: String, maxlength: 500 }
   },
@@ -17,5 +20,6 @@ const notificationSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 notificationSchema.index({ recipient: 1, readAt: 1, createdAt: -1 });
+notificationSchema.index({ 'email.status': 1, 'email.nextAttemptAt': 1, createdAt: 1 });
 
 module.exports = mongoose.model('Notification', notificationSchema);

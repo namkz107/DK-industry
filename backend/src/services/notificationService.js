@@ -2,6 +2,9 @@ const Notification = require('../models/Notification');
 const User = require('../models/User');
 const { smtpConfigured } = require('../config/runtime');
 
+const emailMaxAttempts = () => Math.max(1, Math.min(10, Number(process.env.EMAIL_MAX_ATTEMPTS) || 5));
+const retryDelayMs = attempt => Math.min(60 * 60 * 1000, 60 * 1000 * (2 ** Math.max(0, attempt - 1)));
+
 function mailTransport(nodemailer) {
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST,
@@ -60,10 +63,28 @@ async function dispatchPendingEmails(limit = 25) {
   let nodemailer;
   try { nodemailer = require('nodemailer'); } catch { return { sent: 0, failed: 0 }; }
   const transporter = mailTransport(nodemailer);
-  const pending = await Notification.find({ 'email.status': 'pending', 'email.address': { $ne: '' } }).sort({ createdAt: 1 }).limit(limit);
   let sent = 0;
   let failed = 0;
-  for (const notification of pending) {
+  const now = new Date();
+  const staleBefore = new Date(now.getTime() - 15 * 60 * 1000);
+  // A process may stop between reserving and sending. Return that work to the
+  // queue after a bounded lease instead of losing the notification forever.
+  await Notification.updateMany(
+    { 'email.status': 'sending', 'email.sendingAt': { $lt: staleBefore } },
+    { $set: { 'email.status': 'pending', 'email.nextAttemptAt': now }, $unset: { 'email.sendingAt': 1 } }
+  );
+  for (let index = 0; index < limit; index += 1) {
+    const notification = await Notification.findOneAndUpdate(
+      {
+        'email.status': 'pending',
+        'email.address': { $ne: '' },
+        'email.attempts': { $lt: emailMaxAttempts() },
+        $or: [{ 'email.nextAttemptAt': { $exists: false } }, { 'email.nextAttemptAt': null }, { 'email.nextAttemptAt': { $lte: new Date() } }]
+      },
+      { $set: { 'email.status': 'sending', 'email.sendingAt': new Date() }, $inc: { 'email.attempts': 1 } },
+      { new: true, sort: { createdAt: 1 } }
+    );
+    if (!notification) break;
     try {
       const baseUrl = (process.env.CLIENT_URL || '').split(',')[0];
       await transporter.sendMail({
@@ -75,10 +96,15 @@ async function dispatchPendingEmails(limit = 25) {
       notification.email.status = 'sent';
       notification.email.sentAt = new Date();
       notification.email.error = undefined;
+      notification.email.nextAttemptAt = undefined;
+      notification.email.sendingAt = undefined;
       sent += 1;
     } catch (error) {
-      notification.email.status = 'failed';
+      const finalAttempt = notification.email.attempts >= emailMaxAttempts();
+      notification.email.status = finalAttempt ? 'failed' : 'pending';
       notification.email.error = String(error.message || error).slice(0, 500);
+      notification.email.sendingAt = undefined;
+      notification.email.nextAttemptAt = finalAttempt ? undefined : new Date(Date.now() + retryDelayMs(notification.email.attempts));
       failed += 1;
     }
     await notification.save();
@@ -87,6 +113,7 @@ async function dispatchPendingEmails(limit = 25) {
 }
 
 function dispatchSoon() {
+  if (process.env.NODE_ENV === 'test') return;
   setImmediate(() => dispatchPendingEmails().catch(error => console.error('Notification email dispatch failed:', error.message)));
 }
 

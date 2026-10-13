@@ -25,16 +25,17 @@ Khi chạy test tích hợp, tuyệt đối không chỉ định database đang 
 Sau backup, ghi lại đường dẫn và SHA256 được in ra. Ít nhất một lần trước go-live, phục hồi bản backup vào **database thử nghiệm riêng**, không phục hồi đè vào database thật:
 
 ```powershell
-.\scripts\restore-mongodb.ps1 -Archive ".\backups\dk-industry-YYYYMMDD-HHMMSS.archive.gz" -Uri "mongodb+srv://.../dk_industry_restore_test"
+.\scripts\restore-mongodb.ps1 -Archive ".\backups\dk-industry-YYYYMMDD-HHMMSS.archive.gz" -Uri "mongodb+srv://.../dk_industry_restore_test" -SourceDatabase "dk_industry" -TargetDatabase "dk_industry_restore_test"
 ```
 
-Script restore luôn yêu cầu nhập chính xác `RESTORE`. Chỉ dùng `-DropExisting` với database thử nghiệm đã kiểm tra đúng tên.
+Mặc định script restore yêu cầu nhập chính xác `RESTORE`. Chỉ dùng `-DropExisting` với database thử nghiệm đã kiểm tra đúng tên. Tùy chọn `-ConfirmRestore` chỉ dùng cho job tự động đã được phê duyệt; không dùng với URI production.
 
 ## Cấu hình phải điền trước deploy
 
 - Backend: đặt `NODE_ENV=production`, `CLIENT_URL=https://...`, `COOKIE_SECURE=true`, `COOKIE_SAME_SITE=lax` (cùng site) hoặc `none` (khác site), `TRUST_PROXY`, SMTP và email liên hệ Nominatim.
 - Lưu tệp: đặt `FILE_STORAGE_DRIVER=cloudinary` cùng `CLOUDINARY_URL`, hoặc bộ ba `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`. Tuyệt đối không đưa API secret sang frontend.
-- Frontend: điền `VITE_API_URL`, `VITE_SOCKET_URL`, `VITE_SITE_URL`, hình Cloudinary công khai và thông tin pháp lý `VITE_COMPANY_*`.
+- Frontend: điền `VITE_API_URL`, `VITE_SOCKET_URL`, `VITE_SITE_URL`, hình Cloudinary công khai và thông tin pháp lý/liên hệ `VITE_COMPANY_*`.
+- Backend: điền cùng thông tin liên hệ công khai qua `COMPANY_NAME`, `COMPANY_PHONE`, `COMPANY_EMAIL`, `COMPANY_ADDRESS` để Trợ lý AI không trả lời bằng dữ liệu cũ. Không đặt secret vào các biến này.
 - Atlas: chỉ cho phép IP thực sự cần dùng; tạo database user riêng cho ứng dụng; không dùng tài khoản Atlas cá nhân trong connection string; kiểm tra quota free tier.
 
 ## Việc cần quyết định từ doanh nghiệp

@@ -14,6 +14,7 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phonePattern = /^(?:\+84|0)[0-9]{9,10}$/;
 const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,72}$/;
 const normalizePhone = value => String(value || '').replace(/[\s.-]/g, '');
+const businessName = () => String(process.env.COMPANY_NAME || 'Cơ khí Đăng Khoa').trim().slice(0, 180) || 'Cơ khí Đăng Khoa';
 
 function validatePassword(password) {
   return passwordPattern.test(String(password || ''));
@@ -51,7 +52,7 @@ router.post('/register', async (req, res, next) => {
     const tokens = await createSession(user, req);
     res.cookie('dk_refresh', tokens.refreshToken, refreshCookieOptions());
     res.status(201).json({ success: true, data: sessionPayload(user, tokens) });
-    if (process.env.NODE_ENV !== 'test') setImmediate(() => sendDirectEmail({ to: user.email, subject: 'Xác minh email Cơ khí Đăng Khoa', text: `Xin chào ${user.name},\n\nXác minh email của bạn tại: ${clientUrl('/xac-minh-email', verificationToken)}\n\nLiên kết có hiệu lực 24 giờ.` }).catch(error => console.error('Verification email failed:', error.message)));
+    if (process.env.NODE_ENV !== 'test') setImmediate(() => sendDirectEmail({ to: user.email, subject: `Xác minh email ${businessName()}`, text: `Xin chào ${user.name},\n\nXác minh email của bạn tại: ${clientUrl('/xac-minh-email', verificationToken)}\n\nLiên kết có hiệu lực 24 giờ.` }).catch(error => console.error('Verification email failed:', error.message)));
   } catch (error) { next(error); }
 });
 
@@ -62,7 +63,7 @@ router.post('/forgot-password', async (req, res, next) => {
       const user = await User.findOne({ email, status: 'active' });
       if (user) {
         const token = await issueAccountToken(user, 'password_reset', 30);
-        if (process.env.NODE_ENV !== 'test') setImmediate(() => sendDirectEmail({ to: user.email, subject: 'Đặt lại mật khẩu Cơ khí Đăng Khoa', text: `Chúng tôi nhận được yêu cầu đặt lại mật khẩu.\n\nTạo mật khẩu mới tại: ${clientUrl('/dat-lai-mat-khau', token)}\n\nLiên kết có hiệu lực 30 phút. Nếu bạn không yêu cầu, hãy bỏ qua email này.` }).catch(error => console.error('Password reset email failed:', error.message)));
+        if (process.env.NODE_ENV !== 'test') setImmediate(() => sendDirectEmail({ to: user.email, subject: `Đặt lại mật khẩu ${businessName()}`, text: `Chúng tôi nhận được yêu cầu đặt lại mật khẩu.\n\nTạo mật khẩu mới tại: ${clientUrl('/dat-lai-mat-khau', token)}\n\nLiên kết có hiệu lực 30 phút. Nếu bạn không yêu cầu, hãy bỏ qua email này.` }).catch(error => console.error('Password reset email failed:', error.message)));
       }
     }
     res.json({ success: true, message: 'Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu đã được gửi.' });
@@ -104,7 +105,7 @@ router.post('/resend-verification', authenticate, async (req, res, next) => {
   try {
     if (req.user.emailVerifiedAt) return res.json({ success: true, message: 'Email đã được xác minh.' });
     const token = await issueAccountToken(req.user, 'email_verification', 24 * 60);
-    if (process.env.NODE_ENV !== 'test') await sendDirectEmail({ to: req.user.email, subject: 'Xác minh email Cơ khí Đăng Khoa', text: `Xin chào ${req.user.name},\n\nXác minh email của bạn tại: ${clientUrl('/xac-minh-email', token)}\n\nLiên kết có hiệu lực 24 giờ.` });
+    if (process.env.NODE_ENV !== 'test') await sendDirectEmail({ to: req.user.email, subject: `Xác minh email ${businessName()}`, text: `Xin chào ${req.user.name},\n\nXác minh email của bạn tại: ${clientUrl('/xac-minh-email', token)}\n\nLiên kết có hiệu lực 24 giờ.` });
     res.json({ success: true, message: 'Đã gửi lại email xác minh.' });
   } catch (error) { next(error); }
 });

@@ -8,6 +8,12 @@ const inFlight = new Set();
 const pendingReplies = new Map();
 const queueTimers = new Map();
 const cleanText = (value, max = 800) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
+const businessContact = () => ({
+  name: cleanText(process.env.COMPANY_NAME || 'CTY CPTV ĐẦU TƯ XD TM ĐĂNG KHOA', 180),
+  phone: cleanText(process.env.COMPANY_PHONE || '096 5243 386', 60),
+  email: cleanText(process.env.COMPANY_EMAIL || 'namkz107@gmail.com', 160),
+  address: cleanText(process.env.COMPANY_ADDRESS || 'Cụm 3, thôn Duyên Trường, xã Hồng Vân, thành phố Hà Nội, Việt Nam', 360)
+});
 
 function isEnabled() {
   return process.env.SUPPORT_AI_ENABLED === 'true'
@@ -17,6 +23,7 @@ function isEnabled() {
 }
 
 async function businessKnowledge() {
+  const contact = businessContact();
   const [products, services] = await Promise.all([
     Product.find({ active: true })
       .select('name sku category description specifications price unit stock priceOnRequest')
@@ -42,16 +49,16 @@ async function businessKnowledge() {
   const serviceLines = services.map(item => `- ${cleanText(item.name, 120)} | ${cleanText(item.summary, 280)}${item.capabilities?.length ? ` | năng lực: ${item.capabilities.slice(0, 8).map(value => cleanText(value, 80)).join(', ')}` : ''}${item.materials?.length ? ` | vật liệu: ${item.materials.slice(0, 8).map(value => cleanText(value, 80)).join(', ')}` : ''}${item.applications?.length ? ` | ứng dụng: ${item.applications.slice(0, 6).map(value => cleanText(value, 80)).join(', ')}` : ''}`);
 
   return [
-    'DOANH NGHIỆP: CTY CPTV ĐẦU TƯ XD TM ĐĂNG KHOA.',
-    'Hotline: 096 5243 386. Email: namkz107@gmail.com.',
-    'Địa chỉ: Cụm 3, thôn Duyên Trường, xã Hồng Vân, thành phố Hà Nội, Việt Nam.',
+    `DOANH NGHIỆP: ${contact.name}.`,
+    `Hotline: ${contact.phone}. Email: ${contact.email}.`,
+    `Địa chỉ: ${contact.address}.`,
     productLines.length ? `SẢN PHẨM ĐANG CÓ TRONG HỆ THỐNG:\n${productLines.join('\n')}` : 'SẢN PHẨM: Chưa có dữ liệu công khai trong hệ thống.',
     serviceLines.length ? `DỊCH VỤ ĐANG CÓ TRONG HỆ THỐNG:\n${serviceLines.join('\n')}` : 'DỊCH VỤ: Chưa có dữ liệu công khai trong hệ thống.'
   ].join('\n\n').slice(0, 18000);
 }
 
 function instructions(knowledge) {
-  return `Bạn là Trợ lý AI chăm sóc khách hàng của CTY CPTV ĐẦU TƯ XD TM ĐĂNG KHOA.
+  return `Bạn là Trợ lý AI chăm sóc khách hàng của ${businessContact().name}.
 
 MỤC TIÊU
 - Trả lời bằng tiếng Việt, lịch sự, rõ ràng, ngắn gọn (thường 2-5 câu).
@@ -125,6 +132,7 @@ async function askGroq(history, knowledge) {
 }
 
 async function answerGuestSupport(history, content) {
+  const contact = businessContact();
   const transcript = [...history, { senderRole: 'guest', content }]
     .slice(-12)
     .map(item => `${item.senderRole === 'system' ? 'Trợ lý AI' : 'Khách'}: ${cleanText(item.content, 2000)}`)
@@ -137,7 +145,7 @@ async function answerGuestSupport(history, content) {
   } catch (error) {
     console.error('Guest Support AI failed:', error.name === 'AbortError' ? 'request timed out' : error.message);
     return {
-      answer: 'Mình chưa thể trả lời chính xác vào lúc này. Bạn vui lòng thử lại sau hoặc liên hệ hotline 096 5243 386 để được hỗ trợ.',
+      answer: `Mình chưa thể trả lời chính xác vào lúc này. Bạn vui lòng thử lại sau hoặc liên hệ hotline ${contact.phone} để được hỗ trợ.`,
       needsHuman: true,
       reason: 'AI tạm thời không khả dụng',
       fallback: true

@@ -13,7 +13,7 @@ Tài liệu này phân biệt phần hệ thống đã kiểm soát trong mã ng
 
 ## Email, tệp và bản đồ
 
-- Cấu hình SMTP để xác minh email, khôi phục mật khẩu và gửi thông báo nghiệp vụ. Nếu không có SMTP, thông báo trong ứng dụng vẫn hoạt động nhưng email sẽ không được gửi.
+- Cấu hình SMTP để xác minh email, khôi phục mật khẩu và gửi thông báo nghiệp vụ. Nếu không có SMTP, thông báo trong ứng dụng vẫn hoạt động nhưng email sẽ không được gửi. Thông báo email lỗi tạm thời được thử gửi lại tối đa `EMAIL_MAX_ATTEMPTS` lần (mặc định 5); khi đã hết lượt cần xử lý thủ công.
 - OpenStreetMap/Nominatim không cần API key; backend phải giữ cache và giới hạn tối đa một truy vấn mỗi giây. Bản đồ nhúng chỉ tải theo yêu cầu tại trang Liên hệ. Khi lưu lượng tăng, tự host Nominatim hoặc chọn nhà cung cấp có SLA thay vì phụ thuộc máy chủ công khai.
 - Môi trường nhiều instance cần object storage riêng (S3-compatible hoặc nhà cung cấp tương đương), antivirus/quarantine và URL ký thời hạn ngắn. Kiểm tra chữ ký tệp hiện tại chỉ là lớp phòng vệ đầu vào, không thay thế quét malware.
 

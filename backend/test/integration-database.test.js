@@ -7,6 +7,7 @@ const helper = path.join(__dirname, '..', 'test-utils', 'integrationDatabase.js'
 const run = values => {
   const env = { ...process.env };
   for (const key of Object.keys(env)) if (/^RUN_.*_INTEGRATION$/.test(key)) delete env[key];
+  delete env.TEST_MONGODB_URI;
   Object.assign(env, values);
   return spawnSync(process.execPath, ['-e', `require(${JSON.stringify(helper)})`], { env, encoding: 'utf8' });
 };

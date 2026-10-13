@@ -51,7 +51,8 @@ test('Admin quản lý nhân sự, nội dung và nhật ký đúng quyền', { 
     assert.equal((await call('/staff/dashboard', adminToken)).status, 200);
 
     const imageForm = new FormData();
-    imageForm.append('image', new Blob([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])], { type: 'image/png' }), 'san-pham.png');
+    const validPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL3XQAAAABJRU5ErkJggg==', 'base64');
+    imageForm.append('image', new Blob([validPng], { type: 'image/png' }), 'san-pham.png');
     const uploadResponse = await call('/admin/uploads/images', adminToken, { method: 'POST', body: imageForm });
     const uploadBody = await uploadResponse.json();
     assert.equal(uploadResponse.status, 201);

@@ -6,9 +6,11 @@ test('Support AI gửi ngữ cảnh giới hạn và đọc phản hồi JSON c�
   const previousFetch = global.fetch;
   const previousKey = process.env.GROQ_API_KEY;
   const previousModel = process.env.AI_MODEL;
+  const previousCompanyName = process.env.COMPANY_NAME;
   let request;
   process.env.GROQ_API_KEY = 'gsk_test_only';
   process.env.AI_MODEL = 'openai/gpt-oss-120b';
+  process.env.COMPANY_NAME = 'Doanh nghiệp kiểm thử';
   global.fetch = async (url, options) => {
     request = { url, options, body: JSON.parse(options.body) };
     return new Response(JSON.stringify({
@@ -22,6 +24,7 @@ test('Support AI gửi ngữ cảnh giới hạn và đọc phản hồi JSON c�
     assert.equal(result.needsHuman, false);
     assert.equal(request.url, 'https://api.groq.com/openai/v1/chat/completions');
     assert.equal(request.body.model, 'openai/gpt-oss-120b');
+    assert.match(request.body.messages[0].content, /Doanh nghiệp kiểm thử/);
     assert.equal(request.body.messages.at(-1).content, 'Bạn hỗ trợ gì?');
     assert.equal(request.body.response_format.json_schema.strict, true);
     assert.equal(request.options.headers.Authorization, 'Bearer gsk_test_only');
@@ -29,5 +32,6 @@ test('Support AI gửi ngữ cảnh giới hạn và đọc phản hồi JSON c�
     global.fetch = previousFetch;
     if (previousKey === undefined) delete process.env.GROQ_API_KEY; else process.env.GROQ_API_KEY = previousKey;
     if (previousModel === undefined) delete process.env.AI_MODEL; else process.env.AI_MODEL = previousModel;
+    if (previousCompanyName === undefined) delete process.env.COMPANY_NAME; else process.env.COMPANY_NAME = previousCompanyName;
   }
 });

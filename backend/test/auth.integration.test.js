@@ -62,7 +62,7 @@ test('luồng register → me → refresh → RBAC → logout', { skip: !runInte
     assert.ok(secondSession);
     const revokeSecond = await fetch(`${baseUrl}/auth/sessions/${secondSession.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${registerBody.data.accessToken}` } });
     assert.equal(revokeSecond.status, 200);
-    assert.equal((await fetch(`${baseUrl}/auth/refresh`, { method: 'POST', headers: { Cookie: secondCookie, 'X-CSRF-Token': secondLoginBody.data.csrfToken } })).status, 401);
+    assert.equal((await fetch(`${baseUrl}/auth/refresh`, { method: 'POST', headers: { Cookie: secondCookie, 'X-CSRF-Token': secondLoginBody.data.csrfToken } })).status, 403);
     assert.ok(secondLoginBody.data.accessToken);
 
     assert.equal((await fetch(`${baseUrl}/auth/refresh`, { method: 'POST', headers: { Cookie: cookie } })).status, 403);
@@ -117,7 +117,7 @@ test('luồng register → me → refresh → RBAC → logout', { skip: !runInte
     assert.equal(logout.status, 200);
 
     const afterLogout = await fetch(`${baseUrl}/auth/refresh`, { method: 'POST', headers: { Cookie: cookie, 'X-CSRF-Token': adminBody.data.csrfToken } });
-    assert.equal(afterLogout.status, 401);
+    assert.equal(afterLogout.status, 403);
   } finally {
     const user = userId ? await User.findById(userId) : await User.findOne({ email });
     if (user) {

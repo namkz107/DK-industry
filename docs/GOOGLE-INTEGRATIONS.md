@@ -2,7 +2,7 @@
 
 ## 1. Gmail SMTP miễn phí cho môi trường hiện tại
 
-Tài khoản gửi: `namkz107@gmail.com`.
+Tài khoản gửi: dùng địa chỉ SMTP do doanh nghiệp quản lý. Không ghi địa chỉ email cá nhân vào tài liệu hoặc mã nguồn.
 
 1. Mở `https://myaccount.google.com/security` và bật **Xác minh 2 bước**.
 2. Mở `https://myaccount.google.com/apppasswords`.
@@ -16,10 +16,10 @@ Cấu hình đã chuẩn bị:
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_SECURE=false
-SMTP_USER=namkz107@gmail.com
+SMTP_USER=your_gmail_address@gmail.com
 SMTP_PASS=
-EMAIL_FROM="DK Industry <namkz107@gmail.com>"
-SMTP_TEST_TO=namkz107@gmail.com
+EMAIL_FROM="DK Industry <your_gmail_address@gmail.com>"
+SMTP_TEST_TO=your_gmail_address@gmail.com
 ```
 
 Gmail cá nhân phù hợp cho phát triển và lượng email thấp. Trước khi gửi email thương mại số lượng lớn cần chuyển sang dịch vụ email giao dịch và cấu hình tên miền gửi.
@@ -30,7 +30,7 @@ Dự án dùng bản đồ OpenStreetMap và máy chủ Nominatim công khai nê
 
 ```env
 NOMINATIM_BASE_URL=https://nominatim.openstreetmap.org
-NOMINATIM_EMAIL=namkz107@gmail.com
+NOMINATIM_EMAIL=operations@example.com
 ```
 
 Để tuân thủ chính sách sử dụng công khai:
@@ -51,4 +51,4 @@ Từ thư mục gốc dự án chạy:
 npm run verify:integrations
 ```
 
-Lệnh này gửi một email thử về `namkz107@gmail.com` và thực hiện một truy vấn Nominatim. Lệnh không in App Password ra màn hình. SMTP chỉ vượt qua sau khi bạn tự điền Gmail App Password vào `SMTP_PASS=`.
+Lệnh này gửi một email thử về địa chỉ đặt tại `SMTP_TEST_TO` (hoặc `SMTP_USER`) và thực hiện một truy vấn Nominatim. Lệnh không in App Password ra màn hình. SMTP chỉ vượt qua sau khi bạn tự điền Gmail App Password vào `SMTP_PASS=`.
