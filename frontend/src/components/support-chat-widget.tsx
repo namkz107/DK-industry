@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Bot, CheckCheck, Headphones, LoaderCircle, MessageCircleMore, Minus, Send, X } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import { useAuth } from "@/contexts/auth-context"
+import { company } from "@/config/company"
 import { supportClient } from "@/lib/support-client"
 import { acquireSupportSocket, releaseSupportSocket, storeSupportSocketToken, supportSocket } from "@/lib/support-socket"
 import { cn } from "@/lib/utils"
@@ -161,10 +162,29 @@ export function SupportChatWidget() {
         <p className="mt-2 text-center text-[10px] text-slate-400">{user ? 'Hội thoại được lưu trong tài khoản của bạn.' : 'Phiên Guest chỉ tồn tại trên trang này và sẽ mất khi tải lại.'}</p>
       </form>
     </section>}
-    <button onClick={() => setOpen(value => !value)} className={cn("ml-auto flex min-h-14 items-center gap-2 rounded-full bg-blue-600 px-5 font-bold text-white shadow-xl shadow-blue-950/25 transition hover:-translate-y-0.5 hover:bg-blue-700", open && "px-4")} aria-expanded={open} aria-label="Mở hỗ trợ khách hàng">
-      <span className="relative grid size-8 place-items-center rounded-full bg-white text-blue-600"><Headphones className="size-5"/>{unread > 0 && <span className="absolute -right-2 -top-2 grid min-h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[10px] text-white">{Math.min(unread, 99)}</span>}</span>{!open && <span>Chăm sóc khách hàng</span>}{open && <MessageCircleMore className="size-5"/>}
-    </button>
+    <div className="flex items-center justify-end gap-2.5">
+      <button onClick={() => setOpen(value => !value)} className={cn("flex min-h-14 items-center gap-2 rounded-full bg-blue-600 px-5 font-bold text-white shadow-xl shadow-blue-950/25 transition hover:-translate-y-0.5 hover:bg-blue-700", open && "px-4")} aria-expanded={open} aria-label="Mở hỗ trợ khách hàng">
+        <span className="relative grid size-8 place-items-center rounded-full bg-white text-blue-600"><Headphones className="size-5"/>{unread > 0 && <span className="absolute -right-2 -top-2 grid min-h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[10px] text-white">{Math.min(unread, 99)}</span>}</span>{!open && <span>Chăm sóc khách hàng</span>}{open && <MessageCircleMore className="size-5"/>}
+      </button>
+      <a href={company.zaloUrl} target="_blank" rel="noopener noreferrer" title="Nhắn tin qua Zalo" aria-label="Nhắn tin với Đăng Khoa qua Zalo" className="group grid size-14 shrink-0 place-items-center rounded-[17px] shadow-xl shadow-blue-950/25 transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-200">
+        <ZaloIcon className="size-14 transition-transform group-hover:scale-105"/>
+      </a>
+    </div>
   </div>
+}
+
+function ZaloIcon({ className }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 64 64" aria-hidden="true">
+    <defs>
+      <linearGradient id="zalo-blue" x1="8" y1="4" x2="56" y2="60" gradientUnits="userSpaceOnUse">
+        <stop stopColor="#0878ff"/>
+        <stop offset="1" stopColor="#0561e8"/>
+      </linearGradient>
+    </defs>
+    <rect width="64" height="64" rx="18" fill="url(#zalo-blue)"/>
+    <path fill="#fff" d="M25 7h23c6.6 0 12 5.4 12 12v25c0 6.6-5.4 12-12 12H27.5c-4.1 0-8-1.1-11.4-3.1L7 57l4.1-10.2A18.4 18.4 0 0 1 8 36.5V24C8 14.6 15.6 7 25 7Z"/>
+    <text x="34" y="38.5" fill="#0868ee" fontFamily="Arial, Helvetica, sans-serif" fontSize="20" fontWeight="600" letterSpacing="-1.5" textAnchor="middle">Zalo</text>
+  </svg>
 }
 
 function SupportBubble({ message }: { message: SupportMessage }) {

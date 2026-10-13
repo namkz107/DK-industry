@@ -11,6 +11,7 @@ export const company = {
   taxCode: import.meta.env.VITE_COMPANY_TAX_CODE || "",
   registrationNumber: import.meta.env.VITE_COMPANY_REGISTRATION_NUMBER || "",
   legalRepresentative: import.meta.env.VITE_COMPANY_LEGAL_REPRESENTATIVE || "",
+  zaloUrl: import.meta.env.VITE_COMPANY_ZALO_URL || `https://zalo.me/${(import.meta.env.VITE_COMPANY_PHONE || "0965243386").replace(/\D/g, "")}`,
 }
 
 export const companyMapUrl = `https://www.openstreetmap.org/?mlat=${encodeURIComponent(mapLatitude)}&mlon=${encodeURIComponent(mapLongitude)}#map=17/${encodeURIComponent(mapLatitude)}/${encodeURIComponent(mapLongitude)}`
