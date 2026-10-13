@@ -13,11 +13,14 @@ test('liveness stays available while readiness reports database state', async ()
     assert.equal(liveResponse.status, 200);
     assert.equal(live.status, 'alive');
     assert.match(live.service, /DK Industry/);
+    assert.equal(liveResponse.headers.get('cache-control'), 'no-store');
+    assert.equal(live.version, '1.0.0');
 
     const readyResponse = await fetch(`${baseUrl}/ready`);
     const ready = await readyResponse.json();
     assert.equal(readyResponse.status, 503);
     assert.equal(ready.database, 'unavailable');
+    assert.equal(ready.integrations, undefined);
   } finally {
     await new Promise(resolve => server.close(resolve));
   }

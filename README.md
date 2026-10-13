@@ -117,3 +117,5 @@ Luồng Lead và Service Request nằm tại [`docs/LEAD-SERVICE-REQUEST.md`](do
 Quyền hạn, workflow và kịch bản kiểm tra Staff nằm tại [`docs/STAFF.md`](docs/STAFF.md).
 Checklist cấu hình, vận hành và các tích hợp ngoài hệ thống trước khi go-live nằm tại [`docs/PRODUCTION.md`](docs/PRODUCTION.md).
 Trạng thái nghiệm thu code, backup/restore và các thông tin doanh nghiệp còn phải cung cấp nằm tại [`docs/PRE-DEPLOY-CHECKLIST.md`](docs/PRE-DEPLOY-CHECKLIST.md).
+Quy trình dựng staging/production độc lập nhà cung cấp nằm tại [`docs/DEPLOYMENT-READY.md`](docs/DEPLOYMENT-READY.md); kịch bản nghiệm thu trước mở bán nằm tại [`docs/UAT-CHECKLIST.md`](docs/UAT-CHECKLIST.md).
+Báo cáo kiểm tra kỹ thuật gần nhất nằm tại [`docs/READINESS-REPORT.md`](docs/READINESS-REPORT.md).

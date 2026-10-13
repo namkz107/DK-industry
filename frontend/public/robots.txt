@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-# Thêm Sitemap tuyệt đối sau khi tên miền production được xác nhận.
+# Dòng Sitemap tuyệt đối được tạo vào dist/ trong production build khi có VITE_SITE_URL.

@@ -6,18 +6,26 @@ const SiteSetting = require('../models/SiteSetting');
 const mongoose = require('mongoose');
 const { createPublicLead } = require('../services/leadService');
 const { notifyOperations, dispatchSoon } = require('../services/notificationService');
-const { integrationStatus } = require('../config/runtime');
+const packageInfo = require('../../package.json');
 
 const router = express.Router();
 const parseBoolean = value => value === undefined ? undefined : value === 'true';
 
+const serviceIdentity = () => ({
+  service: 'DK Industry API',
+  version: process.env.APP_VERSION || packageInfo.version,
+  release: process.env.RELEASE_SHA || 'local'
+});
+
 router.get('/live', (req, res) => {
-  res.json({ success: true, service: 'DK Industry API', status: 'alive', uptimeSeconds: Math.round(process.uptime()), timestamp: new Date() });
+  res.set('Cache-Control', 'no-store');
+  res.json({ success: true, ...serviceIdentity(), status: 'alive', uptimeSeconds: Math.round(process.uptime()), timestamp: new Date() });
 });
 
 const readiness = (req, res) => {
   const databaseReady = mongoose.connection.readyState === 1;
-  res.status(databaseReady ? 200 : 503).json({ success: databaseReady, service: 'DK Industry API', status: databaseReady ? 'ready' : 'unavailable', database: databaseReady ? 'ready' : 'unavailable', integrations: integrationStatus(), timestamp: new Date() });
+  res.set('Cache-Control', 'no-store');
+  res.status(databaseReady ? 200 : 503).json({ success: databaseReady, ...serviceIdentity(), status: databaseReady ? 'ready' : 'unavailable', database: databaseReady ? 'ready' : 'unavailable', timestamp: new Date() });
 };
 
 router.get('/ready', readiness);

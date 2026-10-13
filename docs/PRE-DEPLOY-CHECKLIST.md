@@ -11,6 +11,8 @@ Tài liệu này là mốc nghiệm thu code trước khi deploy. Việc chưa d
 - `/api/live` kiểm tra tiến trình; `/api/ready` và `/api/health` kiểm tra cả kết nối database.
 - Có request ID, log JSON trong production và graceful shutdown khi nhận `SIGTERM`/`SIGINT`.
 - Có script backup/restore MongoDB và workflow CI chạy integration test, lint, build, audit dependency production.
+- Có Dockerfile API/web, Nginx proxy SPA/WebSocket, Compose mẫu, production preflight, smoke test sau deploy và sitemap sinh theo domain.
+- Frontend có unit test cho session/CSRF/SEO và Playwright smoke test trên desktop/mobile.
 
 ## Cách nghiệm thu trên máy hiện tại
 
