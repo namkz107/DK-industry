@@ -14,7 +14,7 @@ Tài liệu này phân biệt phần hệ thống đã kiểm soát trong mã ng
 ## Email, tệp và bản đồ
 
 - Cấu hình SMTP để xác minh email, khôi phục mật khẩu và gửi thông báo nghiệp vụ. Nếu không có SMTP, thông báo trong ứng dụng vẫn hoạt động nhưng email sẽ không được gửi. Thông báo email lỗi tạm thời được thử gửi lại tối đa `EMAIL_MAX_ATTEMPTS` lần (mặc định 5); khi đã hết lượt cần xử lý thủ công.
-- Cấu hình `VITE_GOOGLE_MAPS_EMBED_API_KEY` bằng browser key chỉ cho phép Maps Embed API và giới hạn theo domain production. Cấu hình `GOOGLE_MAPS_SERVER_API_KEY` bằng key riêng chỉ cho phép Places API (New), Geocoding API và IP public của backend. Đặt quota cùng billing alert trước khi mở production.
+- Bản đồ Google, điểm ghim và chỉ đường không cần API key. Tìm kiếm/đổi GPS thành địa chỉ dùng Nominatim công cộng; cấu hình `COMPANY_EMAIL` thật, giữ attribution OpenStreetMap và kiểm tra luồng nhập địa chỉ thủ công khi dịch vụ bên ngoài tạm lỗi.
 - Môi trường nhiều instance cần object storage riêng (S3-compatible hoặc nhà cung cấp tương đương), antivirus/quarantine và URL ký thời hạn ngắn. Kiểm tra chữ ký tệp hiện tại chỉ là lớp phòng vệ đầu vào, không thay thế quét malware.
 
 ## Thông tin doanh nghiệp và pháp lý

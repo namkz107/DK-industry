@@ -34,7 +34,7 @@ Mặc định script restore yêu cầu nhập chính xác `RESTORE`. Chỉ dùn
 
 ## Cấu hình phải điền trước deploy
 
-- Backend: đặt `NODE_ENV=production`, `CLIENT_URL=https://...`, `COOKIE_SECURE=true`, `COOKIE_SAME_SITE=lax` (cùng site) hoặc `none` (khác site), `TRUST_PROXY`, SMTP và `GOOGLE_MAPS_SERVER_API_KEY` đã giới hạn theo API/IP.
+- Backend: đặt `NODE_ENV=production`, `CLIENT_URL=https://...`, `COOKIE_SECURE=true`, `COOKIE_SAME_SITE=lax` (cùng site) hoặc `none` (khác site), `TRUST_PROXY`, SMTP và `COMPANY_EMAIL` thật để nhận diện yêu cầu Nominatim.
 - Lưu tệp: đặt `FILE_STORAGE_DRIVER=cloudinary` cùng `CLOUDINARY_URL`, hoặc bộ ba `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`. Tuyệt đối không đưa API secret sang frontend.
 - Frontend: điền `VITE_API_URL`, `VITE_SOCKET_URL`, `VITE_SITE_URL`, hình Cloudinary công khai và thông tin pháp lý/liên hệ `VITE_COMPANY_*`.
 - Backend: điền cùng thông tin liên hệ công khai qua `COMPANY_NAME`, `COMPANY_PHONE`, `COMPANY_EMAIL`, `COMPANY_ADDRESS` để Trợ lý AI không trả lời bằng dữ liệu cũ. Không đặt secret vào các biến này.
@@ -45,7 +45,7 @@ Mặc định script restore yêu cầu nhập chính xác `RESTORE`. Chỉ dùn
 Các mục sau không thể tự điền bằng code vì cần hợp đồng, tài khoản hoặc dữ liệu pháp lý thật:
 
 - SMTP/email gửi thật và địa chỉ người nhận thông báo vận hành.
-- Quota, billing alert và người chịu trách nhiệm theo dõi chi phí Google Places/Geocoding.
+- Người chịu trách nhiệm theo dõi tính ổn định/chính sách Nominatim và phương án chuyển sang dịch vụ tự host hoặc trả phí nếu lưu lượng tăng.
 - Tên pháp lý, mã số thuế/đăng ký, người đại diện, địa chỉ, hotline và nội dung chính sách đã được duyệt.
 - Cổng thanh toán, hãng vận chuyển, hóa đơn điện tử và quy tắc đối soát/hoàn tiền.
 - Tên miền, nhà cung cấp hosting, cảnh báo lỗi/log tập trung và lịch backup.

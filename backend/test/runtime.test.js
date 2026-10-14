@@ -43,11 +43,11 @@ test('production requires a separate MFA encryption key', () => {
   restore('NODE_ENV', previous.nodeEnv); restore('MONGODB_URI', previous.uri); restore('JWT_SECRET', previous.secret); restore('CLIENT_URL', previous.client); restore('MFA_ENCRYPTION_KEY', previous.mfa); restore('FILE_STORAGE_DRIVER', previous.storage); restore('CLOUDINARY_URL', previous.cloudinary);
 });
 
-test('production requires a Google Maps server key', () => {
+test('production does not require a paid Google Maps key', () => {
   const previous = {
     nodeEnv: process.env.NODE_ENV, uri: process.env.MONGODB_URI, secret: process.env.JWT_SECRET,
     client: process.env.CLIENT_URL, mfa: process.env.MFA_ENCRYPTION_KEY, storage: process.env.FILE_STORAGE_DRIVER,
-    cloudinary: process.env.CLOUDINARY_URL, googleMaps: process.env.GOOGLE_MAPS_SERVER_API_KEY
+    cloudinary: process.env.CLOUDINARY_URL
   };
   process.env.NODE_ENV = 'production';
   process.env.MONGODB_URI = 'mongodb+srv://example.mongodb.net/test';
@@ -56,7 +56,6 @@ test('production requires a Google Maps server key', () => {
   process.env.MFA_ENCRYPTION_KEY = 'production_mfa_encryption_secret_longer_than_32_characters';
   process.env.FILE_STORAGE_DRIVER = 'cloudinary';
   process.env.CLOUDINARY_URL = 'cloudinary://key:secret@cloud';
-  delete process.env.GOOGLE_MAPS_SERVER_API_KEY;
-  assert.throws(() => validateRuntimeConfig(), /GOOGLE_MAPS_SERVER_API_KEY/);
-  restore('NODE_ENV', previous.nodeEnv); restore('MONGODB_URI', previous.uri); restore('JWT_SECRET', previous.secret); restore('CLIENT_URL', previous.client); restore('MFA_ENCRYPTION_KEY', previous.mfa); restore('FILE_STORAGE_DRIVER', previous.storage); restore('CLOUDINARY_URL', previous.cloudinary); restore('GOOGLE_MAPS_SERVER_API_KEY', previous.googleMaps);
+  assert.doesNotThrow(() => validateRuntimeConfig());
+  restore('NODE_ENV', previous.nodeEnv); restore('MONGODB_URI', previous.uri); restore('JWT_SECRET', previous.secret); restore('CLIENT_URL', previous.client); restore('MFA_ENCRYPTION_KEY', previous.mfa); restore('FILE_STORAGE_DRIVER', previous.storage); restore('CLOUDINARY_URL', previous.cloudinary);
 });

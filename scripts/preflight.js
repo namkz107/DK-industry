@@ -65,7 +65,7 @@ function validateProduction(backend, frontend) {
   if (isPlaceholder(cloudinaryUrl)) {
     for (const key of ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET']) requireValue('backend', backend, key);
   }
-  for (const key of ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'EMAIL_FROM', 'GOOGLE_MAPS_SERVER_API_KEY', 'COMPANY_NAME', 'COMPANY_PHONE', 'COMPANY_EMAIL', 'COMPANY_ADDRESS']) requireValue('backend', backend, key);
+  for (const key of ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'EMAIL_FROM', 'COMPANY_NAME', 'COMPANY_PHONE', 'COMPANY_EMAIL', 'COMPANY_ADDRESS']) requireValue('backend', backend, key);
   if (backend.SUPPORT_AI_ENABLED === 'true' && isPlaceholder(String(backend.GROQ_API_KEY || ''))) errors.push('backend.GROQ_API_KEY bắt buộc khi bật AI');
   if (String(backend.ADMIN_SEED_PASSWORD || '').trim() && !isPlaceholder(backend.ADMIN_SEED_PASSWORD)) warnings.push('Nên xóa ADMIN_SEED_PASSWORD khỏi production sau khi bootstrap Admin');
 
@@ -75,7 +75,7 @@ function validateProduction(backend, frontend) {
   if (!(apiUrl === '/api' || /^https:\/\/.+\/api\/?$/i.test(apiUrl))) errors.push('frontend.VITE_API_URL phải là /api hoặc URL HTTPS kết thúc bằng /api');
   const socketUrl = String(frontend.VITE_SOCKET_URL || '').trim();
   if (socketUrl && !isHttpsOrigin(socketUrl)) errors.push('frontend.VITE_SOCKET_URL phải để trống (same-origin) hoặc là HTTPS origin');
-  for (const key of ['VITE_CLOUDINARY_LOGO_URL', 'VITE_CLOUDINARY_CEO_IMAGE_URL', 'VITE_COMPANY_NAME', 'VITE_COMPANY_PHONE', 'VITE_COMPANY_PHONE_LABEL', 'VITE_COMPANY_EMAIL', 'VITE_COMPANY_ADDRESS', 'VITE_COMPANY_MAP_DESTINATION', 'VITE_GOOGLE_MAPS_EMBED_API_KEY', 'VITE_COMPANY_TAX_CODE', 'VITE_COMPANY_REGISTRATION_NUMBER', 'VITE_COMPANY_LEGAL_REPRESENTATIVE']) requireValue('frontend', frontend, key);
+  for (const key of ['VITE_CLOUDINARY_LOGO_URL', 'VITE_CLOUDINARY_CEO_IMAGE_URL', 'VITE_COMPANY_NAME', 'VITE_COMPANY_PHONE', 'VITE_COMPANY_PHONE_LABEL', 'VITE_COMPANY_EMAIL', 'VITE_COMPANY_ADDRESS', 'VITE_COMPANY_MAP_DESTINATION', 'VITE_COMPANY_TAX_CODE', 'VITE_COMPANY_REGISTRATION_NUMBER', 'VITE_COMPANY_LEGAL_REPRESENTATIVE']) requireValue('frontend', frontend, key);
   if (frontend.VITE_POLICY_VERSION !== backend.TERMS_VERSION) errors.push('VITE_POLICY_VERSION phải trùng TERMS_VERSION');
   if (siteUrl && origins.length && !origins.includes(siteUrl)) errors.push('VITE_SITE_URL phải có trong backend.CLIENT_URL');
 

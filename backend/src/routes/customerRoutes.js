@@ -20,7 +20,7 @@ const { writeAudit } = require('../services/auditService');
 const { notifyOperations, dispatchSoon } = require('../services/notificationService');
 const { validateUploadedFiles } = require('../services/fileSecurityService');
 const { removeStoredFiles, sendStoredFile, storeCustomerFiles } = require('../services/fileStorageService');
-const { placeDetails, reverseLocation, searchLocations } = require('../services/googleMapsService');
+const { reverseLocation, searchLocations } = require('../services/locationService');
 const { requireVerifiedEmail } = require('../middleware/authenticate');
 const { createIdempotentMessage, messagePage, publicMessage } = require('../services/chatMessageService');
 const { emitMessage, emitRequestEvent, emitRequestUpdated } = require('../services/realtimeService');
@@ -194,19 +194,8 @@ router.get('/locations/search', async (req, res, next) => {
   try {
     const input = clean(req.query.input).slice(0, 200);
     if (input.length < 4) return res.json({ success: true, data: [] });
-    const sessionToken = clean(req.query.sessionToken).slice(0, 36);
-    const data = await searchLocations(input, sessionToken);
-    res.json({ success: true, data, attribution: 'Google Maps' });
-  } catch (error) { next(error); }
-});
-
-router.get('/locations/place/:placeId', async (req, res, next) => {
-  try {
-    const placeId = clean(req.params.placeId).slice(0, 300);
-    const sessionToken = clean(req.query.sessionToken).slice(0, 36);
-    if (!placeId) fail('Địa điểm không hợp lệ');
-    const data = await placeDetails(placeId, sessionToken);
-    res.json({ success: true, data, attribution: 'Google Maps' });
+    const data = await searchLocations(input);
+    res.json({ success: true, data, attribution: '© OpenStreetMap contributors' });
   } catch (error) { next(error); }
 });
 
@@ -216,7 +205,7 @@ router.post('/locations/reverse', async (req, res, next) => {
     const longitude = finiteCoordinate(req.body.longitude, -180, 180);
     if (latitude === undefined || longitude === undefined) fail('Tọa độ không hợp lệ');
     const data = await reverseLocation(latitude, longitude);
-    res.json({ success: true, data, attribution: 'Google Maps' });
+    res.json({ success: true, data, attribution: '© OpenStreetMap contributors' });
   } catch (error) { next(error); }
 });
 

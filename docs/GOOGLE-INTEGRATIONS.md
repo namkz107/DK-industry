@@ -1,4 +1,4 @@
-# Gmail SMTP và Google Maps Platform
+# Gmail SMTP và bản đồ miễn phí
 
 ## 1. Gmail SMTP miễn phí cho môi trường hiện tại
 
@@ -24,31 +24,13 @@ SMTP_TEST_TO=your_gmail_address@gmail.com
 
 Gmail cá nhân phù hợp cho phát triển và lượng email thấp. Trước khi gửi email thương mại số lượng lớn cần chuyển sang dịch vụ email giao dịch và cấu hình tên miền gửi.
 
-## 2. Google Maps Platform
+## 2. Google Maps và tìm kiếm địa chỉ miễn phí
 
-Trang Liên hệ hiển thị Google Maps bằng Maps Embed API. Tạo browser API key, chỉ bật **Maps Embed API**, giới hạn key theo domain website rồi cấu hình frontend:
+Trang Liên hệ hiển thị Google Maps qua URL nhúng, còn nút mở vị trí/chỉ đường dùng Maps URLs. Các luồng này không cần API key hoặc tài khoản billing.
 
-```env
-VITE_GOOGLE_MAPS_EMBED_API_KEY=your_restricted_google_maps_embed_api_key
-```
+Tìm kiếm địa chỉ và nút **Vị trí của tôi** dùng Nominatim/OpenStreetMap. Backend gửi yêu cầu với User-Agent nhận diện bằng `COMPANY_EMAIL`, cache kết quả 24 giờ và xếp hàng tối đa một yêu cầu mỗi giây. Frontend chỉ tìm khi người dùng bấm **Tìm**, luôn cho phép sửa địa chỉ thủ công và có nút kiểm tra điểm ghim bằng Google Maps.
 
-API key frontend là giá trị công khai trong bundle nên việc giới hạn theo HTTP referrer và theo API là bắt buộc. Liên kết mở vị trí/chỉ đường cũng sử dụng Google Maps và không cần key.
-
-Tìm kiếm địa chỉ giao hàng dùng Places API (New), lấy tọa độ của gợi ý đã chọn dùng Place Details (New), còn nút **Vị trí của tôi** dùng Geocoding API để đổi GPS thành địa chỉ. Tạo một server key riêng và cấu hình `backend/.env`:
-
-```env
-GOOGLE_MAPS_SERVER_API_KEY=your_google_maps_server_api_key
-```
-
-Giới hạn server key:
-
-- API restrictions: chỉ **Places API (New)** và **Geocoding API**;
-- Application restrictions production: IP public cố định của backend;
-- không đưa server key vào biến `VITE_*`, frontend hoặc repository;
-- dùng session token riêng cho mỗi lượt tìm rồi truyền lại khi lấy Place Details;
-- giữ quota và billing alert phù hợp với lưu lượng dự kiến.
-
-Frontend hiển thị attribution Google Maps cạnh kết quả Places. Website phải duy trì Điều khoản sử dụng và Chính sách quyền riêng tư công khai có dẫn chiếu đến điều khoản và chính sách của Google.
+Website phải giữ dòng ghi nhận `© OpenStreetMap contributors`. Chính sách quyền riêng tư phải nêu rằng truy vấn/tọa độ được gửi tới Nominatim khi tìm kiếm hoặc đổi GPS thành địa chỉ, và được gửi tới Google khi người dùng tải bản đồ hoặc mở chỉ đường.
 
 ## 3. Kiểm tra tích hợp
 
@@ -58,4 +40,4 @@ Từ thư mục gốc dự án chạy:
 npm run verify:integrations
 ```
 
-Lệnh này gửi một email thử về địa chỉ đặt tại `SMTP_TEST_TO` (hoặc `SMTP_USER`), gọi Places Autocomplete và Place Details. Lệnh không in App Password hoặc Google API key ra màn hình. SMTP chỉ vượt qua sau khi bạn tự điền Gmail App Password vào `SMTP_PASS=`.
+Lệnh này gửi một email thử về địa chỉ đặt tại `SMTP_TEST_TO` (hoặc `SMTP_USER`) và thử tìm địa chỉ qua Nominatim. Lệnh không in App Password ra màn hình. SMTP chỉ vượt qua sau khi bạn tự điền Gmail App Password vào `SMTP_PASS=`.

@@ -23,7 +23,9 @@ export interface LocationDetails {
   addressLine?: string; ward?: string; district?: string; province?: string; accuracyMeters?: number
 }
 export interface PlaceSuggestion {
-  placeId: string; sessionToken: string; text: string; mainText: string; secondaryText: string
+  placeId: string; text: string; mainText: string; secondaryText: string
+  formattedAddress: string; latitude: number; longitude: number
+  addressLine?: string; ward?: string; district?: string; province?: string
 }
 
 export interface CustomerProfile {

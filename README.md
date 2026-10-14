@@ -68,19 +68,9 @@ Frontend hiển thị đúng trạng thái trống hoặc lỗi khi MongoDB/back
 
 ### Cấu hình bản đồ và định vị
 
-Bản đồ ở trang `/lien-he` dùng **Google Maps Embed API**. Cấu hình browser key đã giới hạn theo domain và chỉ được phép gọi Maps Embed API trong `frontend/.env`:
+Bản đồ ở trang `/lien-he`, điểm ghim và chỉ đường dùng Google Maps qua URL không yêu cầu API key. Bản đồ chỉ tải sau khi người dùng bấm xem.
 
-```env
-VITE_GOOGLE_MAPS_EMBED_API_KEY=your_restricted_google_maps_embed_api_key
-```
-
-Tính năng tìm địa chỉ dùng **Places API (New)**, lấy tọa độ sau khi chọn bằng **Place Details (New)** và đổi GPS thành địa chỉ bằng **Geocoding API**. Server key chỉ nằm trong `backend/.env`:
-
-```env
-GOOGLE_MAPS_SERVER_API_KEY=your_google_maps_server_api_key
-```
-
-Bản đồ Google chỉ tải sau khi người dùng bấm xem. Mỗi lượt tìm địa chỉ tạo một session token riêng; khi khách chọn gợi ý, backend kết thúc session bằng Place Details và chỉ yêu cầu các trường địa chỉ/tọa độ cần thiết. Key backend phải giới hạn cho Places API (New), Geocoding API và IP máy chủ; key frontend phải giới hạn cho Maps Embed API và domain website.
+Tìm địa chỉ và đổi GPS thành địa chỉ dùng máy chủ công cộng Nominatim dựa trên dữ liệu OpenStreetMap, không yêu cầu key hoặc billing. Backend cache kết quả 24 giờ và xếp hàng tối đa một yêu cầu mỗi giây. Cần cấu hình `COMPANY_EMAIL` thật để nhận diện ứng dụng trong User-Agent. Người dùng vẫn có thể nhập địa chỉ thủ công và mở Google Maps để kiểm tra điểm ghim.
 
 ## API chính
 

@@ -8,14 +8,14 @@ const backend = {
   COOKIE_SECURE: 'true', COOKIE_SAME_SITE: 'lax', TRUST_PROXY: '1', ENFORCE_SESSION_CHECK: 'true',
   FILE_STORAGE_DRIVER: 'cloudinary', CLOUDINARY_URL: 'cloudinary://key:secret@cloud',
   SMTP_HOST: 'smtp.example.vn', SMTP_USER: 'mail@example.vn', SMTP_PASS: 'secret-app-password', EMAIL_FROM: 'DK <mail@example.vn>',
-  GOOGLE_MAPS_SERVER_API_KEY: 'AIzaSyServerProductionRestrictedKey', COMPANY_NAME: 'DK Industry', COMPANY_PHONE: '0900000000', COMPANY_EMAIL: 'hello@example.vn', COMPANY_ADDRESS: 'Ha Noi',
+  COMPANY_NAME: 'DK Industry', COMPANY_PHONE: '0900000000', COMPANY_EMAIL: 'hello@example.vn', COMPANY_ADDRESS: 'Ha Noi',
   SUPPORT_AI_ENABLED: 'false', TERMS_VERSION: '2026-10-14'
 };
 const frontend = {
   VITE_SITE_URL: 'https://dk.example', VITE_API_URL: '/api', VITE_SOCKET_URL: '',
   VITE_CLOUDINARY_LOGO_URL: 'https://res.cloudinary.com/cloud/image/upload/logo', VITE_CLOUDINARY_CEO_IMAGE_URL: 'https://res.cloudinary.com/cloud/image/upload/ceo',
   VITE_COMPANY_NAME: 'DK Industry', VITE_COMPANY_PHONE: '0900000000', VITE_COMPANY_PHONE_LABEL: '0900 000 000', VITE_COMPANY_EMAIL: 'hello@example.vn', VITE_COMPANY_ADDRESS: 'Ha Noi',
-  VITE_COMPANY_MAP_DESTINATION: '20.8,105.8', VITE_GOOGLE_MAPS_EMBED_API_KEY: 'AIzaSyProductionRestrictedKey', VITE_COMPANY_TAX_CODE: '0123456789', VITE_COMPANY_REGISTRATION_NUMBER: 'DK-123', VITE_COMPANY_LEGAL_REPRESENTATIVE: 'Nguyen Van A',
+  VITE_COMPANY_MAP_DESTINATION: '20.8,105.8', VITE_COMPANY_TAX_CODE: '0123456789', VITE_COMPANY_REGISTRATION_NUMBER: 'DK-123', VITE_COMPANY_LEGAL_REPRESENTATIVE: 'Nguyen Van A',
   VITE_POLICY_VERSION: '2026-10-14'
 };
 

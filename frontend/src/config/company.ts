@@ -2,7 +2,6 @@ import { googleMapsDirectionsUrl, googleMapsEmbedPlaceUrl } from "@/lib/google-m
 
 const mapDestination = import.meta.env.VITE_COMPANY_MAP_DESTINATION || "20.895803,105.862915"
 const [mapLatitude = "20.895803", mapLongitude = "105.862915"] = mapDestination.split(",").map((value: string) => value.trim())
-const googleMapsEmbedApiKey = String(import.meta.env.VITE_GOOGLE_MAPS_EMBED_API_KEY || "").trim()
 
 export const company = {
   name: import.meta.env.VITE_COMPANY_NAME || "CTY CPTV ĐẦU TƯ XD TM ĐĂNG KHOA",
@@ -18,6 +17,4 @@ export const company = {
 }
 
 export const companyMapUrl = googleMapsDirectionsUrl(mapLatitude, mapLongitude)
-export const companyMapEmbedUrl = googleMapsEmbedApiKey
-  ? googleMapsEmbedPlaceUrl(googleMapsEmbedApiKey, mapLatitude, mapLongitude)
-  : ""
+export const companyMapEmbedUrl = googleMapsEmbedPlaceUrl(mapLatitude, mapLongitude)
