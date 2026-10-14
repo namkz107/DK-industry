@@ -1,7 +1,8 @@
 require('dotenv').config();
+const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const { mailTransport, smtpConfigured } = require('./services/notificationService');
-const { searchLocations } = require('./services/openStreetMapService');
+const { placeDetails, searchLocations } = require('./services/googleMapsService');
 
 async function verifySmtp() {
   if (!smtpConfigured()) throw new Error('SMTP chưa đủ cấu hình. Cần SMTP_HOST, SMTP_USER, SMTP_PASS và EMAIL_FROM/SMTP_FROM.');
@@ -17,13 +18,16 @@ async function verifySmtp() {
   console.log(`SMTP: OK; đã gửi email kiểm tra tới ${recipient}`);
 }
 
-async function verifyOpenStreetMap() {
-  const results = await searchLocations('Hà Nội, Việt Nam');
-  if (!results.length) throw new Error('OpenStreetMap/Nominatim không trả về kết quả tìm kiếm.');
-  console.log('OpenStreetMap/Nominatim: OK; tìm kiếm địa chỉ trả về kết quả hợp lệ');
+async function verifyGoogleMaps() {
+  const sessionToken = crypto.randomUUID();
+  const results = await searchLocations('Hà Nội, Việt Nam', sessionToken);
+  if (!results.length) throw new Error('Google Places không trả về gợi ý địa chỉ.');
+  const location = await placeDetails(results[0].placeId, sessionToken);
+  if (!Number.isFinite(location.latitude) || !Number.isFinite(location.longitude)) throw new Error('Google Place Details không trả về tọa độ hợp lệ.');
+  console.log('Google Maps: OK; Places Autocomplete và Place Details trả về dữ liệu hợp lệ');
 }
 
-Promise.allSettled([verifySmtp(), verifyOpenStreetMap()]).then(results => {
+Promise.allSettled([verifySmtp(), verifyGoogleMaps()]).then(results => {
   for (const result of results) if (result.status === 'rejected') console.error(`FAILED: ${result.reason.message}`);
   if (results.some(result => result.status === 'rejected')) process.exitCode = 1;
 });

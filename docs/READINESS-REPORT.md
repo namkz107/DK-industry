@@ -17,7 +17,7 @@ Thời điểm kiểm tra: **2026-10-13 (Asia/Bangkok)**.
 
 - MongoDB Atlas ping: đạt.
 - SMTP authentication: đạt; bước kiểm tra không gửi email.
-- OpenStreetMap/Nominatim: đạt.
+- Google Maps Platform: mã nguồn đã tích hợp; cần cấu hình billing, Places API (New), Geocoding API, Maps Embed API và hai API key đã giới hạn trước khi nghiệm thu production.
 - Cloudinary upload/download/cleanup: đạt.
 - Backup `dk-industry-20261013-083503.archive.gz`: SHA-256 khớp.
 - Restore drill: khôi phục thành công 19 collection, 593 document và index vào `dk_industry_restore_test`, 0 document lỗi. Database thử đã được drop sau khi xác minh để không giữ bản sao dữ liệu vận hành.

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { usePageMeta } from "@/hooks/use-page-meta"
 import { staffClient } from "@/lib/staff-client"
+import { googleMapsDirectionsUrl } from "@/lib/google-maps"
 import { cn } from "@/lib/utils"
 import type { OrderStatus, PaymentStatus, StaffOrder } from "@/types/staff"
 
@@ -70,7 +71,7 @@ function OrderDetail({ order, busy, success, error, onUpdate, onAfterSales }: { 
 
   const allowedPayments = paymentTransitions[order.paymentStatus].filter(status => (status !== "refund_pending" || order.status === "cancelled") && !(status === "paid" && order.paymentMethod === "cod"))
   const directionsUrl = order.shippingAddress.latitude !== undefined && order.shippingAddress.longitude !== undefined
-    ? `https://www.openstreetmap.org/?mlat=${order.shippingAddress.latitude}&mlon=${order.shippingAddress.longitude}#map=17/${order.shippingAddress.latitude}/${order.shippingAddress.longitude}`
+    ? googleMapsDirectionsUrl(order.shippingAddress.latitude, order.shippingAddress.longitude)
     : ""
   const submitProgress = (event: FormEvent) => {
     event.preventDefault()

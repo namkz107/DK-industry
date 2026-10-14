@@ -36,7 +36,7 @@ Việc này chưa bắt buộc để chạy website, nhưng bắt buộc trướ
 
 ## 3. Xác nhận dịch vụ đã cấu hình
 
-- Chạy `npm run verify:integrations` để gửi một email kiểm tra và thử tìm địa chỉ bằng OpenStreetMap.
+- Bật Maps Embed API, Places API (New), Geocoding API; cấu hình hai key đã giới hạn rồi chạy `npm run verify:integrations` để gửi email kiểm tra và thử Places Autocomplete/Place Details.
 - Kiểm tra một tệp bản vẽ/PDF đã upload có thể tải xuống lại sau khi mở lại yêu cầu.
 - Trong Atlas, chỉ giữ IP access list thực sự cần thiết và dùng database user riêng của ứng dụng, không dùng tài khoản Atlas cá nhân.
 - Lưu recovery codes của MFA Admin vào nơi quản lý mật khẩu an toàn, không lưu trong source code hoặc ảnh chụp màn hình.

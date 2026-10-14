@@ -57,16 +57,16 @@ function smtpConfigured() {
   );
 }
 
-function nominatimConfigured() {
-  return Boolean(String(process.env.NOMINATIM_EMAIL || process.env.SMTP_USER || '').trim());
+function googleMapsConfigured() {
+  return Boolean(String(process.env.GOOGLE_MAPS_SERVER_API_KEY || '').trim());
 }
 
 function integrationStatus() {
   return {
     database: Boolean(process.env.MONGODB_URI),
     email: smtpConfigured(),
-    maps: nominatimConfigured(),
-    mapProvider: 'openstreetmap',
+    maps: googleMapsConfigured(),
+    mapProvider: 'google',
     aiSupport: process.env.SUPPORT_AI_ENABLED === 'true' && Boolean(process.env.GROQ_API_KEY),
     fileStorage: storageDriver(),
     cloudinary: cloudinaryConfigured(),
@@ -96,9 +96,9 @@ function validateRuntimeConfig() {
   if (production && (!process.env.MFA_ENCRYPTION_KEY || process.env.MFA_ENCRYPTION_KEY.length < 32 || /replace_with_|your_/i.test(process.env.MFA_ENCRYPTION_KEY))) {
     errors.push('Production requires a random MFA_ENCRYPTION_KEY of at least 32 characters');
   }
-  if (production && !nominatimConfigured()) errors.push('Production requires NOMINATIM_EMAIL or SMTP_USER for OpenStreetMap identification');
+  if (production && !googleMapsConfigured()) errors.push('Production requires GOOGLE_MAPS_SERVER_API_KEY for Places and Geocoding');
   if (!smtpConfigured()) warnings.push('SMTP is incomplete; SMTP_HOST, SMTP_USER, SMTP_PASS and EMAIL_FROM/SMTP_FROM are required');
-  if (!nominatimConfigured()) warnings.push('NOMINATIM_EMAIL or SMTP_USER is missing; OpenStreetMap requests cannot identify this application');
+  if (!googleMapsConfigured()) warnings.push('GOOGLE_MAPS_SERVER_API_KEY is missing; address search and reverse geocoding are unavailable');
   if (!process.env.MFA_ENCRYPTION_KEY) warnings.push('MFA_ENCRYPTION_KEY is missing; Admin MFA setup is unavailable');
 
   if (errors.length) throw new Error(`Invalid runtime configuration:\n- ${errors.join('\n- ')}`);
@@ -111,7 +111,7 @@ module.exports = {
   cloudinaryConfigured,
   cookieOptions,
   integrationStatus,
-  nominatimConfigured,
+  googleMapsConfigured,
   smtpConfigured,
   storageDriver,
   validateRuntimeConfig
