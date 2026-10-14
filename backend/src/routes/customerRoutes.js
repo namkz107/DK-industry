@@ -17,7 +17,7 @@ const SupportMessage = require('../models/SupportMessage');
 const { transitionOrder, transitionPayment, transitionServiceRequest } = require('../services/workflowService');
 const { withTransaction } = require('../services/transactionService');
 const { writeAudit } = require('../services/auditService');
-const { notifyOperations, dispatchSoon } = require('../services/notificationService');
+const { createNotification, notifyOperations, dispatchSoon } = require('../services/notificationService');
 const { validateUploadedFiles } = require('../services/fileSecurityService');
 const { removeStoredFiles, sendStoredFile, storeCustomerFiles } = require('../services/fileStorageService');
 const { reverseLocation, searchLocations } = require('../services/locationService');
@@ -369,7 +369,10 @@ router.post('/orders', requireVerifiedEmail, async (req, res, next) => {
       return created;
     });
     if (!duplicate) {
-      await notifyOperations({ type: 'order.created', title: `Đơn hàng mới ${order.code}`, message: `${req.user.name} vừa đặt đơn trị giá ${order.total.toLocaleString('vi-VN')}đ.`, link: '/staff/orders', metadata: { orderId: order._id } });
+      await Promise.all([
+        notifyOperations({ type: 'order.created', title: `Đơn hàng mới ${order.code}`, message: `${req.user.name} vừa đặt đơn trị giá ${order.total.toLocaleString('vi-VN')}đ.`, link: '/staff/orders', metadata: { orderId: order._id } }),
+        createNotification({ recipient: req.user._id, type: 'order.created', title: `Đã tiếp nhận đơn hàng ${order.code}`, message: `Đơn hàng trị giá ${order.total.toLocaleString('vi-VN')}đ đã được ghi nhận và đang chờ xác nhận tồn kho, phí vận chuyển.`, link: '/tai-khoan/don-hang', metadata: { orderId: order._id } })
+      ]);
       dispatchSoon();
     }
     res.status(duplicate ? 200 : 201).json({ success: true, duplicate, message: duplicate ? 'Đơn hàng đã được ghi nhận trước đó' : 'Đặt hàng thành công', data: order });

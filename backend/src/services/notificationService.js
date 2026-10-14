@@ -1,6 +1,7 @@
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 const { smtpConfigured } = require('../config/runtime');
+const { notificationEmail } = require('./emailTemplateService');
 
 const emailMaxAttempts = () => Math.max(1, Math.min(10, Number(process.env.EMAIL_MAX_ATTEMPTS) || 5));
 const retryDelayMs = attempt => Math.min(60 * 60 * 1000, 60 * 1000 * (2 ** Math.max(0, attempt - 1)));
@@ -16,11 +17,11 @@ function mailTransport(nodemailer) {
   });
 }
 
-async function sendDirectEmail({ to, subject, text }) {
+async function sendDirectEmail({ to, subject, text, html }) {
   if (!smtpConfigured()) return false;
   try {
     const nodemailer = require('nodemailer');
-    await mailTransport(nodemailer).sendMail({ from: process.env.SMTP_FROM || process.env.EMAIL_FROM, to, subject, text });
+    await mailTransport(nodemailer).sendMail({ from: process.env.SMTP_FROM || process.env.EMAIL_FROM, replyTo: process.env.COMPANY_EMAIL || undefined, to, subject, text, html });
     return true;
   } catch (error) {
     console.error('Direct email failed:', error.message);
@@ -28,13 +29,19 @@ async function sendDirectEmail({ to, subject, text }) {
   }
 }
 
-async function createNotification({ recipient, type, title, message, link = '', metadata = {}, email = '', session = null }) {
+async function createNotification({ recipient, type, title, message, link = '', metadata = {}, email, session = null }) {
   try {
+    let emailAddress = email;
+    if (emailAddress === undefined && smtpConfigured()) {
+      const query = User.findById(recipient).select('email').lean();
+      if (session) query.session(session);
+      emailAddress = (await query)?.email || '';
+    }
     const document = {
       recipient, type, title, message, link, metadata,
-      email: email && smtpConfigured()
-        ? { address: email, status: 'pending' }
-        : { address: email || '', status: 'not_requested' }
+      email: emailAddress && smtpConfigured()
+        ? { address: emailAddress, status: 'pending' }
+        : { address: emailAddress || '', status: 'not_requested' }
     };
     const created = await Notification.create([document], session ? { session } : undefined);
     return created[0];
@@ -87,11 +94,16 @@ async function dispatchPendingEmails(limit = 25) {
     if (!notification) break;
     try {
       const baseUrl = (process.env.CLIENT_URL || '').split(',')[0];
+      await notification.populate('recipient', 'name');
+      const actionUrl = notification.link ? `${baseUrl.replace(/\/$/, '')}${notification.link.startsWith('/') ? notification.link : `/${notification.link}`}` : '';
+      const emailContent = notificationEmail({ notification, recipientName: notification.recipient?.name, actionUrl });
       await transporter.sendMail({
         from: process.env.SMTP_FROM || process.env.EMAIL_FROM,
+        replyTo: process.env.COMPANY_EMAIL || undefined,
         to: notification.email.address,
         subject: notification.title,
-        text: `${notification.message}${notification.link ? `\n\n${baseUrl}${notification.link}` : ''}`
+        text: emailContent.text,
+        html: emailContent.html
       });
       notification.email.status = 'sent';
       notification.email.sentAt = new Date();
