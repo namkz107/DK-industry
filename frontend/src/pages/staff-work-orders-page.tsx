@@ -5,6 +5,7 @@ import { StaffShell } from "@/components/staff/staff-shell"
 import { Pagination } from "@/components/pagination"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Select as UiSelect } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { usePageMeta } from "@/hooks/use-page-meta"
 import { staffClient } from "@/lib/staff-client"
@@ -49,4 +50,4 @@ function WorkOrderDetail({ item, busy, error, onUpdate }: { item: StaffWorkOrder
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="text-sm font-bold text-slate-700">{label}<span className="mt-2 block">{children}</span></label> }
-function Select({ value, onChange, first, options }: { value: string; onChange: (value: string) => void; first: string; options: string[][] }) { return <select className="field-select" value={value} onChange={event => onChange(event.target.value)}><option value="">{first}</option>{options.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select> }
+function Select({ value, onChange, first, options }: { value: string; onChange: (value: string) => void; first: string; options: string[][] }) { return <UiSelect ariaLabel={first} value={value} onChange={onChange} options={[{ value: "", label: first }, ...options.map(([optionValue, label]) => ({ value: optionValue, label }))]}/> }

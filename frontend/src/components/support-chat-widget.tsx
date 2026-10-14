@@ -3,6 +3,7 @@ import { Bot, CheckCheck, Headphones, LoaderCircle, MessageCircleMore, Minus, Se
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { company } from "@/config/company"
+import { SupportQuickActions } from "@/components/support-quick-actions"
 import { supportClient } from "@/lib/support-client"
 import { acquireSupportSocket, releaseSupportSocket, storeSupportSocketToken, supportSocket } from "@/lib/support-socket"
 import { cn } from "@/lib/utils"
@@ -131,6 +132,10 @@ export function SupportChatWidget() {
     if (!content.trim()) return
     send.mutate({ content: content.trim(), clientMessageId: crypto.randomUUID() })
   }
+  const sendQuickAction = (message: string) => {
+    if (send.isPending) return
+    send.mutate({ content: message, clientMessageId: crypto.randomUUID() })
+  }
   const loadOlder = async () => {
     const page = session.data?.data?.page
     if (!page?.hasMore || loadingOlder) return
@@ -142,31 +147,32 @@ export function SupportChatWidget() {
   }
 
   return <div className="fixed bottom-4 right-3 z-[60] sm:bottom-6 sm:right-6">
-    {open && <section role="dialog" aria-label="Hỗ trợ khách hàng" className="mb-3 flex h-[min(620px,calc(100vh-7rem))] w-[min(390px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/25">
-      <header className="flex items-center justify-between bg-[#16466f] px-4 py-3.5 text-white">
-        <div className="flex min-w-0 items-center gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-full bg-white/15"><Headphones className="size-5"/></span><div className="min-w-0"><strong className="block truncate">Chăm sóc khách hàng</strong><span className="block text-xs text-blue-100">Tư vấn sản phẩm & gia công</span></div></div>
+    {open && <section role="dialog" aria-label="Hỗ trợ khách hàng" className="mb-3 flex h-[min(660px,calc(100vh-7rem))] w-[min(400px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-3xl border border-emerald-200 bg-white shadow-2xl shadow-emerald-950/25">
+      <header className="relative flex items-center justify-between overflow-hidden bg-gradient-to-r from-emerald-950 via-emerald-900 to-emerald-800 px-4 py-3.5 text-white after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-orange-500">
+        <div className="relative flex min-w-0 items-center gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-full bg-orange-500 text-white shadow-lg shadow-emerald-950/30"><Headphones className="size-5"/></span><div className="min-w-0"><strong className="block truncate">Chăm sóc khách hàng</strong><span className="block text-xs text-emerald-100">AI hỗ trợ ngay · Nhân viên tiếp nhận sau</span></div></div>
         <div className="flex"><button className="grid size-9 place-items-center rounded-full hover:bg-white/10" onClick={() => setOpen(false)} aria-label="Thu nhỏ"><Minus className="size-5"/></button><button className="grid size-9 place-items-center rounded-full hover:bg-white/10" onClick={() => setOpen(false)} aria-label="Đóng"><X className="size-4"/></button></div>
       </header>
-      <div ref={listRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-slate-50 p-4" aria-live="polite">
-        <div className="w-fit max-w-[88%] rounded-2xl rounded-bl-md border border-slate-200 bg-white px-3 py-2.5 text-sm leading-5 text-slate-700 shadow-sm">Xin chào! CTY CPTV ĐẦU TƯ XD TM ĐĂNG KHOA có thể hỗ trợ gì cho bạn?</div>
-        {user?.role === 'customer' && session.data?.data?.page.hasMore && <button className="mx-auto block rounded-lg px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-50" disabled={loadingOlder} onClick={() => void loadOlder()}>{loadingOlder ? "Đang tải..." : "Tải tin nhắn cũ"}</button>}
+      <SupportQuickActions disabled={send.isPending} onSelect={sendQuickAction}/>
+      <div ref={listRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-gradient-to-b from-stone-50 via-white to-emerald-50/50 p-4" aria-live="polite">
+        <div className="w-fit max-w-[88%] rounded-2xl rounded-bl-md border border-orange-200 bg-white px-3 py-2.5 text-sm leading-5 text-slate-700 shadow-sm"><strong className="mb-1 block text-xs text-orange-700">Đăng Khoa xin chào!</strong>Bạn có thể chọn hỗ trợ nhanh ở trên hoặc gửi câu hỏi chi tiết cho trợ lý AI.</div>
+        {user?.role === 'customer' && session.data?.data?.page.hasMore && <button className="mx-auto block rounded-lg px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-50" disabled={loadingOlder} onClick={() => void loadOlder()}>{loadingOlder ? "Đang tải..." : "Tải tin nhắn cũ"}</button>}
         {messages.map(message => <SupportBubble key={message._id} message={message}/>) }
-        {aiStatus === "thinking" && <div className="flex w-fit max-w-[88%] items-center gap-2 rounded-2xl rounded-bl-md border border-blue-100 bg-white px-3 py-2 text-xs font-semibold text-blue-700 shadow-sm"><LoaderCircle className="size-4 animate-spin"/>Trợ lý AI đang soạn câu trả lời...</div>}
-        {aiStatus === "handoff" && <p className="px-2 text-center text-xs text-amber-700">{user ? 'Yêu cầu cần xác nhận thêm và đã được chuyển tới nhân viên.' : 'Nội dung này cần nhân viên xác nhận. Bạn có thể đăng nhập hoặc liên hệ hotline để được hỗ trợ.'}</p>}
-        {user?.role === 'customer' && session.isLoading && <div className="grid place-items-center py-8"><LoaderCircle className="size-6 animate-spin text-blue-600"/></div>}
+        {aiStatus === "thinking" && <div className="flex w-fit max-w-[88%] items-center gap-2 rounded-2xl rounded-bl-md border border-orange-200 bg-white px-3 py-2 text-xs font-semibold text-emerald-800 shadow-sm"><LoaderCircle className="size-4 animate-spin text-orange-600"/>Trợ lý AI đang soạn câu trả lời...</div>}
+        {aiStatus === "handoff" && <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-center text-xs font-medium text-amber-800">{user ? 'Yêu cầu cần xác nhận thêm và đã được chuyển tới nhân viên.' : 'Nội dung này cần nhân viên xác nhận. Bạn có thể đăng nhập hoặc liên hệ hotline để được hỗ trợ.'}</p>}
+        {user?.role === 'customer' && session.isLoading && <div className="grid place-items-center py-8"><LoaderCircle className="size-6 animate-spin text-orange-600"/></div>}
       </div>
-      <form className="border-t border-slate-200 bg-white p-3" onSubmit={submit}>
+      <form className="border-t border-emerald-100 bg-white p-3" onSubmit={submit}>
         {user?.role === 'customer' && session.error && <p className="mb-2 rounded-lg bg-red-50 p-2 text-xs font-semibold text-red-700">{session.error.message}</p>}
         {send.error && <p className="mb-2 rounded-lg bg-red-50 p-2 text-xs font-semibold text-red-700">{send.error.message}</p>}
-        <div className="flex items-end gap-2"><textarea className="max-h-28 min-h-11 flex-1 resize-none rounded-2xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" value={content} onChange={event => setContent(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit() } }} placeholder="Nhập tin nhắn..." rows={1}/><button className="grid size-11 shrink-0 place-items-center rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700 disabled:opacity-50" disabled={send.isPending || !content.trim()} aria-label="Gửi tin nhắn">{send.isPending ? <LoaderCircle className="size-5 animate-spin"/> : <Send className="size-5"/>}</button></div>
+        <div className="flex items-end gap-2"><textarea className="max-h-28 min-h-11 flex-1 resize-none rounded-2xl border border-slate-300 px-4 py-2.5 text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-100" value={content} onChange={event => setContent(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit() } }} placeholder="Nhập câu hỏi chi tiết..." rows={1}/><button className="grid size-11 shrink-0 place-items-center rounded-full bg-orange-600 text-white shadow-lg shadow-orange-950/20 transition hover:bg-orange-700 disabled:opacity-50" disabled={send.isPending || !content.trim()} aria-label="Gửi tin nhắn">{send.isPending ? <LoaderCircle className="size-5 animate-spin"/> : <Send className="size-5"/>}</button></div>
         <p className="mt-2 text-center text-[10px] text-slate-400">{user ? 'Hội thoại được lưu trong tài khoản của bạn.' : 'Phiên Guest chỉ tồn tại trên trang này và sẽ mất khi tải lại.'}</p>
       </form>
     </section>}
     <div className="flex items-center justify-end gap-2.5">
-      <button onClick={() => setOpen(value => !value)} className={cn("flex min-h-14 items-center gap-2 rounded-full bg-blue-600 px-5 font-bold text-white shadow-xl shadow-blue-950/25 transition hover:-translate-y-0.5 hover:bg-blue-700", open && "px-4")} aria-expanded={open} aria-label="Mở hỗ trợ khách hàng">
-        <span className="relative grid size-8 place-items-center rounded-full bg-white text-blue-600"><Headphones className="size-5"/>{unread > 0 && <span className="absolute -right-2 -top-2 grid min-h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[10px] text-white">{Math.min(unread, 99)}</span>}</span>{!open && <span>Chăm sóc khách hàng</span>}{open && <MessageCircleMore className="size-5"/>}
+      <button onClick={() => setOpen(value => !value)} className={cn("flex min-h-14 items-center gap-2 rounded-full bg-emerald-950 px-5 font-bold text-white shadow-xl shadow-emerald-950/25 transition hover:-translate-y-0.5 hover:bg-emerald-900", open && "px-4")} aria-expanded={open} aria-label="Mở hỗ trợ khách hàng">
+        <span className="relative grid size-8 place-items-center rounded-full bg-orange-500 text-white"><Headphones className="size-5"/>{unread > 0 && <span className="absolute -right-2 -top-2 grid min-h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[10px] text-white">{Math.min(unread, 99)}</span>}</span>{!open && <span>Chăm sóc khách hàng</span>}{open && <MessageCircleMore className="size-5"/>}
       </button>
-      <a href={company.zaloUrl} target="_blank" rel="noopener noreferrer" title="Nhắn tin qua Zalo" aria-label="Nhắn tin với Đăng Khoa qua Zalo" className="group grid size-14 shrink-0 place-items-center rounded-[17px] shadow-xl shadow-blue-950/25 transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-200">
+      <a href={company.zaloUrl} target="_blank" rel="noopener noreferrer" title="Nhắn tin qua Zalo" aria-label="Nhắn tin với Đăng Khoa qua Zalo" className="group grid size-14 shrink-0 place-items-center rounded-[17px] shadow-xl shadow-emerald-950/20 transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-orange-200">
         <ZaloIcon className="size-14 transition-transform group-hover:scale-105"/>
       </a>
     </div>
@@ -190,7 +196,7 @@ function ZaloIcon({ className }: { className?: string }) {
 function SupportBubble({ message }: { message: SupportMessage }) {
   const mine = ['guest', 'customer'].includes(message.senderRole)
   const fromAi = message.senderRole === 'system' && Boolean(message.ai)
-  return <div className={cn("w-fit min-w-0 max-w-[82%] rounded-2xl px-3 py-2 text-sm leading-5 shadow-sm [overflow-wrap:anywhere]", mine ? "ml-auto rounded-br-md bg-blue-600 text-white" : "rounded-bl-md border border-slate-200 bg-white text-slate-700", message.deliveryStatus === 'failed' && "ring-2 ring-red-300")}>
-    {fromAi && <p className="mb-1 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-blue-700"><Bot className="size-3.5"/>Trợ lý AI</p>}
+  return <div className={cn("w-fit min-w-0 max-w-[82%] rounded-2xl px-3 py-2 text-sm leading-5 shadow-sm [overflow-wrap:anywhere]", mine ? "ml-auto rounded-br-md bg-emerald-900 text-white" : "rounded-bl-md border border-orange-200 bg-white text-slate-700", message.deliveryStatus === 'failed' && "ring-2 ring-red-300")}>
+    {fromAi && <p className="mb-1 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-orange-700"><Bot className="size-3.5"/>Trợ lý AI</p>}
     <p className="whitespace-pre-wrap">{message.content}</p><div className="mt-1 flex items-center justify-end gap-1 text-[10px] opacity-65"><span>{new Date(message.createdAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</span>{message.deliveryStatus === 'sending' && <span>· Đang gửi</span>}{message.deliveryStatus === 'failed' && <span>· Gửi lỗi</span>}{mine && message.readAt && <CheckCheck className="size-3"/>}</div></div>
 }

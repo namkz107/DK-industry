@@ -1,15 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { CheckCircle2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { AdminShell } from "@/components/admin/admin-shell"
 import { ImageUpload } from "@/components/admin/image-upload"
 import { Button } from "@/components/ui/button"
+import { useToast } from "@/components/ui/toast"
 import { usePageMeta } from "@/hooks/use-page-meta"
 import { adminClient } from "@/lib/admin-client"
 
 export function AdminAboutPage() {
   usePageMeta("Ảnh giới thiệu", "Cập nhật ảnh người dẫn đường hiển thị trên trang Giới thiệu.")
   const queryClient = useQueryClient()
+  const toast = useToast()
   const setting = useQuery({ queryKey: ["admin", "site-settings", "about"], queryFn: adminClient.aboutSettings })
   const [image, setImage] = useState<string | undefined>(undefined)
   const [uploading, setUploading] = useState(false)
@@ -22,9 +23,11 @@ export function AdminAboutPage() {
     mutationFn: () => adminClient.updateAboutSettings({ leaderImage: image || "" }),
     onSuccess: result => {
       setImage(result.data.leaderImage ?? "")
+      toast.success(result.message || "Ảnh đã được cập nhật")
       void queryClient.invalidateQueries({ queryKey: ["site-settings", "about"] })
       void queryClient.invalidateQueries({ queryKey: ["admin", "site-settings", "about"] })
     },
+    onError: error => toast.error(error.message, { title: "Không thể lưu ảnh" }),
   })
 
   return <AdminShell title="Ảnh phần Giới thiệu" description="Thay đổi ảnh người dẫn đường. Ảnh mới sẽ xuất hiện trên trang Giới thiệu sau khi bạn bấm lưu.">
@@ -35,10 +38,9 @@ export function AdminAboutPage() {
           <Button disabled={uploading || save.isPending || image === undefined} onClick={() => save.mutate()}>
             {uploading ? "Đang tải ảnh..." : save.isPending ? "Đang lưu..." : "Lưu ảnh giới thiệu"}
           </Button>
-          {save.isSuccess && !save.isPending && <p className="flex items-center gap-2 text-sm font-bold text-emerald-700"><CheckCircle2 className="size-5"/>Ảnh đã được cập nhật</p>}
         </div>
       </>}
-      {(setting.error || save.error) && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-4 text-sm font-semibold text-red-700">{(setting.error || save.error)?.message}</p>}
+      {setting.error && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-4 text-sm font-semibold text-red-700">{setting.error.message}</p>}
     </section>
   </AdminShell>
 }

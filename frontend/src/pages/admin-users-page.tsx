@@ -10,6 +10,7 @@ import { Pagination } from "@/components/pagination"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, type SelectOption } from "@/components/ui/select"
+import { useToast } from "@/components/ui/toast"
 import { useAuth } from "@/contexts/auth-context"
 import { usePageMeta } from "@/hooks/use-page-meta"
 import { adminClient } from "@/lib/admin-client"
@@ -33,7 +34,7 @@ const statusFilterOptions: SelectOption[] = [{ value: "", label: "Mọi trạng 
 
 export function AdminUsersPage() {
   usePageMeta("Quản lý nhân sự", "Tạo tài khoản, cấp quyền và kiểm soát trạng thái truy cập.")
-  const [params] = useSearchParams(); const queryClient = useQueryClient(); const { user: currentUser } = useAuth()
+  const [params] = useSearchParams(); const queryClient = useQueryClient(); const { user: currentUser } = useAuth(); const toast = useToast()
   const [filters, setFilters] = useState({ q: "", role: params.get("role") || "", status: "" })
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<AdminUser | null>(null)
@@ -41,9 +42,9 @@ export function AdminUsersPage() {
   const users = useQuery({ queryKey: ["admin", "users", filters, page], queryFn: () => adminClient.users({ ...filters, page }) })
   useEffect(() => setPage(1), [filters])
   const refresh = () => { void queryClient.invalidateQueries({ queryKey: ["admin", "users"] }); void queryClient.invalidateQueries({ queryKey: ["admin", "dashboard"] }) }
-  const create = useMutation({ mutationFn: adminClient.createUser, onSuccess: () => { refresh(); form.reset() } })
-  const update = useMutation({ mutationFn: ({ id, body }: { id: string; body: Parameters<typeof adminClient.updateUser>[1] }) => adminClient.updateUser(id, body), onSuccess: result => { refresh(); setSelected(result.data) } })
-  const resetPassword = useMutation({ mutationFn: ({ id, value }: { id: string; value: string }) => adminClient.resetPassword(id, value), onSuccess: () => setPassword("") })
+  const create = useMutation({ mutationFn: adminClient.createUser, onSuccess: result => { toast.success(result.message || "Đã tạo tài khoản"); refresh(); form.reset() } })
+  const update = useMutation({ mutationFn: ({ id, body }: { id: string; body: Parameters<typeof adminClient.updateUser>[1] }) => adminClient.updateUser(id, body), onSuccess: result => { toast.success(result.message || "Đã cập nhật tài khoản"); refresh(); setSelected(result.data) } })
+  const resetPassword = useMutation({ mutationFn: ({ id, value }: { id: string; value: string }) => adminClient.resetPassword(id, value), onSuccess: result => { toast.success(result.message || "Đã đặt lại mật khẩu"); setPassword("") } })
   const form = useForm<CreateValues>({ resolver: zodResolver(createSchema), defaultValues: { name: "", email: "", phone: "", password: "", role: "staff" } })
 
   return <AdminShell title="Quản lý tài khoản" description="Ba vai trò rõ ràng: Khách hàng, Nhân viên và Quản trị viên. Tài khoản bị khóa sẽ mất hiệu lực đăng nhập.">

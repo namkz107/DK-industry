@@ -7,7 +7,9 @@ import { z } from "zod"
 import { api } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Select } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/components/ui/toast"
 
 const quoteSchema = z.object({
   name: z.string().trim().min(2, "Vui lòng nhập họ và tên"),
@@ -21,8 +23,9 @@ const quoteSchema = z.object({
 type QuoteData = z.infer<typeof quoteSchema>
 
 export function QuoteDialog({ open, onOpenChange, product }: { open: boolean; onOpenChange: (value: boolean) => void; product?: string }) {
+  const toast = useToast()
   const form = useForm<QuoteData>({ resolver: zodResolver(quoteSchema), defaultValues: { name: "", phone: "", email: "", serviceType: product ? "Cung ứng thiết bị" : "", budget: "Chưa xác định", message: product ? `Tôi cần báo giá: ${product}` : "", consent: false } })
-  const mutation = useMutation({ mutationFn: api.createLead, onSuccess: () => form.reset() })
+  const mutation = useMutation({ mutationFn: api.createLead, onSuccess: result => { form.reset(); onOpenChange(false); toast.success(`${result.message}. Mã tiếp nhận: ${result.data.code}.`, { title: "Đã tiếp nhận yêu cầu" }) }, onError: error => toast.error(error.message, { title: "Không thể gửi yêu cầu" }) })
   const submit = form.handleSubmit(data => {
     const params = new URLSearchParams(window.location.search)
     mutation.mutate({ ...data, sourceDetails: { landingPage: window.location.href, referrer: document.referrer, utmSource: params.get("utm_source"), utmMedium: params.get("utm_medium"), utmCampaign: params.get("utm_campaign") } })
@@ -46,14 +49,12 @@ export function QuoteDialog({ open, onOpenChange, product }: { open: boolean; on
           </div>
           <Field label="Email (không bắt buộc)" error={form.formState.errors.email?.message}><Input type="email" autoComplete="email" placeholder="email@congty.vn" {...form.register("email")} /></Field>
           <div className="grid gap-5 sm:grid-cols-2">
-            <Field label="Bạn cần hỗ trợ gì?" error={form.formState.errors.serviceType?.message}><select className="field-select" {...form.register("serviceType")}><option value="">Chọn dịch vụ</option><option>Tư vấn kỹ thuật</option><option>Gia công cơ khí</option><option>Thi công công nghiệp</option><option>Cung ứng thiết bị</option></select></Field>
-            <Field label="Ngân sách dự kiến"><select className="field-select" {...form.register("budget")}><option>Chưa xác định</option><option>Dưới 100 triệu</option><option>100 - 500 triệu</option><option>500 triệu - 2 tỷ</option><option>Trên 2 tỷ</option></select></Field>
+            <Field label="Bạn cần hỗ trợ gì?" error={form.formState.errors.serviceType?.message}><Select ariaLabel="Dịch vụ cần hỗ trợ" value={form.watch("serviceType")} onChange={value => form.setValue("serviceType", value, { shouldDirty: true, shouldValidate: true })} options={["Chọn dịch vụ", "Tư vấn kỹ thuật", "Gia công cơ khí", "Thi công công nghiệp", "Cung ứng thiết bị"].map((label, index) => ({ value: index ? label : "", label }))}/></Field>
+            <Field label="Ngân sách dự kiến"><Select ariaLabel="Ngân sách dự kiến" value={form.watch("budget")} onChange={value => form.setValue("budget", value, { shouldDirty: true })} options={["Chưa xác định", "Dưới 100 triệu", "100 - 500 triệu", "500 triệu - 2 tỷ", "Trên 2 tỷ"].map(value => ({ value, label: value }))}/></Field>
           </div>
           <Field label="Mô tả yêu cầu" error={form.formState.errors.message?.message}><Textarea placeholder="Loại công trình, thông số, số lượng, tiến độ mong muốn..." {...form.register("message")} /></Field>
           <label className="mb-5 flex items-start gap-3 text-sm leading-6 text-slate-600"><input className="mt-1 size-5 shrink-0 accent-orange-600" type="checkbox" {...form.register("consent")}/><span>Tôi đồng ý để Cơ khí Đăng Khoa sử dụng thông tin trên nhằm liên hệ tư vấn và xử lý yêu cầu.{form.formState.errors.consent?.message && <strong className="block text-red-600">{form.formState.errors.consent.message}</strong>}</span></label>
           <Button className="mt-2 w-full" size="lg" disabled={mutation.isPending}>{mutation.isPending ? <><LoaderCircle className="size-5 animate-spin" />Đang gửi...</> : <>Gửi yêu cầu <Send className="size-5" /></>}</Button>
-          {mutation.isSuccess && <p role="status" className="mt-4 rounded-xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">{mutation.data.message}. Mã tiếp nhận: {mutation.data.data.code}.</p>}
-          {mutation.isError && <p role="alert" className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">{mutation.error.message}</p>}
         </form>
         <Dialog.Close className="absolute right-4 top-4 grid size-11 place-items-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-orange-100 hover:text-orange-700" aria-label="Đóng"><X className="size-5" /></Dialog.Close>
       </Dialog.Content>

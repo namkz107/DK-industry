@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Banknote, CalendarClock, CheckCircle2, History, MapPin, Navigation, PackageCheck, Phone, Search, Truck, UserCheck, Wrench } from "lucide-react"
+import { Banknote, CalendarClock, History, MapPin, Navigation, PackageCheck, Phone, Search, Truck, UserCheck, Wrench } from "lucide-react"
 import { useEffect, useState, type FormEvent, type ReactNode } from "react"
 import { useSearchParams } from "react-router-dom"
 import { StaffShell } from "@/components/staff/staff-shell"
 import { Pagination } from "@/components/pagination"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Select } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/components/ui/toast"
 import { usePageMeta } from "@/hooks/use-page-meta"
 import { staffClient } from "@/lib/staff-client"
 import { googleMapsDirectionsUrl } from "@/lib/google-maps"
@@ -23,6 +25,7 @@ export function StaffOrdersPage() {
   usePageMeta("Quản lý đơn hàng", "Xác nhận kho, thanh toán, đóng gói và điều phối giao hàng.")
   const [params] = useSearchParams()
   const client = useQueryClient()
+  const toast = useToast()
   const [filters, setFilters] = useState({ q: "", status: params.get("status") || "", paymentStatus: "", assigned: params.get("assigned") || "" })
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState("")
@@ -35,8 +38,8 @@ export function StaffOrdersPage() {
     void client.invalidateQueries({ queryKey: ["staff", "order", selected] })
     void client.invalidateQueries({ queryKey: ["staff", "dashboard"] })
   }
-  const update = useMutation({ mutationFn: (body: Parameters<typeof staffClient.updateOrder>[1]) => staffClient.updateOrder(selected, body), onSuccess: refresh })
-  const afterSales = useMutation({ mutationFn: ({ requestId, status, resolution }: { requestId: string; status: string; resolution?: string }) => staffClient.updateAfterSales(selected, requestId, { status, resolution }), onSuccess: refresh })
+  const update = useMutation({ mutationFn: (body: Parameters<typeof staffClient.updateOrder>[1]) => staffClient.updateOrder(selected, body), onSuccess: result => { toast.success(result.message || "Đã lưu thay đổi đơn hàng"); refresh() }, onError: error => toast.error(error.message) })
+  const afterSales = useMutation({ mutationFn: ({ requestId, status, resolution }: { requestId: string; status: string; resolution?: string }) => staffClient.updateAfterSales(selected, requestId, { status, resolution }), onSuccess: result => { toast.success(result.message || "Đã cập nhật yêu cầu hậu mãi"); refresh() }, onError: error => toast.error(error.message) })
 
   return <StaffShell title="Đơn hàng thương mại" description="Xử lý tuần tự từ xác nhận tồn kho đến giao hàng và đối soát thanh toán.">
     <div className="mb-5 grid gap-3 rounded-2xl border bg-white p-4 md:grid-cols-[1fr_180px_180px_170px]">
@@ -47,12 +50,12 @@ export function StaffOrdersPage() {
     </div>
     <div className="grid gap-5 xl:grid-cols-[390px_1fr]">
       <div><div className="space-y-3">{list.data?.data.items.map(item => <button key={item._id} onClick={() => setSelected(item._id)} className={cn("w-full rounded-2xl border bg-white p-5 text-left shadow-sm transition hover:border-orange-300", selected === item._id && "border-orange-500 ring-2 ring-orange-100")}><div className="flex justify-between gap-3"><strong className="text-lg text-emerald-950">{item.code}</strong><span className="text-sm font-black text-orange-700">{money.format(item.total)}</span></div><p className="mt-2 text-slate-700">{item.shippingAddress.recipientName}</p><div className="mt-3 flex justify-between gap-2 text-sm"><span className="font-bold text-emerald-700">{statusNames[item.status]}</span><span className="text-slate-500">{new Date(item.createdAt).toLocaleDateString("vi-VN")}</span></div><p className="mt-2 text-xs font-semibold text-slate-500">{paymentNames[item.paymentStatus]}</p></button>)}{list.isLoading && <p className="rounded-2xl bg-white p-5">Đang tải đơn hàng...</p>}{list.error && <p role="alert" className="rounded-2xl bg-red-50 p-4 text-red-700">{list.error.message}</p>}{!list.isLoading && !list.data?.data.items.length && <p className="rounded-2xl bg-white p-6 text-center text-slate-500">Không có đơn phù hợp.</p>}</div><Pagination page={list.data?.data.page || page} pages={list.data?.data.pages || 1} onChange={setPage}/></div>
-      {detail.data?.data ? <OrderDetail order={detail.data.data} busy={update.isPending || afterSales.isPending} success={update.isSuccess || afterSales.isSuccess} error={(update.error || afterSales.error) as Error | null} onUpdate={body => update.mutate(body)} onAfterSales={(requestId, status, resolution) => afterSales.mutate({ requestId, status, resolution })}/> : <div className="rounded-3xl border bg-white p-10 text-center text-slate-500">Chọn một đơn hàng để xử lý.</div>}
+      {detail.data?.data ? <OrderDetail order={detail.data.data} busy={update.isPending || afterSales.isPending} onUpdate={body => update.mutate(body)} onAfterSales={(requestId, status, resolution) => afterSales.mutate({ requestId, status, resolution })}/> : <div className="rounded-3xl border bg-white p-10 text-center text-slate-500">Chọn một đơn hàng để xử lý.</div>}
     </div>
   </StaffShell>
 }
 
-function OrderDetail({ order, busy, success, error, onUpdate, onAfterSales }: { order: StaffOrder; busy: boolean; success: boolean; error: Error | null; onUpdate: (body: Parameters<typeof staffClient.updateOrder>[1]) => void; onAfterSales: (requestId: string, status: string, resolution?: string) => void }) {
+function OrderDetail({ order, busy, onUpdate, onAfterSales }: { order: StaffOrder; busy: boolean; onUpdate: (body: Parameters<typeof staffClient.updateOrder>[1]) => void; onAfterSales: (requestId: string, status: string, resolution?: string) => void }) {
   const [nextStatus, setNextStatus] = useState("")
   const [paymentStatus, setPaymentStatus] = useState("")
   const [message, setMessage] = useState("")
@@ -120,8 +123,6 @@ function OrderDetail({ order, busy, success, error, onUpdate, onAfterSales }: { 
     </Section>
 
     {order.afterSalesRequests?.length ? <Section icon={<Wrench/>} title="Bảo hành, đổi trả và khiếu nại"><div className="space-y-4">{order.afterSalesRequests.map(item => <AfterSalesItem key={item._id} item={item} busy={busy} onUpdate={(status, resolution) => onAfterSales(item._id, status, resolution)}/>)}</div></Section> : null}
-    {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-4 font-semibold text-red-700">{error.message}</p>}
-    {success && !busy && <p role="status" className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-50 p-4 font-semibold text-emerald-800"><CheckCircle2 className="size-5"/>Đã lưu thay đổi.</p>}
     <div className="mt-6"><label className="text-sm font-bold text-slate-700">Ghi chú nội bộ<Textarea className="mt-2" value={internalNote} onChange={event => setInternalNote(event.target.value)} placeholder="Thông tin kho, hóa đơn VAT, vận chuyển..."/></label><Button className="mt-3" variant="outline" disabled={busy} onClick={() => onUpdate({ internalNote })}>Lưu ghi chú</Button></div>
   </article>
 }
@@ -130,4 +131,4 @@ function Section({ icon, title, children }: { icon: ReactNode; title: string; ch
 function Field({ label, children }: { label: string; children: ReactNode }) { return <label className="text-sm font-bold text-slate-700">{label}<span className="mt-2 block">{children}</span></label> }
 function AfterSalesItem({ item, busy, onUpdate }: { item: NonNullable<StaffOrder["afterSalesRequests"]>[number]; busy: boolean; onUpdate: (status: string, resolution?: string) => void }) { const options: Record<string, string[]> = { submitted: ["reviewing", "rejected"], reviewing: ["approved", "rejected"], approved: ["received", "resolved"], received: ["resolved"], rejected: [], resolved: [] }; const [status, setStatus] = useState(""); const [resolution, setResolution] = useState(item.resolution || ""); return <div className="rounded-2xl border bg-slate-50 p-4"><strong className="text-emerald-950">{item.type === "warranty" ? "Bảo hành" : item.type === "return" ? "Đổi / trả" : "Khiếu nại"} · {item.status}</strong><p className="mt-2 text-sm text-slate-600">{item.reason}</p>{options[item.status]?.length > 0 && <div className="mt-3 grid gap-3 sm:grid-cols-[190px_1fr_auto]"><Filter value={status} onChange={setStatus} first="Chọn bước xử lý" options={options[item.status].map(value => [value, value])}/><Input value={resolution} onChange={event => setResolution(event.target.value)} placeholder="Kết quả / hướng xử lý"/><Button disabled={busy || !status || (["rejected", "resolved"].includes(status) && resolution.trim().length < 5)} onClick={() => onUpdate(status, resolution.trim())}>Cập nhật</Button></div>}</div> }
 function Timeline({ title, entries }: { title: string; entries: Array<{ label: string; message?: string; at: string }> }) { return <div><h4 className="mb-3 font-bold text-slate-800">{title}</h4>{entries.length ? <ol className="space-y-3">{entries.map((item, index) => <li className="flex gap-3 text-sm" key={`${item.at}-${index}`}><span className="mt-1.5 size-2 shrink-0 rounded-full bg-orange-500"/><div><strong>{item.label}</strong>{item.message && <p className="mt-1 text-slate-500">{item.message}</p>}<time className="mt-1 flex items-center gap-1 text-xs text-slate-400"><CalendarClock className="size-3"/>{new Date(item.at).toLocaleString("vi-VN")}</time></div></li>)}</ol> : <p className="text-sm text-slate-400">Chưa có cập nhật.</p>}</div> }
-function Filter({ value, onChange, first, options }: { value: string; onChange: (value: string) => void; first: string; options: string[][] }) { return <select className="field-select" value={value} onChange={event => onChange(event.target.value)}><option value="">{first}</option>{options.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select> }
+function Filter({ value, onChange, first, options }: { value: string; onChange: (value: string) => void; first: string; options: string[][] }) { return <Select ariaLabel={first} value={value} onChange={onChange} options={[{ value: "", label: first }, ...options.map(([optionValue, label]) => ({ value: optionValue, label }))]}/> }

@@ -1,13 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Banknote, CheckCircle2, ChevronDown, Clock3, LoaderCircle, MapPin, PackageOpen, Truck, XCircle } from "lucide-react"
+import { Banknote, ChevronDown, Clock3, LoaderCircle, MapPin, PackageOpen, Truck, XCircle } from "lucide-react"
 import { useState } from "react"
-import { Link, useLocation } from "react-router-dom"
+import { Link } from "react-router-dom"
 import { CustomerShell } from "@/components/customer/customer-shell"
 import { Button } from "@/components/ui/button"
+import { Select } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/components/ui/toast"
 import { usePageMeta } from "@/hooks/use-page-meta"
 import { customerClient } from "@/lib/customer-client"
-import { formatPrice } from "@/lib/utils"
+import { formatPrice, scrollToPageTop } from "@/lib/utils"
 import type { CustomerOrder, PaymentStatus } from "@/types/customer"
 
 const statuses: Record<string, { label: string; className: string }> = {
@@ -25,26 +27,27 @@ const paymentNames: Record<PaymentStatus, string> = {
 export function OrdersPage() {
   usePageMeta("Đơn hàng của tôi", "Theo dõi đơn hàng, thanh toán và giao nhận tại một nơi.")
   const queryClient = useQueryClient()
-  const location = useLocation()
+  const toast = useToast()
   const orders = useQuery({ queryKey: ["customer", "orders"], queryFn: customerClient.orders })
   const cancel = useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) => customerClient.cancelOrder(id, reason),
-    onSuccess: () => {
+    onSuccess: result => {
+      toast.success(result.message || "Đã gửi yêu cầu hủy đơn")
+      scrollToPageTop()
       void queryClient.invalidateQueries({ queryKey: ["customer", "orders"] })
       void queryClient.invalidateQueries({ queryKey: ["customer", "summary"] })
     },
+    onError: error => toast.error(error.message),
   })
   const afterSales = useMutation({
     mutationFn: ({ id, type, reason }: { id: string; type: "return" | "warranty" | "complaint"; reason: string }) => customerClient.createAfterSales(id, { type, reason }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["customer", "orders"] }),
+    onSuccess: result => { toast.success(result.message || "Đã gửi yêu cầu hậu mãi"); scrollToPageTop(); void queryClient.invalidateQueries({ queryKey: ["customer", "orders"] }) },
+    onError: error => toast.error(error.message),
   })
-  const createdCode = (location.state as { createdCode?: string } | null)?.createdCode
 
   return <CustomerShell title="Đơn hàng của tôi" description="Theo dõi xác nhận kho, thanh toán và hành trình giao hàng rõ ràng theo từng bước.">
-    {createdCode && <p role="status" className="mb-5 flex items-center gap-3 rounded-2xl bg-emerald-50 p-4 font-semibold text-emerald-800"><CheckCircle2 className="size-5"/>Đã tạo đơn {createdCode}. Nhân viên sẽ sớm xác nhận tồn kho.</p>}
     {orders.isLoading ? <Loading/> : orders.error ? <ErrorText error={orders.error}/> : !orders.data?.data.length ? <Empty/> :
       <div className="space-y-5">{orders.data.data.map(order => <OrderCard key={order._id} order={order} busy={cancel.isPending || afterSales.isPending} onCancel={(reason) => cancel.mutate({ id: order._id, reason })} onAfterSales={(type, reason) => afterSales.mutate({ id: order._id, type, reason })}/>)}</div>}
-    {(cancel.error || afterSales.error) && <ErrorText error={(cancel.error || afterSales.error) as Error}/>}
     <div className="mt-6 flex items-start gap-3 rounded-2xl bg-blue-50 p-4 text-sm leading-6 text-blue-900"><Truck className="mt-0.5 size-5 shrink-0"/><p>Phí và lịch giao chính thức được cập nhật sau khi nhân viên kiểm tra kích thước, khối lượng, tồn kho và địa điểm nhận hàng.</p></div>
   </CustomerShell>
 }
@@ -74,7 +77,7 @@ function OrderCard({ order, busy, onCancel, onAfterSales }: { order: CustomerOrd
         </div>
       </details>
       {order.afterSalesRequests?.map(item => <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm" key={item._id}><strong className="text-blue-900">Hậu mãi: {item.type === "warranty" ? "Bảo hành" : item.type === "return" ? "Đổi / trả" : "Khiếu nại"} · {item.status}</strong><p className="mt-1 text-slate-600">{item.reason}</p>{item.resolution && <p className="mt-2 font-semibold text-blue-900">Kết quả: {item.resolution}</p>}</div>)}
-      {order.status === "delivered" && !order.afterSalesRequests?.some(item => !["rejected", "resolved"].includes(item.status)) && (afterSalesOpen ? <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4"><label className="block text-sm font-bold text-blue-900">Loại yêu cầu<select className="field-select mt-2 bg-white" value={afterSalesType} onChange={event => setAfterSalesType(event.target.value as typeof afterSalesType)}><option value="warranty">Bảo hành</option><option value="return">Đổi / trả</option><option value="complaint">Khiếu nại</option></select></label><label className="mt-3 block text-sm font-bold text-blue-900">Mô tả vấn đề<Textarea className="mt-2 bg-white text-slate-900" value={afterSalesReason} onChange={event => setAfterSalesReason(event.target.value)} placeholder="Mô tả lỗi, tình trạng hàng và mong muốn xử lý"/></label><div className="mt-3 flex gap-2"><Button disabled={busy || afterSalesReason.trim().length < 10} onClick={() => onAfterSales(afterSalesType, afterSalesReason.trim())}>Gửi yêu cầu</Button><Button variant="outline" onClick={() => setAfterSalesOpen(false)}>Đóng</Button></div></div> : <Button className="mt-4" variant="outline" onClick={() => setAfterSalesOpen(true)}>Yêu cầu bảo hành / đổi trả</Button>)}
+      {order.status === "delivered" && !order.afterSalesRequests?.some(item => !["rejected", "resolved"].includes(item.status)) && (afterSalesOpen ? <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4"><label className="block text-sm font-bold text-blue-900">Loại yêu cầu<span className="mt-2 block"><Select ariaLabel="Loại yêu cầu hậu mãi" value={afterSalesType} onChange={value => setAfterSalesType(value as typeof afterSalesType)} options={[{ value: "warranty", label: "Bảo hành" }, { value: "return", label: "Đổi / trả" }, { value: "complaint", label: "Khiếu nại" }]}/></span></label><label className="mt-3 block text-sm font-bold text-blue-900">Mô tả vấn đề<Textarea className="mt-2 bg-white text-slate-900" value={afterSalesReason} onChange={event => setAfterSalesReason(event.target.value)} placeholder="Mô tả lỗi, tình trạng hàng và mong muốn xử lý"/></label><div className="mt-3 flex gap-2"><Button disabled={busy || afterSalesReason.trim().length < 10} onClick={() => onAfterSales(afterSalesType, afterSalesReason.trim())}>Gửi yêu cầu</Button><Button variant="outline" onClick={() => setAfterSalesOpen(false)}>Đóng</Button></div></div> : <Button className="mt-4" variant="outline" onClick={() => setAfterSalesOpen(true)}>Yêu cầu bảo hành / đổi trả</Button>)}
       {order.status === "pending" && (cancelling ? <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4"><label className="text-sm font-bold text-red-900">Lý do hủy đơn<Textarea className="mt-2 bg-white text-slate-900" value={reason} onChange={event => setReason(event.target.value)} placeholder="Ví dụ: Tôi đặt nhầm số lượng sản phẩm"/></label><div className="mt-3 flex flex-wrap gap-2"><Button variant="destructive" disabled={busy || reason.trim().length < 5} onClick={() => onCancel(reason.trim())}><XCircle className="size-5"/>Xác nhận hủy</Button><Button variant="outline" disabled={busy} onClick={() => { setCancelling(false); setReason("") }}>Giữ lại đơn</Button></div></div> : <Button className="mt-4" variant="ghost" onClick={() => setCancelling(true)}><XCircle className="size-5 text-red-600"/>Yêu cầu hủy đơn</Button>)}
     </div>
   </article>

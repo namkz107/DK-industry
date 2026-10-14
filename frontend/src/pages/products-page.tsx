@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { ArrowRight, CheckCircle2, LoaderCircle, PackageSearch, Search, ShoppingCart } from "lucide-react"
+import { ArrowRight, LoaderCircle, PackageSearch, Search, ShoppingCart } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Link, useNavigate, useOutletContext } from "react-router-dom"
 import type { LayoutContext } from "@/components/app-layout"
 import { PageHero } from "@/components/page-hero"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { useToast } from "@/components/ui/toast"
 import { useAuth } from "@/contexts/auth-context"
 import { usePageMeta } from "@/hooks/use-page-meta"
 import { api } from "@/lib/api"
@@ -19,9 +20,9 @@ export function ProductsPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const toast = useToast()
   const [search, setSearch] = useState("")
   const [category, setCategory] = useState("Tất cả")
-  const [notice, setNotice] = useState("")
   const query = useQuery({ queryKey: ["products"], queryFn: api.products, staleTime: 5 * 60_000, retry: 1 })
   const products = useMemo(() => query.data?.data || [], [query.data?.data])
   const categories = useMemo(() => ["Tất cả", ...new Set(products.map(item => item.category))], [products])
@@ -29,10 +30,11 @@ export function ProductsPage() {
   const add = useMutation({
     mutationFn: (product: Product) => customerClient.addCartItem(product._id),
     onSuccess: (_, product) => {
-      setNotice(`Đã thêm “${product.name}” vào giỏ hàng.`)
+      toast.success(`Đã thêm “${product.name}” vào giỏ hàng.`, { action: { label: "Xem giỏ hàng", onClick: () => navigate("/gio-hang") } })
       void queryClient.invalidateQueries({ queryKey: ["customer", "cart"] })
       void queryClient.invalidateQueries({ queryKey: ["customer", "summary"] })
     },
+    onError: error => toast.error(error.message, { title: "Không thể thêm vào giỏ" }),
   })
 
   const addToCart = (product: Product) => {
@@ -48,8 +50,6 @@ export function ProductsPage() {
   return <>
     <PageHero variant="products" eyebrow="Thiết bị & vật tư" title="Sản phẩm công nghiệp" description="Sản phẩm có giá được đặt trực tiếp; hàng chế tạo hoặc số lượng dự án sẽ chuyển sang yêu cầu báo giá."/>
     <section className="section-space bg-stone-50"><div className="container-page">
-      {notice && <p role="status" className="mx-auto mb-5 flex max-w-2xl items-center gap-2 rounded-2xl bg-emerald-50 p-4 font-semibold text-emerald-800"><CheckCircle2 className="size-5"/>{notice}</p>}
-      {add.error && <p role="alert" className="mx-auto mb-5 max-w-2xl rounded-2xl bg-red-50 p-4 font-semibold text-red-700">{add.error.message}</p>}
       {query.error && <p role="alert" className="mx-auto mb-5 max-w-2xl rounded-2xl bg-red-50 p-4 font-semibold text-red-700">Không thể tải danh mục sản phẩm. Vui lòng thử lại hoặc liên hệ hotline.</p>}
       <label className="relative mx-auto block max-w-2xl"><span className="sr-only">Tìm sản phẩm</span><Search className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400"/><Input className="min-h-14 pl-12" value={search} onChange={event => setSearch(event.target.value)} placeholder="Nhập tên sản phẩm hoặc nhóm thiết bị..."/></label>
       <div className="my-8 flex flex-wrap justify-center gap-2" aria-label="Lọc theo danh mục">{categories.map(item => <button className={`min-h-11 rounded-full border px-4 text-sm font-bold transition ${category === item ? "border-emerald-950 bg-emerald-950 text-white" : "border-slate-300 bg-white text-slate-700 hover:border-orange-500"}`} onClick={() => setCategory(item)} key={item}>{item}</button>)}</div>

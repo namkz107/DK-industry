@@ -1,10 +1,13 @@
+/* eslint-disable react-refresh/only-export-components -- Dữ liệu chính sách được dùng chung cho trang đầy đủ và modal đặt hàng. */
 import { Link, useParams } from "react-router-dom"
 import { company } from "@/config/company"
 import { usePageMeta } from "@/hooks/use-page-meta"
 
-const policyVersion = import.meta.env.VITE_POLICY_VERSION || "2026-10-14"
+export const policyVersion = import.meta.env.VITE_POLICY_VERSION || "2026-10-14"
 
-const policies: Record<string, { title: string; intro: string; sections: Array<{ title: string; paragraphs: string[] }> }> = {
+export type Policy = { title: string; intro: string; sections: Array<{ title: string; paragraphs: string[] }> }
+
+export const policies: Record<string, Policy> = {
   "bao-mat": {
     title: "Chính sách bảo mật và dữ liệu cá nhân",
     intro: "Chính sách này giải thích cách Cơ khí Đăng Khoa tiếp nhận, sử dụng và bảo vệ thông tin khi khách hàng sử dụng website hoặc gửi yêu cầu.",

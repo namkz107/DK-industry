@@ -9,8 +9,11 @@ import { AdminShell } from "@/components/admin/admin-shell"
 import { ImageUpload } from "@/components/admin/image-upload"
 import { Pagination } from "@/components/pagination"
 import { Button } from "@/components/ui/button"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Input } from "@/components/ui/input"
+import { Select } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/components/ui/toast"
 import { usePageMeta } from "@/hooks/use-page-meta"
 import { adminClient } from "@/lib/admin-client"
 import { cn, formatPrice } from "@/lib/utils"
@@ -27,9 +30,10 @@ const tabs: Array<{ key: Kind; label: string; icon: typeof Boxes }> = [{ key: "p
 
 export function AdminContentPage() {
   usePageMeta("Sản phẩm và nội dung", "Quản lý dữ liệu hiển thị trên website.")
-  const [params, setParams] = useSearchParams(); const queryClient = useQueryClient()
+  const [params, setParams] = useSearchParams(); const queryClient = useQueryClient(); const toast = useToast()
   const kind = (tabs.some(item => item.key === params.get("tab")) ? params.get("tab") : "products") as Kind
   const [filters, setFilters] = useState({ q: "", state: "" }); const [page, setPage] = useState(1); const [editing, setEditing] = useState<ContentItem | null>(null); const [showForm, setShowForm] = useState(false); const [imageUploading, setImageUploading] = useState(false)
+  const [pendingHide, setPendingHide] = useState<ContentItem | null>(null)
   const products = useQuery({ queryKey: ["admin", "products", filters, page], queryFn: () => adminClient.products({ ...filters, page }), enabled: kind === "products" })
   const services = useQuery({ queryKey: ["admin", "services", filters, page], queryFn: () => adminClient.services({ ...filters, page }), enabled: kind === "services" })
   const projects = useQuery({ queryKey: ["admin", "projects", filters, page], queryFn: () => adminClient.projects({ ...filters, page }), enabled: kind === "projects" })
@@ -40,8 +44,8 @@ export function AdminContentPage() {
     if (kind === "products") return id ? adminClient.updateProduct(id, body) : adminClient.createProduct(body)
     if (kind === "services") return id ? adminClient.updateService(id, body) : adminClient.createService(body)
     return id ? adminClient.updateProject(id, body) : adminClient.createProject(body)
-  }, onSuccess: () => { refresh(); closeForm() } })
-  const hide = useMutation<unknown, Error, string>({ mutationFn: (id) => kind === "products" ? adminClient.hideProduct(id) : kind === "services" ? adminClient.hideService(id) : adminClient.hideProject(id), onSuccess: refresh })
+  }, onSuccess: (_, variables) => { toast.success(variables.id ? "Đã cập nhật nội dung" : "Đã tạo nội dung mới"); refresh(); closeForm() } })
+  const hide = useMutation<unknown, Error, string>({ mutationFn: (id) => kind === "products" ? adminClient.hideProduct(id) : kind === "services" ? adminClient.hideService(id) : adminClient.hideProject(id), onSuccess: () => { toast.success("Đã ẩn nội dung khỏi website"); setPendingHide(null); refresh() }, onError: error => toast.error(error.message, { title: "Không thể ẩn nội dung" }) })
 
   useEffect(() => { setEditing(null); setShowForm(false); setPage(1); form.reset(defaults) }, [kind, form])
   useEffect(() => setPage(1), [filters])
@@ -76,9 +80,10 @@ export function AdminContentPage() {
       {kind === "projects" && <><label className="text-sm font-bold text-slate-700">Thách thức<Textarea className="mt-2 min-h-28" {...form.register("challenge")}/></label><label className="text-sm font-bold text-slate-700">Giải pháp<Textarea className="mt-2 min-h-28" {...form.register("solution")}/></label><label className="text-sm font-bold text-slate-700">Thư viện ảnh<Textarea className="mt-2 min-h-28" placeholder="Mỗi dòng một URL ảnh" {...form.register("extraImages")}/></label></>}
       <div className="flex flex-wrap items-center gap-5 md:col-span-2 xl:col-span-3"><Check register={form.register("featured")} label="Nổi bật"/><Check register={form.register("visible")} label={kind === "products" ? "Đang bán" : "Đang công khai"}/>{kind === "products" && <Check register={form.register("priceOnRequest")} label="Giá liên hệ"/>}<Button disabled={save.isPending || imageUploading}>{imageUploading ? "Đang tải ảnh..." : save.isPending ? "Đang lưu..." : "Lưu nội dung"}</Button></div>
     </form>{save.error && <ErrorText error={save.error as Error}/>}</section>}
-    <div className="mt-5 grid gap-3 rounded-2xl border bg-white p-4 sm:grid-cols-[1fr_190px]"><label className="relative"><Search className="absolute left-3 top-3.5 size-5 text-slate-400"/><Input className="pl-10" value={filters.q} onChange={event => setFilters({ ...filters, q: event.target.value })} placeholder={`Tìm ${tabName(kind).toLowerCase()}...`}/></label><select className="field-select" value={filters.state} onChange={event => setFilters({ ...filters, state: event.target.value })}><option value="">Tất cả trạng thái</option><option value="published">Đang hiển thị</option><option value="hidden">Đã ẩn</option></select></div>
-    <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">{current.data?.data.items.map(item => <ContentCard key={item._id} item={item} onEdit={() => openEdit(item)} onHide={() => { if (window.confirm("Ẩn nội dung này khỏi website?")) hide.mutate(item._id) }}/>)}</div>{current.isLoading && <p className="mt-4 rounded-2xl bg-white p-8 text-center">Đang tải nội dung...</p>}{current.error && <ErrorText error={current.error}/>} {!current.isLoading && !current.data?.data.items.length && <p className="mt-4 rounded-2xl bg-white p-10 text-center text-slate-500">Chưa có dữ liệu phù hợp.</p>}
+    <div className="mt-5 grid gap-3 rounded-2xl border bg-white p-4 sm:grid-cols-[1fr_190px]"><label className="relative"><Search className="absolute left-3 top-3.5 size-5 text-slate-400"/><Input className="pl-10" value={filters.q} onChange={event => setFilters({ ...filters, q: event.target.value })} placeholder={`Tìm ${tabName(kind).toLowerCase()}...`}/></label><Select ariaLabel="Lọc trạng thái hiển thị" value={filters.state} onChange={state => setFilters({ ...filters, state })} options={[{ value: "", label: "Tất cả trạng thái" }, { value: "published", label: "Đang hiển thị" }, { value: "hidden", label: "Đã ẩn" }]}/></div>
+    <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">{current.data?.data.items.map(item => <ContentCard key={item._id} item={item} onEdit={() => openEdit(item)} onHide={() => setPendingHide(item)}/>)}</div>{current.isLoading && <p className="mt-4 rounded-2xl bg-white p-8 text-center">Đang tải nội dung...</p>}{current.error && <ErrorText error={current.error}/>} {!current.isLoading && !current.data?.data.items.length && <p className="mt-4 rounded-2xl bg-white p-10 text-center text-slate-500">Chưa có dữ liệu phù hợp.</p>}
     <Pagination page={current.data?.data.page || page} pages={current.data?.data.pages || 1} onChange={setPage}/>
+    <ConfirmDialog open={Boolean(pendingHide)} title="Ẩn nội dung khỏi website?" description={pendingHide ? `“${"title" in pendingHide ? pendingHide.title : pendingHide.name}” sẽ không còn hiển thị công khai. Bạn vẫn có thể chỉnh sửa và bật hiển thị lại sau.` : ""} confirmLabel="Ẩn nội dung" destructive busy={hide.isPending} onOpenChange={open => { if (!open) setPendingHide(null) }} onConfirm={() => { if (pendingHide) hide.mutate(pendingHide._id) }}/>
   </AdminShell>
 }
 
