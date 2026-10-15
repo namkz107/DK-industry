@@ -17,7 +17,7 @@ const SupportMessage = require('../models/SupportMessage');
 const { transitionOrder, transitionPayment, transitionServiceRequest } = require('../services/workflowService');
 const { withTransaction } = require('../services/transactionService');
 const { writeAudit } = require('../services/auditService');
-const { createNotification, notifyOperations, dispatchSoon } = require('../services/notificationService');
+const { createNotification, notifyAdmins, notifyOperations, dispatchSoon } = require('../services/notificationService');
 const { validateUploadedFiles } = require('../services/fileSecurityService');
 const { removeStoredFiles, sendStoredFile, storeCustomerFiles } = require('../services/fileStorageService');
 const { reverseLocation, searchLocations } = require('../services/locationService');
@@ -111,7 +111,7 @@ router.post('/privacy/requests', requireVerifiedEmail, async (req, res, next) =>
     if (existing) fail('Bạn đã có một yêu cầu xóa tài khoản đang được xử lý', 409);
     const item = await DataPrivacyRequest.create({ customer: req.user._id, type: 'deletion', reason });
     await writeAudit({ actor: req.user._id, action: 'privacy.deletion_requested', entity: 'privacy_request', entityId: item._id, summary: `Khách hàng ${req.user.name} yêu cầu xóa tài khoản` });
-    await notifyOperations({ type: 'privacy.deletion_requested', title: 'Có yêu cầu xóa tài khoản mới', message: `${req.user.name} đã gửi yêu cầu xóa tài khoản.`, link: '/admin/quyen-rieng-tu', metadata: { privacyRequestId: item._id } });
+    await notifyAdmins({ type: 'privacy.deletion_requested', title: 'Có yêu cầu xóa tài khoản mới', message: `${req.user.name} đã gửi yêu cầu xóa tài khoản.`, link: '/admin/quyen-rieng-tu', metadata: { privacyRequestId: item._id } });
     dispatchSoon();
     res.status(201).json({ success: true, message: 'Đã tiếp nhận yêu cầu xóa tài khoản', data: item });
   } catch (error) { next(error); }
@@ -410,6 +410,49 @@ router.patch('/orders/:id/cancel', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+router.patch('/orders/:id/confirm-received', async (req, res, next) => {
+  try {
+    if (!validId(req.params.id)) fail('Đơn hàng không hợp lệ', 404);
+    let newlyConfirmed = false;
+    const order = await withTransaction(async session => {
+      const query = Order.findOne({ _id: req.params.id, customer: req.user._id });
+      if (session) query.session(session);
+      const current = await query;
+      if (!current) fail('Không tìm thấy đơn hàng', 404);
+      if (!['shipping', 'delivered'].includes(current.status)) fail('Chỉ xác nhận khi đơn đang giao hoặc đã được giao', 409);
+      if (current.customerConfirmedAt) return current;
+      newlyConfirmed = true;
+
+      const completedByCustomer = current.status === 'shipping';
+      if (completedByCustomer) {
+        transitionOrder(current, 'delivered', {
+          actor: req.user._id,
+          actorType: 'customer',
+          message: 'Khách hàng xác nhận đã nhận đủ hàng.'
+        });
+      } else {
+        current.timeline.push({ status: 'delivered', actor: req.user._id, actorType: 'customer', message: 'Khách hàng xác nhận đã nhận đủ hàng.' });
+      }
+      current.customerConfirmedAt = new Date();
+      current.deliveryRecipientName ||= current.shippingAddress.recipientName;
+      if (completedByCustomer) current.deliveryConfirmationSource = 'customer';
+      if (current.paymentMethod === 'cod' && ['unpaid', 'pending'].includes(current.paymentStatus)) {
+        current.amountPaid = current.total;
+        current.paymentLockedAt = new Date();
+        transitionPayment(current, 'paid', { actor: req.user._id, message: 'Khách xác nhận đã nhận hàng và thanh toán COD.', amount: current.total });
+      }
+      await current.save(session ? { session } : undefined);
+      await writeAudit({ actor: req.user._id, action: 'order.receipt_confirmed', entity: 'order', entityId: current._id, summary: `Khách xác nhận đã nhận đơn ${current.code}`, session });
+      return current;
+    });
+    if (newlyConfirmed) {
+      await notifyOperations({ type: 'order.receipt_confirmed', title: `Khách đã nhận đơn ${order.code}`, message: `${req.user.name} xác nhận đã nhận đủ hàng.`, link: '/staff/orders', metadata: { orderId: order._id } });
+      dispatchSoon();
+    }
+    res.json({ success: true, message: newlyConfirmed ? 'Cảm ơn bạn đã xác nhận nhận hàng' : 'Đơn hàng đã được xác nhận trước đó', data: order });
+  } catch (error) { next(error); }
+});
+
 router.post('/orders/:id/after-sales', async (req, res, next) => {
   try {
     if (!validId(req.params.id)) fail('Đơn hàng không hợp lệ', 404);
@@ -570,11 +613,13 @@ router.patch('/requests/:requestId/quotations/:quotationId/respond', async (req,
     if (!['accepted', 'rejected'].includes(decision)) fail('Phản hồi báo giá không hợp lệ');
     const responseNote = clean(req.body.note).slice(0, 1000);
     let workOrder;
+    let requestCode = '';
     const quotation = await withTransaction(async session => {
       const requestQuery = ServiceRequest.findOne({ _id: req.params.requestId, customer: req.user._id });
       if (session) requestQuery.session(session);
       const request = await requestQuery;
       if (!request) fail('Không tìm thấy yêu cầu', 404);
+      requestCode = request.code;
       const latestQuery = Quotation.findOne({ request: request._id, customer: req.user._id, status: 'sent' }).sort({ version: -1 });
       if (session) latestQuery.session(session);
       const latest = await latestQuery;
@@ -611,10 +656,23 @@ router.patch('/requests/:requestId/quotations/:quotationId/respond', async (req,
       await writeAudit({ actor: req.user._id, action: `quotation.${decision}`, entity: 'quotation', entityId: updated._id, summary: `Khách hàng ${decision === 'accepted' ? 'chấp thuận' : 'từ chối'} báo giá ${updated.code}`, metadata: { requestId: request._id, workOrderId: workOrder?._id, responseNote }, session });
       return updated;
     });
-    await notifyOperations({ type: `quotation.${decision}`, title: `Báo giá ${quotation.code} đã được phản hồi`, message: decision === 'accepted' ? `Khách hàng đã chấp thuận. Công việc ${workOrder?.code || ''} đã được khởi tạo.` : `Khách hàng chưa chấp thuận.${responseNote ? ` ${responseNote}` : ''}`, link: '/staff/requests', metadata: { quotationId: quotation._id, workOrderId: workOrder?._id } });
+    const staffLink = decision === 'accepted' && workOrder
+      ? `/staff/work-orders?workOrderId=${workOrder._id}&q=${encodeURIComponent(workOrder.code)}`
+      : `/staff/requests?requestId=${req.params.requestId}&q=${encodeURIComponent(requestCode)}`;
+    await notifyOperations({ type: `quotation.${decision}`, title: `Báo giá ${quotation.code} đã được phản hồi`, message: decision === 'accepted' ? `Khách hàng đã chấp thuận. Công việc ${workOrder?.code || ''} đã được khởi tạo.` : `Khách hàng yêu cầu điều chỉnh báo giá.${responseNote ? ` ${responseNote}` : ''}`, link: staffLink, metadata: { requestId: req.params.requestId, quotationId: quotation._id, workOrderId: workOrder?._id } });
     dispatchSoon();
     emitRequestUpdated(req.params.requestId, `quotation_${decision}`);
-    res.json({ success: true, message: decision === 'accepted' ? 'Đã chấp thuận báo giá' : 'Đã gửi phản hồi báo giá', data: quotation });
+    res.json({
+      success: true,
+      message: decision === 'accepted'
+        ? `Đã chấp thuận báo giá. Công việc ${workOrder?.code || ''} đã được tạo để nhân viên tiếp tục xử lý.`
+        : 'Đã gửi yêu cầu điều chỉnh. Nhân viên sẽ cập nhật và gửi lại báo giá mới tại hồ sơ này.',
+      data: {
+        ...quotation.toObject(),
+        nextAction: decision === 'accepted' ? 'wait_for_contract' : 'wait_for_revised_quotation',
+        workOrder: workOrder ? { _id: workOrder._id, code: workOrder.code, status: workOrder.status } : null
+      }
+    });
   } catch (error) { next(error); }
 });
 

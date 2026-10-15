@@ -23,6 +23,7 @@ async function authenticatedUser(token) {
 
 async function authorizedRequest(requestId, user) {
   if (!validRequestId(requestId)) return null;
+  if (!['customer', 'staff'].includes(user.role)) return null;
   const filter = user.role === 'customer' ? { _id: requestId, customer: user._id } : { _id: requestId };
   return ServiceRequest.findOne(filter).select('_id customer assignedTo').lean();
 }
@@ -57,7 +58,7 @@ function initializeChatGateway(httpServer) {
     }, Math.max(0, socket.data.expiresAt - Date.now()));
     expiryTimer.unref?.();
     socket.on('disconnect', () => clearTimeout(expiryTimer));
-    if (socket.data.user.role !== 'customer') socket.join('operations');
+    if (socket.data.user.role === 'staff') socket.join('operations');
 
     socket.on('request:join', async (requestId, acknowledge = () => {}) => {
       try {

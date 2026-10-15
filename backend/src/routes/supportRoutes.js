@@ -40,7 +40,7 @@ async function context(req) {
 }
 
 function requireStaff(user) {
-  if (!user || !['staff', 'admin'].includes(user.role)) throw Object.assign(new Error('Bạn không có quyền truy cập hộp thư hỗ trợ'), { status: 403 });
+  if (!user || user.role !== 'staff') throw Object.assign(new Error('Bạn không có quyền truy cập hộp thư hỗ trợ'), { status: 403 });
 }
 
 function publicConversation(value) {

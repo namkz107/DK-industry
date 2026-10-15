@@ -103,7 +103,7 @@ Tìm địa chỉ và đổi GPS thành địa chỉ dùng máy chủ công cộ
 | POST/PATCH/DELETE | `/api/admin/products/:id` | Quản trị sản phẩm |
 | POST/PATCH/DELETE | `/api/admin/projects/:id` | Quản trị dự án |
 
-Các route `/api/staff/*` dành cho Staff/Admin xử lý nghiệp vụ. Route quản trị nội dung `/api/admin/products|projects|services` tiếp tục yêu cầu role Admin. Trước khi production cần thay toàn bộ thông tin liên hệ, hình ảnh demo và cấu hình email/Zalo/thanh toán thực tế.
+Các route `/api/staff/*` chỉ dành cho Staff xử lý nghiệp vụ. Route quản trị nội dung `/api/admin/products|projects|services` chỉ dành cho Admin. Trước khi production cần thay toàn bộ thông tin liên hệ, hình ảnh demo và cấu hình email/Zalo/thanh toán thực tế.
 
 Quy chuẩn kiểm duyệt nội dung và phòng tránh SEO spam nằm tại [`docs/CONTENT-SECURITY.md`](docs/CONTENT-SECURITY.md).
 Kiến trúc, luồng sử dụng và checklist production của Authentication nằm tại [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md).

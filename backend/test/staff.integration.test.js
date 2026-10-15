@@ -142,9 +142,12 @@ test('Staff xử lý Lead, Service Request, trao đổi và báo giá đúng quy
     const shipping = await call(`/staff/orders/${deliveryOrder._id}`, staffToken, { method: 'PATCH', body: JSON.stringify({ status: 'shipping', paymentStatus: 'paid', amountPaid: 280000, paymentReference: 'FT-DELIVERY-TEST', shippingProvider: 'Xe công ty', trackingCode: 'DK-TEST', message: 'Đã bàn giao vận chuyển.' }) });
     assert.equal(shipping.status, 200);
     assert.equal((await shipping.json()).data.total, 280000);
-    const delivered = await call(`/staff/orders/${deliveryOrder._id}`, staffToken, { method: 'PATCH', body: JSON.stringify({ status: 'delivered', message: 'Khách đã nhận đủ hàng.' }) });
+    const delivered = await call(`/staff/orders/${deliveryOrder._id}`, staffToken, { method: 'PATCH', body: JSON.stringify({ status: 'delivered', deliveryConfirmed: true, deliveryRecipientName: customer.name, message: 'Khách đã nhận đủ hàng.' }) });
     assert.equal(delivered.status, 200);
     assert.ok((await Order.findById(deliveryOrder._id)).deliveredAt);
+    const customerConfirmed = await call(`/customer/orders/${deliveryOrder._id}/confirm-received`, customerToken, { method: 'PATCH' });
+    assert.equal(customerConfirmed.status, 200);
+    assert.ok((await Order.findById(deliveryOrder._id)).customerConfirmedAt);
     const afterSales = await call(`/customer/orders/${deliveryOrder._id}/after-sales`, customerToken, { method: 'POST', body: JSON.stringify({ type: 'warranty', reason: 'Động cơ phát tiếng ồn bất thường khi vận hành thử.' }) });
     assert.equal(afterSales.status, 201);
     const afterSalesId = (await afterSales.json()).data.afterSalesRequests[0]._id;

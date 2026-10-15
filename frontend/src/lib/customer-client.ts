@@ -1,5 +1,5 @@
 import { authClient } from "@/lib/auth-client"
-import type { Address, Cart, CustomerOrder, CustomerProfile, CustomerRequest, CustomerSummary, LocationDetails, MessagePage, PlaceSuggestion, PrivacyRequest, Quotation, RequestDetail, RequestMessage } from "@/types/customer"
+import type { Address, Cart, CustomerOrder, CustomerProfile, CustomerRequest, CustomerSummary, LocationDetails, MessagePage, PlaceSuggestion, PrivacyRequest, QuotationResponse, RequestDetail, RequestMessage } from "@/types/customer"
 
 type Result<T> = { success: boolean; data: T; message?: string }
 const json = (method: string, body?: unknown): RequestInit => ({ method, body: body === undefined ? undefined : JSON.stringify(body) })
@@ -24,6 +24,7 @@ export const customerClient = {
   orders: () => authClient.authenticated<Result<CustomerOrder[]>>("/customer/orders"),
   createOrder: (body: { addressId: string; paymentMethod: "cod" | "bank_transfer"; customerNote?: string; idempotencyKey: string; acceptedTerms: true }) => authClient.authenticated<Result<CustomerOrder>>("/customer/orders", json("POST", body)),
   cancelOrder: (id: string, reason?: string) => authClient.authenticated<Result<CustomerOrder>>(`/customer/orders/${id}/cancel`, json("PATCH", { reason })),
+  confirmOrderReceived: (id: string) => authClient.authenticated<Result<CustomerOrder>>(`/customer/orders/${id}/confirm-received`, { method: "PATCH" }),
   createAfterSales: (id: string, body: { type: "return" | "warranty" | "complaint"; reason: string }) => authClient.authenticated<Result<CustomerOrder>>(`/customer/orders/${id}/after-sales`, json("POST", body)),
   requests: () => authClient.authenticated<Result<CustomerRequest[]>>("/customer/requests"),
   requestDetail: (id: string) => authClient.authenticated<Result<RequestDetail>>(`/customer/requests/${id}`),
@@ -31,7 +32,7 @@ export const customerClient = {
   createRequest: (body: FormData) => authClient.authenticated<Result<{ id: string; code: string; status: string }>>("/customer/requests", { method: "POST", body }),
   sendRequestMessage: (id: string, body: FormData) => authClient.authenticated<Result<RequestMessage>>(`/customer/requests/${id}/messages`, { method: "POST", body }),
   cancelRequest: (id: string) => authClient.authenticated<Result<CustomerRequest>>(`/customer/requests/${id}/cancel`, { method: "PATCH" }),
-  respondQuotation: (requestId: string, quotationId: string, decision: "accepted" | "rejected", note = "") => authClient.authenticated<Result<Quotation>>(`/customer/requests/${requestId}/quotations/${quotationId}/respond`, json("PATCH", { decision, note })),
+  respondQuotation: (requestId: string, quotationId: string, decision: "accepted" | "rejected", note = "") => authClient.authenticated<Result<QuotationResponse>>(`/customer/requests/${requestId}/quotations/${quotationId}/respond`, json("PATCH", { decision, note })),
   downloadAttachment: (requestId: string, attachmentId: string) => authClient.download(`/customer/requests/${requestId}/attachments/${attachmentId}`),
   downloadMessageAttachment: (requestId: string, messageId: string, attachmentId: string) => authClient.download(`/customer/requests/${requestId}/messages/${messageId}/attachments/${attachmentId}`),
 }

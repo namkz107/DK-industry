@@ -52,7 +52,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/notifications', authenticate, notificationRoutes);
 app.use('/api/customer', authenticate, requireRole('customer'), customerRoutes);
-app.use('/api/staff', authenticate, requireRole('staff', 'admin'), staffRoutes);
+app.use('/api/staff', authenticate, requireRole('staff'), staffRoutes);
 app.use('/api', publicRoutes);
 app.use('/api/admin', authenticate, requireRole('admin'), adminRoutes);
 app.use(notFound);

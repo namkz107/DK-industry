@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { CalendarClock, Factory, Search } from "lucide-react"
 import { useEffect, useState, type FormEvent } from "react"
+import { useSearchParams } from "react-router-dom"
 import { StaffShell } from "@/components/staff/staff-shell"
 import { Pagination } from "@/components/pagination"
 import { Button } from "@/components/ui/button"
@@ -24,9 +25,10 @@ const money = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND
 export function StaffWorkOrdersPage() {
   usePageMeta("Công việc sau báo giá", "Quản lý hợp đồng, đặt cọc, kế hoạch sản xuất và bàn giao.")
   const client = useQueryClient()
-  const [filters, setFilters] = useState({ q: "", status: "", assigned: "" })
+  const [params] = useSearchParams()
+  const [filters, setFilters] = useState({ q: params.get("q") || "", status: "", assigned: "" })
   const [page, setPage] = useState(1)
-  const [selected, setSelected] = useState("")
+  const [selected, setSelected] = useState(params.get("workOrderId") || "")
   const list = useQuery({ queryKey: ["staff", "work-orders", filters, page], queryFn: () => staffClient.workOrders({ ...filters, page }) })
   const detail = useQuery({ queryKey: ["staff", "work-order", selected], queryFn: () => staffClient.workOrder(selected), enabled: Boolean(selected) })
   useEffect(() => setPage(1), [filters])

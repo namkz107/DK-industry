@@ -29,7 +29,7 @@ function initializeSupportGateway(io) {
     const timer = setTimeout(() => { socket.emit('auth:expired'); socket.disconnect(true); }, Math.max(0, socket.data.expiresAt - Date.now()));
     timer.unref?.();
     socket.on('disconnect', () => clearTimeout(timer));
-    if (['staff', 'admin'].includes(socket.data.user?.role)) socket.join('support:staff');
+    if (socket.data.user?.role === 'staff') socket.join('support:staff');
 
     socket.on('support:join', async (conversationId, acknowledge = () => {}) => {
       try {
@@ -37,7 +37,7 @@ function initializeSupportGateway(io) {
         let allowed = false;
         if (socket.data.guestConversationId) allowed = socket.data.guestConversationId === String(conversationId);
         else if (socket.data.user?.role === 'customer') allowed = Boolean(await SupportConversation.exists({ _id: conversationId, customer: socket.data.user._id }));
-        else if (['staff', 'admin'].includes(socket.data.user?.role)) allowed = Boolean(await SupportConversation.exists({ _id: conversationId }));
+        else if (socket.data.user?.role === 'staff') allowed = Boolean(await SupportConversation.exists({ _id: conversationId }));
         if (!allowed) return acknowledge({ ok: false });
         await socket.join(conversationRoom(conversationId));
         acknowledge({ ok: true });
@@ -48,7 +48,7 @@ function initializeSupportGateway(io) {
       try {
         if (!conversationId || !mongoose.isValidObjectId(conversationId)) return;
         const user = socket.data.user;
-        const isStaff = ['staff', 'admin'].includes(user?.role);
+        const isStaff = user?.role === 'staff';
         const allowed = isStaff
           ? Boolean(await SupportConversation.exists({ _id: conversationId }))
           : socket.data.guestConversationId === String(conversationId)

@@ -47,8 +47,17 @@ test('Admin quản lý nhân sự, nội dung và nhật ký đúng quyền', { 
     const staffToken = createAccessToken(staff, new mongoose.Types.ObjectId());
 
     assert.equal((await call('/admin/dashboard', staffToken)).status, 403);
-    assert.equal((await call('/admin/dashboard', adminToken)).status, 200);
-    assert.equal((await call('/staff/dashboard', adminToken)).status, 200);
+    const dashboardResponse = await call('/admin/dashboard', adminToken);
+    const dashboardBody = await dashboardResponse.json();
+    assert.equal(dashboardResponse.status, 200);
+    assert.equal(dashboardBody.data.analytics.revenueTrend.length, 12);
+    assert.ok(Array.isArray(dashboardBody.data.analytics.orderStatuses));
+    assert.ok(Array.isArray(dashboardBody.data.analytics.topProducts));
+    assert.deepEqual(Object.keys(dashboardBody.data.analytics.conversion).sort(), ['opportunities', 'quotations', 'wins']);
+    assert.equal(typeof dashboardBody.data.deliveredRevenue, 'number');
+    assert.equal(typeof dashboardBody.data.monthlyDeliveredRevenue, 'number');
+    assert.equal(typeof dashboardBody.data.deliveredOrders, 'number');
+    assert.equal((await call('/staff/dashboard', adminToken)).status, 403);
 
     const imageForm = new FormData();
     const validPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL3XQAAAABJRU5ErkJggg==', 'base64');

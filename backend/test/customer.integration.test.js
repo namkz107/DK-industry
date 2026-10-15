@@ -125,13 +125,19 @@ test('Customer quản lý hồ sơ, giỏ hàng, đơn hàng và yêu cầu riê
     assert.equal(otherCannotRespond.status, 404);
     const rejectQuote = await request(`/customer/requests/${serviceRequest._id}/quotations/${firstQuote._id}/respond`, customer.accessToken, { method: 'PATCH', body: JSON.stringify({ decision: 'rejected', note: 'Cần điều chỉnh tiến độ.' }) });
     assert.equal(rejectQuote.status, 200);
-    assert.equal((await rejectQuote.json()).data.status, 'rejected');
+    const rejectQuoteBody = await rejectQuote.json();
+    assert.equal(rejectQuoteBody.data.status, 'rejected');
+    assert.equal(rejectQuoteBody.data.nextAction, 'wait_for_revised_quotation');
+    assert.equal(rejectQuoteBody.data.workOrder, null);
 
     const secondQuote = await Quotation.create({ request: serviceRequest._id, customer: customer.user.id, version: 2, items: [{ description: 'Gia công chi tiết inox', quantity: 10, unit: 'chiếc', unitPrice: 95000 }], taxRate: 10, validUntil: new Date(Date.now() + 7 * 86400000), status: 'sent', sentAt: new Date(), leadTime: '5 ngày làm việc' });
     await ServiceRequest.updateOne({ _id: serviceRequest._id }, { status: 'quoted', $push: { timeline: { status: 'quoted', message: `Đã gửi báo giá ${secondQuote.code}.`, actorType: 'system' } } });
     const acceptQuote = await request(`/customer/requests/${serviceRequest._id}/quotations/${secondQuote._id}/respond`, customer.accessToken, { method: 'PATCH', body: JSON.stringify({ decision: 'accepted' }) });
     assert.equal(acceptQuote.status, 200);
-    assert.equal((await acceptQuote.json()).data.status, 'accepted');
+    const acceptQuoteBody = await acceptQuote.json();
+    assert.equal(acceptQuoteBody.data.status, 'accepted');
+    assert.equal(acceptQuoteBody.data.nextAction, 'wait_for_contract');
+    assert.ok(acceptQuoteBody.data.workOrder.code);
     assert.equal((await ServiceRequest.findById(serviceRequest._id)).status, 'accepted');
     assert.ok(await WorkOrder.exists({ request: serviceRequest._id, quotation: secondQuote._id, status: 'awaiting_contract' }));
 

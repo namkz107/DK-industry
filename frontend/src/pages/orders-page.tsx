@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Banknote, ChevronDown, Clock3, LoaderCircle, MapPin, PackageOpen, Truck, XCircle } from "lucide-react"
+import { Banknote, Check, CheckCircle2, ChevronDown, Clock3, LoaderCircle, MapPin, PackageOpen, Truck, XCircle } from "lucide-react"
 import { useState } from "react"
 import { Link } from "react-router-dom"
 import { CustomerShell } from "@/components/customer/customer-shell"
 import { Button } from "@/components/ui/button"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Select } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/toast"
@@ -17,12 +18,19 @@ const statuses: Record<string, { label: string; className: string }> = {
   confirmed: { label: "Đã xác nhận", className: "bg-blue-50 text-blue-800" },
   preparing: { label: "Đang chuẩn bị hàng", className: "bg-violet-50 text-violet-800" },
   shipping: { label: "Đang giao", className: "bg-cyan-50 text-cyan-800" },
-  delivered: { label: "Đã giao", className: "bg-emerald-50 text-emerald-800" },
+  delivered: { label: "Giao thành công", className: "bg-emerald-50 text-emerald-800" },
   cancelled: { label: "Đã hủy", className: "bg-red-50 text-red-700" },
 }
 const paymentNames: Record<PaymentStatus, string> = {
   unpaid: "Chưa thanh toán", pending: "Chờ đối soát", paid: "Đã thanh toán", refund_pending: "Chờ hoàn tiền", refunded: "Đã hoàn tiền",
 }
+const progressSteps = [
+  { status: "pending", label: "Đã đặt" },
+  { status: "confirmed", label: "Đã xác nhận" },
+  { status: "preparing", label: "Chuẩn bị hàng" },
+  { status: "shipping", label: "Đang giao" },
+  { status: "delivered", label: "Hoàn tất" },
+]
 
 export function OrdersPage() {
   usePageMeta("Đơn hàng của tôi", "Theo dõi đơn hàng, thanh toán và giao nhận tại một nơi.")
@@ -44,20 +52,30 @@ export function OrdersPage() {
     onSuccess: result => { toast.success(result.message || "Đã gửi yêu cầu hậu mãi"); scrollToPageTop(); void queryClient.invalidateQueries({ queryKey: ["customer", "orders"] }) },
     onError: error => toast.error(error.message),
   })
+  const confirmReceived = useMutation({
+    mutationFn: (id: string) => customerClient.confirmOrderReceived(id),
+    onSuccess: result => {
+      toast.success(result.message || "Đã xác nhận nhận hàng")
+      void queryClient.invalidateQueries({ queryKey: ["customer", "orders"] })
+      void queryClient.invalidateQueries({ queryKey: ["customer", "summary"] })
+    },
+    onError: error => toast.error(error.message),
+  })
 
   return <CustomerShell title="Đơn hàng của tôi" description="Theo dõi xác nhận kho, thanh toán và hành trình giao hàng rõ ràng theo từng bước.">
     {orders.isLoading ? <Loading/> : orders.error ? <ErrorText error={orders.error}/> : !orders.data?.data.length ? <Empty/> :
-      <div className="space-y-5">{orders.data.data.map(order => <OrderCard key={order._id} order={order} busy={cancel.isPending || afterSales.isPending} onCancel={(reason) => cancel.mutate({ id: order._id, reason })} onAfterSales={(type, reason) => afterSales.mutate({ id: order._id, type, reason })}/>)}</div>}
+      <div className="space-y-5">{orders.data.data.map(order => <OrderCard key={order._id} order={order} busy={cancel.isPending || afterSales.isPending || confirmReceived.isPending} onCancel={(reason) => cancel.mutate({ id: order._id, reason })} onConfirmReceived={() => confirmReceived.mutate(order._id)} onAfterSales={(type, reason) => afterSales.mutate({ id: order._id, type, reason })}/>)}</div>}
     <div className="mt-6 flex items-start gap-3 rounded-2xl bg-blue-50 p-4 text-sm leading-6 text-blue-900"><Truck className="mt-0.5 size-5 shrink-0"/><p>Phí và lịch giao chính thức được cập nhật sau khi nhân viên kiểm tra kích thước, khối lượng, tồn kho và địa điểm nhận hàng.</p></div>
   </CustomerShell>
 }
 
-function OrderCard({ order, busy, onCancel, onAfterSales }: { order: CustomerOrder; busy: boolean; onCancel: (reason: string) => void; onAfterSales: (type: "return" | "warranty" | "complaint", reason: string) => void }) {
+function OrderCard({ order, busy, onCancel, onConfirmReceived, onAfterSales }: { order: CustomerOrder; busy: boolean; onCancel: (reason: string) => void; onConfirmReceived: () => void; onAfterSales: (type: "return" | "warranty" | "complaint", reason: string) => void }) {
   const [cancelling, setCancelling] = useState(false)
   const [reason, setReason] = useState("")
   const [afterSalesOpen, setAfterSalesOpen] = useState(false)
   const [afterSalesType, setAfterSalesType] = useState<"return" | "warranty" | "complaint">("warranty")
   const [afterSalesReason, setAfterSalesReason] = useState("")
+  const [receiptOpen, setReceiptOpen] = useState(false)
   const status = statuses[order.status] || { label: order.status, className: "bg-slate-100 text-slate-700" }
   const address = [order.shippingAddress.addressLine, order.shippingAddress.ward, order.shippingAddress.district, order.shippingAddress.province].filter(Boolean).join(", ")
 
@@ -67,6 +85,7 @@ function OrderCard({ order, busy, onCancel, onAfterSales }: { order: CustomerOrd
       <div className="sm:text-right"><p className="text-sm text-slate-500">Tổng thanh toán</p><strong className="text-xl text-orange-700">{formatPrice(order.total)}</strong><p className="mt-1 text-xs font-bold text-emerald-700">{paymentNames[order.paymentStatus]}</p></div>
     </div>
     <div className="p-5 sm:p-6">
+      {order.status !== "cancelled" && <OrderProgress status={order.status}/>}
       <div className="space-y-4">{order.items.map(item => <div className="flex items-center gap-4" key={`${order._id}-${item.product}`}>{item.image ? <img className="size-16 rounded-xl object-cover" src={item.image} alt={item.name}/> : <div className="grid size-16 shrink-0 place-items-center rounded-xl bg-slate-100"><PackageOpen className="size-6 text-slate-400"/></div>}<div className="min-w-0 flex-1"><h3 className="font-bold text-emerald-950">{item.name}</h3><p className="text-sm text-slate-500">{item.quantity} {item.unit} × {formatPrice(item.price)}</p></div><strong className="text-sm text-slate-800">{formatPrice(item.lineTotal)}</strong></div>)}</div>
       <div className="mt-5 grid gap-3 rounded-2xl bg-slate-50 p-4 sm:grid-cols-3"><Cost label="Tiền hàng" value={formatPrice(order.subtotal)}/><Cost label="Vận chuyển" value={order.shippingFee ? formatPrice(order.shippingFee) : "Chưa phát sinh"}/><Cost label="Thanh toán" value={order.paymentMethod === "cod" ? "Khi nhận hàng" : "Chuyển khoản"}/></div>
       <details className="group mt-5 rounded-2xl border border-slate-200 p-4" open={order.status === "shipping"}>
@@ -76,11 +95,23 @@ function OrderCard({ order, busy, onCancel, onAfterSales }: { order: CustomerOrd
           <ol className="space-y-3">{order.timeline.map((item, index) => <li className="flex gap-3 text-sm" key={`${item.at}-${index}`}><span className="mt-1 size-2 shrink-0 rounded-full bg-orange-500"/><div><strong className="text-slate-800">{statuses[item.status]?.label || item.status}</strong>{item.message && <p className="mt-1 leading-5 text-slate-500">{item.message}</p>}<time className="mt-1 block text-xs text-slate-400">{dateTime(item.at)}</time></div></li>)}</ol>
         </div>
       </details>
+      {['shipping', 'delivered'].includes(order.status) && !order.customerConfirmedAt && <div className="mt-4 flex flex-col justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:flex-row sm:items-center"><div><strong className="text-emerald-950">Bạn đã nhận đủ hàng?</strong><p className="mt-1 text-sm text-emerald-800">Xác nhận một lần để hoàn tất đơn và mở hỗ trợ hậu mãi.</p></div><Button className="shrink-0" onClick={() => setReceiptOpen(true)}><CheckCircle2 className="size-5"/>Đã nhận đủ hàng</Button></div>}
+      {order.customerConfirmedAt && <p className="mt-4 flex items-center gap-2 rounded-2xl bg-emerald-50 p-4 text-sm font-bold text-emerald-800"><CheckCircle2 className="size-5"/>Bạn đã xác nhận nhận hàng lúc {dateTime(order.customerConfirmedAt)}.</p>}
       {order.afterSalesRequests?.map(item => <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm" key={item._id}><strong className="text-blue-900">Hậu mãi: {item.type === "warranty" ? "Bảo hành" : item.type === "return" ? "Đổi / trả" : "Khiếu nại"} · {item.status}</strong><p className="mt-1 text-slate-600">{item.reason}</p>{item.resolution && <p className="mt-2 font-semibold text-blue-900">Kết quả: {item.resolution}</p>}</div>)}
       {order.status === "delivered" && !order.afterSalesRequests?.some(item => !["rejected", "resolved"].includes(item.status)) && (afterSalesOpen ? <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4"><label className="block text-sm font-bold text-blue-900">Loại yêu cầu<span className="mt-2 block"><Select ariaLabel="Loại yêu cầu hậu mãi" value={afterSalesType} onChange={value => setAfterSalesType(value as typeof afterSalesType)} options={[{ value: "warranty", label: "Bảo hành" }, { value: "return", label: "Đổi / trả" }, { value: "complaint", label: "Khiếu nại" }]}/></span></label><label className="mt-3 block text-sm font-bold text-blue-900">Mô tả vấn đề<Textarea className="mt-2 bg-white text-slate-900" value={afterSalesReason} onChange={event => setAfterSalesReason(event.target.value)} placeholder="Mô tả lỗi, tình trạng hàng và mong muốn xử lý"/></label><div className="mt-3 flex gap-2"><Button disabled={busy || afterSalesReason.trim().length < 10} onClick={() => onAfterSales(afterSalesType, afterSalesReason.trim())}>Gửi yêu cầu</Button><Button variant="outline" onClick={() => setAfterSalesOpen(false)}>Đóng</Button></div></div> : <Button className="mt-4" variant="outline" onClick={() => setAfterSalesOpen(true)}>Yêu cầu bảo hành / đổi trả</Button>)}
       {order.status === "pending" && (cancelling ? <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4"><label className="text-sm font-bold text-red-900">Lý do hủy đơn<Textarea className="mt-2 bg-white text-slate-900" value={reason} onChange={event => setReason(event.target.value)} placeholder="Ví dụ: Tôi đặt nhầm số lượng sản phẩm"/></label><div className="mt-3 flex flex-wrap gap-2"><Button variant="destructive" disabled={busy || reason.trim().length < 5} onClick={() => onCancel(reason.trim())}><XCircle className="size-5"/>Xác nhận hủy</Button><Button variant="outline" disabled={busy} onClick={() => { setCancelling(false); setReason("") }}>Giữ lại đơn</Button></div></div> : <Button className="mt-4" variant="ghost" onClick={() => setCancelling(true)}><XCircle className="size-5 text-red-600"/>Yêu cầu hủy đơn</Button>)}
     </div>
+    <ConfirmDialog open={receiptOpen} onOpenChange={setReceiptOpen} busy={busy} title="Xác nhận đã nhận đủ hàng?" description="Sau khi xác nhận, đơn được hoàn tất. Nếu hàng có vấn đề, bạn vẫn có thể gửi yêu cầu bảo hành, đổi trả hoặc khiếu nại." confirmLabel="Xác nhận đã nhận" onConfirm={() => { onConfirmReceived(); setReceiptOpen(false) }}/>
   </article>
+}
+
+function OrderProgress({ status }: { status: string }) {
+  const current = Math.max(0, progressSteps.findIndex(step => step.status === status))
+  return <ol aria-label="Tiến trình đơn hàng" className="mb-6 grid grid-cols-5 rounded-2xl bg-slate-50 p-3 sm:p-4">{progressSteps.map((step, index) => {
+    const done = index < current || status === "delivered"
+    const active = index === current && status !== "delivered"
+    return <li key={step.status} className="relative flex min-w-0 flex-col items-center text-center"><span className={`absolute left-0 right-1/2 top-3.5 h-0.5 ${index === 0 ? "hidden" : done || active ? "bg-emerald-600" : "bg-slate-200"}`}/><span className={`absolute left-1/2 right-0 top-3.5 h-0.5 ${index === progressSteps.length - 1 ? "hidden" : index < current ? "bg-emerald-600" : "bg-slate-200"}`}/><span className={`relative z-10 grid size-7 place-items-center rounded-full border-2 ${done ? "border-emerald-600 bg-emerald-600 text-white" : active ? "border-orange-500 bg-white text-orange-600" : "border-slate-300 bg-white text-slate-300"}`}>{done ? <Check className="size-4"/> : <span className="size-2 rounded-full bg-current"/>}</span><span className={`mt-2 text-[10px] font-bold leading-tight sm:text-xs ${done || active ? "text-emerald-900" : "text-slate-400"}`}>{step.label}</span></li>
+  })}</ol>
 }
 
 function Cost({ label, value }: { label: string; value: string }) { return <p><span className="block text-xs text-slate-500">{label}</span><strong className="mt-1 block text-sm text-slate-800">{value}</strong></p> }

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { AlertTriangle, Check, CheckCheck, ChevronDown, ChevronUp, Download, Eye, FileText, Info, LoaderCircle, LockKeyhole, Mail, MessageSquareText, PanelLeftClose, PanelLeftOpen, Plus, Search, Send, Trash2, Wifi, WifiOff } from "lucide-react"
+import { AlertTriangle, ArrowRight, Check, CheckCheck, ChevronDown, ChevronUp, Download, Eye, FileText, Info, LoaderCircle, LockKeyhole, Mail, MessageSquareText, PanelLeftClose, PanelLeftOpen, Plus, Search, Send, Trash2, Wifi, WifiOff } from "lucide-react"
 import { useEffect, useState, type FormEvent } from "react"
 import { useSearchParams } from "react-router-dom"
 import { StaffShell } from "@/components/staff/staff-shell"
@@ -36,9 +36,9 @@ export function StaffRequestsPage() {
   usePageMeta("Yêu cầu dịch vụ", "Xử lý hồ sơ kỹ thuật, trao đổi và báo giá.")
   const [params] = useSearchParams(); const client = useQueryClient()
   const toast = useToast()
-  const [filters, setFilters] = useState({ q: "", status: "", priority: params.get("priority") || "", assigned: params.get("assigned") || "" })
+  const [filters, setFilters] = useState({ q: params.get("q") || "", status: "", priority: params.get("priority") || "", assigned: params.get("assigned") || "" })
   const [page, setPage] = useState(1)
-  const [selected, setSelected] = useState("")
+  const [selected, setSelected] = useState(params.get("requestId") || "")
   const [listCollapsed, setListCollapsed] = useState(false)
   const list = useQuery({ queryKey: ["staff", "requests", filters, page], queryFn: () => staffClient.requests({ ...filters, page }) })
   const detail = useQuery({ queryKey: ["staff", "request", selected], queryFn: () => staffClient.request(selected), enabled: Boolean(selected) })
@@ -83,7 +83,8 @@ export function StaffRequestsPage() {
 }
 
 function RequestDetail({ detail, busy, error, connected, typingName, onTyping, onLoadOlder, onUpdate, onMessage, onQuotation, onSendQuote }: { detail: StaffRequestDetail; busy: boolean; error: Error | null; connected: boolean; typingName: string; onTyping: (value: boolean) => void; onLoadOlder: () => void; onUpdate: (body: Parameters<typeof staffClient.updateRequest>[1]) => void; onMessage: (body: { content: string; visibility: "customer" | "internal" }) => void; onQuotation: (body: Parameters<typeof staffClient.createQuotation>[1], onSuccess: () => void) => void; onSendQuote: (id: string) => void }) {
-  const { request, messages, quotations } = detail
+  const { request, messages, quotations, workOrder } = detail
+  const latestQuotation = quotations[0]
   const [status, setStatus] = useState<RequestStatus | "">("")
   const [priority, setPriority] = useState<Priority>(request.priority)
   const [statusMessage, setStatusMessage] = useState("")
@@ -107,6 +108,9 @@ function RequestDetail({ detail, busy, error, connected, typingName, onTyping, o
       </div>
     </section>
 
+    {request.status === "accepted" && workOrder && <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><div className="flex flex-wrap items-center justify-between gap-4"><div><p className="font-bold text-emerald-950">Khách đã chấp thuận báo giá</p><p className="mt-1 text-sm text-emerald-800">Hệ thống đã tự tạo công việc {workOrder.code}. Bước tiếp theo là hoàn thiện hợp đồng/PO và kế hoạch thực hiện.</p></div><Button type="button" onClick={() => window.location.assign(`/staff/work-orders?workOrderId=${workOrder._id}&q=${encodeURIComponent(workOrder.code)}`)}>Mở công việc {workOrder.code}<ArrowRight className="size-4"/></Button></div></section>}
+    {request.status === "reviewing" && latestQuotation?.status === "rejected" && <section className="rounded-2xl border border-orange-200 bg-orange-50 p-5"><p className="font-bold text-orange-950">Khách yêu cầu điều chỉnh báo giá</p><p className="mt-1 text-sm text-orange-900">{latestQuotation.responseNote || "Khách chưa ghi rõ nội dung cần điều chỉnh."}</p><p className="mt-2 text-sm font-semibold text-orange-950">Form báo giá mới đã được mở sẵn bên dưới. Hãy sửa theo phản hồi và gửi lại; không cần tạo hồ sơ mới.</p></section>}
+
     <div className="flex justify-end"><Button type="button" variant="outline" onClick={() => setMessageOpen(value => !value)}><MessageSquareText className="size-4"/>{messageOpen ? "Đóng trao đổi" : "Liên hệ khách hàng"}{messageOpen ? <ChevronUp className="size-4"/> : <ChevronDown className="size-4"/>}</Button></div>
     {messageOpen && <section className="rounded-3xl border bg-white p-6 sm:p-8">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="flex items-center gap-2 font-display text-2xl font-bold text-emerald-950"><MessageSquareText className="size-6 text-orange-600"/>Trao đổi với khách hàng</h3><p className="mt-1 text-sm text-slate-500">Khách xem nội dung trong tài khoản và nhận thông báo tại <strong>{request.customer.email}</strong>.</p></div><span className={cn("flex items-center gap-1 text-xs font-bold", connected ? "text-emerald-700" : "text-slate-400")}>{connected ? <Wifi className="size-4"/> : <WifiOff className="size-4"/>}{connected ? "Đang kết nối trực tiếp" : "Đang kết nối"}</span></div>
@@ -120,15 +124,19 @@ function RequestDetail({ detail, busy, error, connected, typingName, onTyping, o
       </form>
     </section>}
 
-    <QuotationPanel customerName={request.customer.name} customerEmail={request.customer.email} quotations={quotations} busy={busy} onCreate={onQuotation} onSend={onSendQuote}/>
+    <QuotationPanel customerName={request.customer.name} customerEmail={request.customer.email} quotations={quotations} requestStatus={request.status} busy={busy} onCreate={onQuotation} onSend={onSendQuote}/>
   </article>
 }
 
 const quotationStatusNames: Record<string, string> = { draft: "Bản nháp", sent: "Đã gửi khách", accepted: "Khách đã chấp thuận", rejected: "Khách yêu cầu sửa", superseded: "Đã thay thế", expired: "Hết hiệu lực" }
 type QuoteFormItem = { description: string; quantity: string; unit: string; unitPrice: string }
 
-function QuotationPanel({ customerName, customerEmail, quotations, busy, onCreate, onSend }: { customerName: string; customerEmail: string; quotations: StaffRequestDetail["quotations"]; busy: boolean; onCreate: (body: Parameters<typeof staffClient.createQuotation>[1], onSuccess: () => void) => void; onSend: (id: string) => void }) {
-  const [open, setOpen] = useState(false)
+function QuotationPanel({ customerName, customerEmail, quotations, requestStatus, busy, onCreate, onSend }: { customerName: string; customerEmail: string; quotations: StaffRequestDetail["quotations"]; requestStatus: RequestStatus; busy: boolean; onCreate: (body: Parameters<typeof staffClient.createQuotation>[1], onSuccess: () => void) => void; onSend: (id: string) => void }) {
+  const shouldRevise = requestStatus === "reviewing" && quotations[0]?.status === "rejected"
+  const latestQuotationId = quotations[0]?._id
+  const canCreate = !["accepted", "rejected", "cancelled"].includes(requestStatus)
+  const [open, setOpen] = useState(shouldRevise)
+  useEffect(() => { if (shouldRevise) setOpen(true) }, [shouldRevise, latestQuotationId])
   const [items, setItems] = useState<QuoteFormItem[]>([{ description: "", quantity: "1", unit: "cái", unitPrice: "" }])
   const [taxRate, setTaxRate] = useState("10")
   const [validUntil, setValidUntil] = useState("")
@@ -151,8 +159,8 @@ function QuotationPanel({ customerName, customerEmail, quotations, busy, onCreat
     setFormError("")
     onCreate({ items: items.map(item => ({ ...item, quantity: parseNumericInput(item.quantity), unitPrice: parseNumericInput(item.unitPrice) })), taxRate: tax, validUntil, leadTimeDays: leadTime ? parseNumericInput(leadTime) : null, depositPercent: paymentTerms ? parseNumericInput(paymentTerms) : null, notes, status: "sent" }, resetForm)
   }
-  return <section className="rounded-3xl border bg-white p-6 sm:p-8">
-    <div className="flex flex-wrap items-start justify-between gap-4"><div><h3 className="flex items-center gap-2 font-display text-2xl font-bold text-emerald-950"><FileText className="size-6 text-orange-600"/>Báo giá cho khách hàng</h3><p className="mt-1 text-sm text-slate-500">Gửi cho <strong>{customerName}</strong> trong cổng khách hàng và thông báo tới <strong>{customerEmail}</strong>.</p></div><Button onClick={() => setOpen(!open)}><Plus className="size-4"/>{open ? "Đóng form" : "Tạo báo giá mới"}</Button></div>
+  return <section id="tao-bao-gia" className="rounded-3xl border bg-white p-6 sm:p-8">
+    <div className="flex flex-wrap items-start justify-between gap-4"><div><h3 className="flex items-center gap-2 font-display text-2xl font-bold text-emerald-950"><FileText className="size-6 text-orange-600"/>Báo giá cho khách hàng</h3><p className="mt-1 text-sm text-slate-500">Gửi cho <strong>{customerName}</strong> trong cổng khách hàng và thông báo tới <strong>{customerEmail}</strong>.</p></div>{canCreate && <Button onClick={() => setOpen(!open)}><Plus className="size-4"/>{open ? "Đóng form" : shouldRevise ? "Lập báo giá thay thế" : "Tạo báo giá mới"}</Button>}</div>
     {open && <div className="mt-6 space-y-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-6">
       <div><h4 className="font-bold text-emerald-950">1. Các hạng mục báo giá</h4><p className="mt-1 text-sm text-slate-500">Mỗi dòng là một sản phẩm, công việc hoặc chi phí.</p></div>
       <div className="space-y-4">{items.map((item, index) => <div className="rounded-2xl border bg-white p-4" key={index}><div className="flex items-center justify-between"><strong className="text-sm text-emerald-950">Hạng mục {index + 1}</strong>{items.length > 1 && <Button type="button" size="sm" variant="ghost" onClick={() => setItems(items.filter((_, i) => i !== index))}><Trash2 className="size-4"/>Xóa</Button>}</div><div className="mt-3 grid gap-3 md:grid-cols-3"><Field label="Tên hạng mục *" className="md:col-span-3"><Input value={item.description} onChange={event => setItems(items.map((value, i) => i === index ? { ...value, description: event.target.value } : value))} placeholder="Ví dụ: Gia công chi tiết CNC"/></Field><Field label="Số lượng *"><IntegerInput min={1} value={item.quantity} onChange={event => setItems(items.map((value, i) => i === index ? { ...value, quantity: event.target.value } : value))} placeholder="1"/></Field><Field label="Đơn vị *"><Input value={item.unit} onChange={event => setItems(items.map((value, i) => i === index ? { ...value, unit: event.target.value } : value))} placeholder="cái, bộ, kg..."/></Field><Field label="Đơn giá (VND) *"><MoneyInput min={0} value={item.unitPrice} onChange={event => setItems(items.map((value, i) => i === index ? { ...value, unitPrice: event.target.value } : value))} placeholder="1.000.000"/></Field></div><p className="mt-3 text-right text-sm font-bold text-slate-600">Thành tiền: {money.format(parseNumericInput(item.quantity) * parseNumericInput(item.unitPrice))}</p></div>)}</div>

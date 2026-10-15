@@ -106,7 +106,7 @@ router.get('/leads', async (req, res, next) => {
     const q = clean(req.query.q, 100);
     if (q) filter.$or = [{ code: { $regex: q, $options: 'i' } }, { name: { $regex: q, $options: 'i' } }, { phone: { $regex: q, $options: 'i' } }, { email: { $regex: q, $options: 'i' } }];
     const [items, total] = await Promise.all([
-      Lead.find(filter).populate('assignedTo', 'name email').sort({ priority: -1, createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+      Lead.find(filter).populate('assignedTo', 'name email').populate('convertedRequest', 'code title status').sort({ priority: -1, createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
       Lead.countDocuments(filter)
     ]);
     res.json({ success: true, data: { items, total, page, pages: Math.ceil(total / limit) } });
@@ -116,7 +116,7 @@ router.get('/leads', async (req, res, next) => {
 router.get('/leads/:id', async (req, res, next) => {
   try {
     if (!validId(req.params.id)) fail('Lead không hợp lệ', 404);
-    const data = await Lead.findById(req.params.id).populate('assignedTo', 'name email').populate('notes.author', 'name role').populate('timeline.actor', 'name role').lean();
+    const data = await Lead.findById(req.params.id).populate('assignedTo', 'name email').populate('convertedRequest', 'code title status').populate('notes.author', 'name role').populate('timeline.actor', 'name role').lean();
     if (!data) fail('Không tìm thấy Lead', 404);
     res.json({ success: true, data });
   } catch (error) { next(error); }
@@ -213,7 +213,7 @@ router.post('/leads/:id/convert', async (req, res, next) => {
     });
     await createNotification({ recipient: result.customer._id, type: 'request.created_from_lead', title: `Hồ sơ tư vấn ${result.request.code} đã được tạo`, message: 'Yêu cầu trao đổi trước đó của bạn đã được đưa vào cổng khách hàng để theo dõi.', link: '/tai-khoan/yeu-cau' });
     dispatchSoon();
-    res.status(201).json({ success: true, message: 'Đã chuyển Lead thành hồ sơ khách hàng', data: { leadId: result.lead._id, requestId: result.request._id, requestCode: result.request.code, customerId: result.customer._id } });
+    res.status(201).json({ success: true, message: `Đã tạo yêu cầu ${result.request.code}. Bạn có thể kiểm tra và gửi báo giá ngay.`, data: { leadId: result.lead._id, requestId: result.request._id, requestCode: result.request.code, customerId: result.customer._id } });
   } catch (error) { next(error); }
 });
 
@@ -580,6 +580,13 @@ router.patch('/orders/:id', async (req, res, next) => {
         if (req.body.status === 'cancelled' && !message) fail('Cần nhập lý do hủy đơn');
         if (req.body.status === 'shipping' && !current.shippingProvider) fail('Cần nhập đơn vị hoặc hình thức vận chuyển trước khi giao hàng');
         if (req.body.status === 'shipping' && current.paymentMethod === 'bank_transfer' && current.paymentStatus !== 'paid') fail('Đơn chuyển khoản phải được xác nhận thanh toán trước khi giao');
+        if (req.body.status === 'delivered') {
+          const recipientName = clean(req.body.deliveryRecipientName, 150);
+          if (req.body.deliveryConfirmed !== true) fail('Cần xác nhận hàng đã được giao cho người nhận');
+          if (recipientName.length < 2) fail('Vui lòng nhập tên người đã nhận hàng');
+          current.deliveryRecipientName = recipientName;
+          current.deliveryConfirmationSource = 'staff';
+        }
         transitionOrder(current, req.body.status, { actor: req.user._id, message });
         if (req.body.status === 'confirmed') await commitOrderStock(current, session);
         if (req.body.status === 'cancelled' && ['confirmed', 'preparing'].includes(previousStatus)) await releaseOrderStock(current, session);

@@ -16,7 +16,7 @@ import type { Product } from "@/types"
 
 export function ProductsPage() {
   usePageMeta("Sản phẩm công nghiệp", "Băng tải, bàn thao tác, giá kệ, tủ công nghiệp, thiết bị phòng sạch và sản phẩm inox theo yêu cầu.")
-  const { openQuote } = useOutletContext<LayoutContext>()
+  const { openQuote, canRequestQuote } = useOutletContext<LayoutContext>()
   const { user } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -39,7 +39,7 @@ export function ProductsPage() {
 
   const addToCart = (product: Product) => {
     if (!user) { navigate("/dang-nhap", { state: { from: "/san-pham" } }); return }
-    if (user.role !== "customer") { openQuote(product.name); return }
+    if (user.role !== "customer") return
     add.mutate(product)
   }
   const requestQuote = (product: Product) => {
@@ -60,7 +60,7 @@ export function ProductsPage() {
         return <article className="motion-card group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" key={product._id}>
           <Link to={`/san-pham/${product.slug}`}><img loading="lazy" className="aspect-[4/3] w-full object-cover" src={product.image} alt={product.name}/></Link>
           <div className="p-6"><span className="text-xs font-bold uppercase tracking-wider text-orange-700">{product.category}</span><h2 className="mt-2 font-display text-xl font-bold text-emerald-950"><Link className="hover:text-orange-700" to={`/san-pham/${product.slug}`}>{product.name}</Link></h2><p className="mt-3 font-bold text-orange-700">{formatPrice(product.price)} {product.price ? `/ ${product.unit}` : ""}</p>{orderable && <p className="mt-1 text-xs text-slate-500">Còn {product.stock} {product.unit}</p>}
-            <div className="mt-6 grid gap-2"><Button asChild variant="outline"><Link to={`/san-pham/${product.slug}`}>Xem chi tiết</Link></Button>{orderable ? <Button disabled={add.isPending} onClick={() => addToCart(product)}>{addingThisProduct ? <LoaderCircle className="size-4 animate-spin"/> : <ShoppingCart className="size-4"/>}{addingThisProduct ? "Đang thêm..." : "Thêm vào giỏ"}</Button> : <Button onClick={() => requestQuote(product)}>Yêu cầu báo giá <ArrowRight className="size-4"/></Button>}</div>
+            <div className="mt-6 grid gap-2"><Button asChild variant="outline"><Link to={`/san-pham/${product.slug}`}>Xem chi tiết</Link></Button>{canRequestQuote && (orderable ? <Button disabled={add.isPending} onClick={() => addToCart(product)}>{addingThisProduct ? <LoaderCircle className="size-4 animate-spin"/> : <ShoppingCart className="size-4"/>}{addingThisProduct ? "Đang thêm..." : "Thêm vào giỏ"}</Button> : <Button onClick={() => requestQuote(product)}>Yêu cầu báo giá <ArrowRight className="size-4"/></Button>)}</div>
           </div>
         </article>
       })}</div> : <div className="rounded-3xl border border-dashed border-slate-300 bg-white py-20 text-center"><PackageSearch className="mx-auto size-12 text-slate-300"/><h2 className="mt-4 text-xl font-bold">{query.error ? "Không thể tải sản phẩm" : "Không tìm thấy sản phẩm"}</h2><p className="mt-2 text-slate-600">{query.error ? "Vui lòng tải lại trang sau ít phút." : "Thử một từ khóa ngắn hơn hoặc chọn “Tất cả”."}</p></div>}

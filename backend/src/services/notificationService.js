@@ -55,9 +55,9 @@ async function createNotification({ recipient, type, title, message, link = '', 
   }
 }
 
-async function notifyOperations(payload, session = null) {
+async function notifyRole(role, payload, session = null) {
   try {
-    const query = User.find({ role: { $in: ['staff', 'admin'] }, status: 'active' }).select('_id email').lean();
+    const query = User.find({ role, status: 'active' }).select('_id email').lean();
     if (session) query.session(session);
     const recipients = await query;
     return Promise.all(recipients.map(user => createNotification({ ...payload, recipient: user._id, email: user.email, session })));
@@ -67,6 +67,9 @@ async function notifyOperations(payload, session = null) {
     return [];
   }
 }
+
+const notifyOperations = (payload, session = null) => notifyRole('staff', payload, session);
+const notifyAdmins = (payload, session = null) => notifyRole('admin', payload, session);
 
 async function dispatchPendingEmails(limit = 25) {
   if (!smtpConfigured()) return { sent: 0, failed: 0 };
@@ -145,4 +148,4 @@ function dispatchSoon() {
   setImmediate(() => dispatchPendingEmails().catch(error => console.error('Notification email dispatch failed:', error.message)));
 }
 
-module.exports = { createNotification, notifyOperations, dispatchPendingEmails, dispatchSoon, mailTransport, smtpConfigured, sendDirectEmail };
+module.exports = { createNotification, notifyOperations, notifyAdmins, dispatchPendingEmails, dispatchSoon, mailTransport, smtpConfigured, sendDirectEmail };

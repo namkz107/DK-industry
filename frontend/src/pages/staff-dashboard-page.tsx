@@ -6,7 +6,7 @@ import { usePageMeta } from "@/hooks/use-page-meta"
 import { staffClient } from "@/lib/staff-client"
 
 export function StaffDashboardPage() {
-  usePageMeta("Tổng quan nhân viên", "Theo dõi Lead và yêu cầu dịch vụ Cơ khí Đăng Khoa.")
+  usePageMeta("Tổng quan vận hành", "Theo dõi Lead và yêu cầu dịch vụ Cơ khí Đăng Khoa.")
   const summary = useQuery({ queryKey: ["staff", "dashboard"], queryFn: staffClient.dashboard, refetchInterval: 60_000 })
   const data = summary.data?.data
   const cards = [

@@ -1,13 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { CalendarClock, Mail, PanelLeftClose, PanelLeftOpen, Phone, Search } from "lucide-react"
+import { ArrowRight, CalendarClock, Mail, PanelLeftClose, PanelLeftOpen, Phone, Search } from "lucide-react"
 import { useEffect, useState, type FormEvent } from "react"
-import { useSearchParams } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { StaffShell } from "@/components/staff/staff-shell"
 import { Pagination } from "@/components/pagination"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/components/ui/toast"
 import { usePageMeta } from "@/hooks/use-page-meta"
 import { staffClient } from "@/lib/staff-client"
 import { cn } from "@/lib/utils"
@@ -23,6 +24,7 @@ const nextLeadStatuses: Record<LeadStatus, LeadStatus[]> = {
 export function StaffLeadsPage() {
   usePageMeta("Quản lý Lead", "Tiếp nhận và chăm sóc khách hàng tiềm năng.")
   const [params] = useSearchParams(); const client = useQueryClient()
+  const navigate = useNavigate(); const toast = useToast()
   const [filters, setFilters] = useState({ q: "", status: "", priority: params.get("priority") || "", assigned: params.get("assigned") || "" })
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState("")
@@ -34,7 +36,15 @@ export function StaffLeadsPage() {
   const refresh = () => { client.invalidateQueries({ queryKey: ["staff", "leads"] }); client.invalidateQueries({ queryKey: ["staff", "lead", selected] }); client.invalidateQueries({ queryKey: ["staff", "dashboard"] }) }
   const update = useMutation({ mutationFn: (body: Parameters<typeof staffClient.updateLead>[1]) => staffClient.updateLead(selected, body), onSuccess: refresh })
   const note = useMutation({ mutationFn: (content: string) => staffClient.addLeadNote(selected, content), onSuccess: refresh })
-  const convert = useMutation({ mutationFn: () => staffClient.convertLead(selected), onSuccess: refresh })
+  const convert = useMutation({
+    mutationFn: () => staffClient.convertLead(selected),
+    onSuccess: result => {
+      refresh()
+      toast.success(result.message || `Đã tạo yêu cầu ${result.data.requestCode}`)
+      navigate(`/staff/requests?requestId=${result.data.requestId}&q=${encodeURIComponent(result.data.requestCode)}`)
+    },
+    onError: error => toast.error(error.message),
+  })
   const lead = detail.data?.data
   return <StaffShell title="Khách hàng tiềm năng" description="Liên hệ và ghi nhận kết quả; hệ thống tự nhận phụ trách khi bạn thao tác.">
     <div className="mb-5 grid gap-3 rounded-2xl border bg-white p-4 md:grid-cols-[1fr_190px_170px_170px]"><label className="relative"><Search className="absolute left-3 top-3.5 size-5 text-slate-400"/><Input className="pl-10" value={filters.q} onChange={event => setFilters({ ...filters, q: event.target.value })} placeholder="Tìm mã, tên, điện thoại..."/></label><Filter value={filters.status} onChange={status => setFilters({ ...filters, status })} first="Mọi trạng thái" options={Object.entries(statusNames)}/><Filter value={filters.priority} onChange={priority => setFilters({ ...filters, priority })} first="Mọi ưu tiên" options={Object.entries(priorityNames)}/><Filter value={filters.assigned} onChange={assigned => setFilters({ ...filters, assigned })} first="Tất cả phụ trách" options={[["mine", "Của tôi"], ["unassigned", "Chưa phân công"]]}/></div>
@@ -49,10 +59,11 @@ function LeadDetail({ lead, busy, error, onUpdate, onNote, onConvert }: { lead: 
   useEffect(() => { setStatus(""); setMessage(""); setNote("") }, [lead._id, lead.status])
   const submitStatus = (event: FormEvent) => { event.preventDefault(); if (status) onUpdate({ status, message, lostReason: status === "lost" ? message : undefined }) }
   const nextOptions = nextLeadStatuses[lead.status].map(value => [value, statusNames[value]])
+  const convertedRequest = typeof lead.convertedRequest === "object" ? lead.convertedRequest : null
   return <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"><div className="flex flex-col justify-between gap-4 md:flex-row"><div><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-black uppercase tracking-wider text-orange-700">{lead.code}</p><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-800">{statusNames[lead.status]}</span></div><h2 className="mt-2 font-display text-3xl font-bold text-emerald-950">{lead.name}</h2><p className="mt-2 text-slate-600">{lead.serviceType || "Chưa xác định dịch vụ"} · {lead.budget || "Chưa có ngân sách"}</p></div><p className="text-sm font-semibold text-slate-500">{lead.assignedTo ? `Phụ trách: ${lead.assignedTo.name}` : "Chưa có người xử lý · sẽ tự nhận khi bạn thao tác"}</p></div>
     <div className="mt-6 grid gap-3 rounded-2xl bg-slate-50 p-5 sm:grid-cols-2"><a className="flex min-h-11 items-center gap-3 font-bold text-emerald-800" href={`tel:${lead.phone}`}><Phone className="size-5 text-orange-600"/>{lead.phone}</a>{lead.email && <a className="flex min-h-11 items-center gap-3 font-bold text-emerald-800" href={`mailto:${lead.email}`}><Mail className="size-5 text-orange-600"/>{lead.email}</a>}<p className="sm:col-span-2 text-slate-700">{lead.message || "Khách chưa để lại mô tả."}</p></div>
     {error && <p className="mt-4 rounded-xl bg-red-50 p-4 font-semibold text-red-700">{error.message}</p>}
-    <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4"><p className="text-sm text-emerald-900">Khi khách đã có tài khoản cùng email hoặc số điện thoại, bạn có thể tạo ngay hồ sơ tư vấn.</p>{lead.convertedRequest ? <p className="mt-2 text-sm font-bold text-emerald-800">Đã có hồ sơ khách hàng.</p> : <Button className="mt-3" variant="outline" disabled={busy || lead.status === "spam"} onClick={onConvert}>Tạo hồ sơ tư vấn</Button>}</div>
+    <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">{lead.convertedRequest ? <div className="flex flex-wrap items-center justify-between gap-4"><div><p className="font-bold text-emerald-950">Lead này đã được chuyển sang bước xử lý báo giá</p><p className="mt-1 text-sm text-emerald-800">{convertedRequest ? `Yêu cầu ${convertedRequest.code} đang nằm tại màn “Yêu cầu dịch vụ”.` : "Yêu cầu dịch vụ đã được tạo và không cần chuyển lại."}</p></div>{convertedRequest && <Button type="button" onClick={() => window.location.assign(`/staff/requests?requestId=${convertedRequest._id}&q=${encodeURIComponent(convertedRequest.code)}`)}>Mở yêu cầu {convertedRequest.code}<ArrowRight className="size-4"/></Button>}</div> : <><p className="font-bold text-emerald-950">Bước tiếp theo: xử lý và báo giá</p><p className="mt-1 text-sm text-emerald-800">Bấm một lần để tạo yêu cầu dịch vụ. Hệ thống sẽ tự chuyển bạn đến đúng hồ sơ để gửi báo giá.</p><Button className="mt-3" disabled={busy || lead.status === "spam"} onClick={onConvert}>Chuyển sang xử lý báo giá<ArrowRight className="size-4"/></Button></>}</div>
     <div className="mt-6 grid gap-6 lg:grid-cols-2"><form onSubmit={submitStatus} className="space-y-4"><h3 className="text-lg font-bold text-emerald-950">Bước xử lý tiếp theo</h3>{nextOptions.length ? <><Filter value={status} onChange={value => setStatus(value as LeadStatus)} first="Chọn bước tiếp theo" options={nextOptions}/><Select ariaLabel="Mức ưu tiên" value={lead.priority} onChange={value => onUpdate({ priority: value as Priority })} options={Object.entries(priorityNames).map(([value, label]) => ({ value, label: `Ưu tiên: ${label}` }))}/><label className="block text-sm font-bold text-slate-700"><span className="mb-2 flex items-center gap-2"><CalendarClock className="size-4"/>Lịch liên hệ tiếp theo</span><Input type="datetime-local" defaultValue={lead.nextFollowUpAt?.slice(0, 16) || ""} onBlur={event => onUpdate({ nextFollowUpAt: event.target.value })}/></label><Textarea value={message} onChange={event => setMessage(event.target.value)} placeholder={status === "lost" ? "Lý do không thành công (bắt buộc)" : "Ghi chú ngắn về bước xử lý"}/><Button disabled={busy || !status || (status === "lost" && message.trim().length < 3)}>Xác nhận bước này</Button></> : <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">Lead đã kết thúc, không còn bước xử lý tiếp theo.</p>}</form>
       <form className="space-y-4" onSubmit={event => { event.preventDefault(); if (note.trim()) onNote(note.trim()) }}><h3 className="text-lg font-bold text-emerald-950">Ghi chú nội bộ</h3><Textarea rows={4} value={note} onChange={event => setNote(event.target.value)} placeholder="Nội dung chỉ nhân viên và quản trị viên nhìn thấy"/><Button disabled={busy || !note.trim()} variant="outline">Thêm ghi chú</Button><div className="max-h-64 space-y-3 overflow-y-auto">{lead.notes?.slice().reverse().map(item => <div key={item._id} className="rounded-xl bg-amber-50 p-4 text-sm"><p className="text-slate-800">{item.content}</p><p className="mt-2 text-xs font-bold text-slate-500">{item.author?.name || "Nhân viên"} · {new Date(item.createdAt).toLocaleString("vi-VN")}</p></div>)}</div></form></div>
   </article>

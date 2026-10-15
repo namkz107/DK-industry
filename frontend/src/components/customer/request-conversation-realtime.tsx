@@ -28,6 +28,7 @@ export function RequestConversation({ requestId }: { requestId: string }) {
   const [error, setError] = useState("")
   const [rejecting, setRejecting] = useState<string>()
   const [rejectNote, setRejectNote] = useState("")
+  const [outcome, setOutcome] = useState("")
   const [loadingOlder, setLoadingOlder] = useState(false)
   const queryKey = ["customer", "request", requestId] as const
   const detail = useQuery({ queryKey, queryFn: () => customerClient.requestDetail(requestId), enabled: open })
@@ -66,7 +67,7 @@ export function RequestConversation({ requestId }: { requestId: string }) {
   })
   const respond = useMutation({
     mutationFn: ({ quote, decision, note }: { quote: Quotation; decision: "accepted" | "rejected"; note?: string }) => customerClient.respondQuotation(requestId, quote._id, decision, note),
-    onSuccess: () => { setRejecting(undefined); setRejectNote(""); refresh() },
+    onSuccess: result => { setRejecting(undefined); setRejectNote(""); setOutcome(result.message || "Đã ghi nhận phản hồi báo giá"); refresh() },
   })
 
   const messages = detail.data?.data.messages || []
@@ -119,6 +120,9 @@ export function RequestConversation({ requestId }: { requestId: string }) {
     </summary>
     {open && <div className="border-t border-slate-200 p-4 sm:p-5">
       {detail.isLoading ? <div className="grid min-h-28 place-items-center"><LoaderCircle className="size-6 animate-spin text-orange-600"/></div> : detail.error ? <ErrorText text={detail.error.message}/> : <>
+        {outcome && <div role="status" className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 font-semibold text-emerald-900">{outcome}</div>}
+        {detail.data?.data.workOrder && <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4"><strong className="text-emerald-950">Báo giá đã được chấp thuận</strong><p className="mt-1 text-sm leading-6 text-emerald-800">Hệ thống đã tạo công việc {detail.data.data.workOrder.code}. Nhân viên sẽ liên hệ để hoàn thiện hợp đồng/đặt cọc và cập nhật tiến độ tại chính hồ sơ này.</p></div>}
+        {!detail.data?.data.workOrder && detail.data?.data.request.status === "reviewing" && detail.data.data.quotations[0]?.status === "rejected" && <div className="mb-4 rounded-2xl border border-orange-200 bg-orange-50 p-4"><strong className="text-orange-950">Đã gửi yêu cầu điều chỉnh</strong><p className="mt-1 text-sm leading-6 text-orange-900">Nhân viên đã nhận phản hồi của bạn. Yêu cầu này được mở lại để chỉnh sửa và báo giá mới sẽ xuất hiện ngay tại đây; bạn không cần tạo yêu cầu khác.</p></div>}
         {!!detail.data?.data.quotations.length && <div className="mb-6 space-y-4"><h4 className="font-display text-lg font-bold text-emerald-950">Báo giá</h4>{detail.data.data.quotations.map(quote => <QuoteCard key={quote._id} quote={quote} busy={respond.isPending} rejecting={rejecting} rejectNote={rejectNote} onRejecting={setRejecting} onRejectNote={setRejectNote} onRespond={(decision, note) => respond.mutate({ quote, decision, note })}/>)}</div>}
         <div><h4 className="font-display text-lg font-bold text-emerald-950">Trao đổi kỹ thuật</h4>
           <div ref={messageList} className="mt-3 max-h-[32rem] space-y-3 overflow-y-auto pr-1" aria-live="polite">
@@ -127,7 +131,7 @@ export function RequestConversation({ requestId }: { requestId: string }) {
             {!messages.length && <p className="py-8 text-center text-sm text-slate-500">Chưa có nội dung trao đổi.</p>}
           </div><div className="h-6 pt-1 text-xs font-medium text-slate-500">{realtime.typingName && `${realtime.typingName} đang nhập...`}</div>
         </div>
-        {!['rejected', 'cancelled'].includes(detail.data?.data.request.status || '') && <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        {!['accepted', 'rejected', 'cancelled'].includes(detail.data?.data.request.status || '') && <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <label className="sr-only" htmlFor={`message-${requestId}`}>Nội dung trao đổi</label>
           <Textarea id={`message-${requestId}`} className="min-h-24 border-0 px-0 shadow-none focus-visible:ring-0" value={content} onChange={event => changeContent(event.target.value)} onBlur={() => realtime.setTyping(false)} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); submitMessage() } }} placeholder="Bổ sung dung sai, vật liệu, tiến độ... (Enter để gửi, Shift+Enter để xuống dòng)"/>
           {!!files.length && <div className="mb-3 flex flex-wrap gap-2">{files.map((file, index) => <span key={`${file.name}-${index}`} className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600"><Paperclip className="size-3"/>{file.name}<button type="button" aria-label={`Bỏ ${file.name}`} onClick={() => setFiles(current => current.filter((_, itemIndex) => itemIndex !== index))}><X className="size-3.5"/></button></span>)}</div>}
@@ -155,7 +159,7 @@ function QuoteCard({ quote, busy, rejecting, rejectNote, onRejecting, onRejectNo
     <div className="ml-auto mt-4 max-w-sm space-y-2 border-t border-slate-200 pt-3 text-sm"><p className="flex justify-between"><span>Tạm tính</span><strong>{formatPrice(quote.subtotal)}</strong></p><p className="flex justify-between"><span>VAT ({quote.taxRate}%)</span><strong>{formatPrice(quote.taxAmount)}</strong></p><p className="flex justify-between text-lg text-orange-700"><span className="font-bold">Tổng cộng</span><strong>{formatPrice(quote.total)}</strong></p></div>
     {quote.leadTime && <p className="mt-4 text-sm text-slate-600"><strong>Tiến độ:</strong> {quote.leadTime}</p>}{quote.paymentTerms && <p className="mt-2 text-sm text-slate-600"><strong>Thanh toán:</strong> {quote.paymentTerms}</p>}{quote.notes && <p className="mt-2 text-sm text-slate-600"><strong>Ghi chú:</strong> {quote.notes}</p>}
     {quote.status === "sent" && <div className="mt-5 border-t border-slate-100 pt-4">{rejecting === quote._id ? <div><Textarea value={rejectNote} onChange={event => onRejectNote(event.target.value)} placeholder="Điểm cần điều chỉnh về giá, tiến độ hoặc phạm vi..."/><div className="mt-3 flex flex-wrap gap-2"><Button disabled={!rejectNote.trim() || busy} onClick={() => onRespond("rejected", rejectNote)}><Send className="size-4"/>Gửi phản hồi</Button><Button variant="ghost" onClick={() => onRejecting(undefined)}>Quay lại</Button></div></div> : <div className="flex flex-wrap gap-2"><Button disabled={busy} onClick={() => setConfirming(true)}><Check className="size-5"/>Chấp thuận báo giá</Button><Button variant="outline" disabled={busy} onClick={() => onRejecting(quote._id)}><X className="size-5"/>Yêu cầu điều chỉnh</Button></div>}</div>}
-  </div><ConfirmDialog open={confirming} title="Chấp thuận báo giá?" description={`Bạn xác nhận đồng ý báo giá ${quote.code} với tổng giá trị ${formatPrice(quote.total)}. Hệ thống sẽ chuyển yêu cầu sang bước tiếp theo.`} confirmLabel="Chấp thuận báo giá" busy={busy} onOpenChange={setConfirming} onConfirm={() => { setConfirming(false); onRespond("accepted") }}/></article>
+  </div><ConfirmDialog open={confirming} title="Chấp thuận báo giá?" description={`Bạn xác nhận đồng ý báo giá ${quote.code} với tổng giá trị ${formatPrice(quote.total)}. Sau khi xác nhận, hệ thống tự tạo công việc; nhân viên sẽ tiếp tục bước hợp đồng/đặt cọc và liên hệ với bạn.`} confirmLabel="Chấp thuận và tạo công việc" busy={busy} onOpenChange={setConfirming} onConfirm={() => { setConfirming(false); onRespond("accepted") }}/></article>
 }
 
 const date = (value: string) => new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium" }).format(new Date(value))

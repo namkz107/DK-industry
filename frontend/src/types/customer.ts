@@ -50,6 +50,7 @@ export interface CustomerOrder {
   shippingAddress: Omit<Address, "_id" | "label" | "isDefault">; timeline: TimelineItem[]; createdAt: string
   paymentTimeline?: Array<{ status: PaymentStatus; message?: string; at: string }>
   shippingProvider?: string; trackingCode?: string; estimatedDeliveryAt?: string; cancellationReason?: string
+  deliveredAt?: string; customerConfirmedAt?: string; deliveryRecipientName?: string; deliveryConfirmationSource?: "staff" | "customer"
   afterSalesRequests?: Array<{ _id: string; type: "return" | "warranty" | "complaint"; reason: string; status: "submitted" | "reviewing" | "approved" | "rejected" | "received" | "resolved"; resolution?: string; submittedAt: string; resolvedAt?: string }>
 }
 
@@ -60,6 +61,10 @@ export interface Quotation {
   _id: string; code: string; version: number; items: QuotationItem[]; subtotal: number; taxRate: number; taxAmount: number; total: number
   currency: "VND"; leadTime?: string; paymentTerms?: string; notes?: string; validUntil: string
   status: "sent" | "accepted" | "rejected" | "superseded" | "expired"; sentAt?: string; respondedAt?: string; responseNote?: string
+}
+export interface QuotationResponse extends Quotation {
+  nextAction: "wait_for_contract" | "wait_for_revised_quotation"
+  workOrder?: Pick<WorkOrder, "_id" | "code" | "status"> | null
 }
 export interface WorkOrder {
   _id: string; code: string; status: "awaiting_contract" | "awaiting_deposit" | "scheduled" | "in_progress" | "quality_check" | "ready_for_delivery" | "completed" | "cancelled"

@@ -2,7 +2,7 @@
 
 ## Phạm vi quyền
 
-Role `staff` và `admin` được vào `/staff` và `/api/staff/*`. Customer luôn nhận `403`.
+Chỉ role `staff` được vào `/staff` và `/api/staff/*`. Customer và Admin luôn nhận `403` để tách biệt hoàn toàn quyền vận hành với quyền quản trị.
 
 Staff được:
 
@@ -23,7 +23,7 @@ Staff không được:
 - Xóa Lead, yêu cầu, tin nhắn hoặc báo giá.
 - Sửa đè báo giá đã gửi.
 
-Admin có toàn bộ quyền Staff và có thể chỉ định một nhân viên đang hoạt động làm người phụ trách. Quản lý tài khoản Staff thuộc module Admin tiếp theo.
+Admin quản lý tài khoản và nội dung nhưng không thực hiện nghiệp vụ Staff. Việc chỉ định người phụ trách và xử lý hồ sơ thuộc tài khoản Staff.
 
 ## Workflow Lead
 
@@ -71,7 +71,7 @@ Danh sách dùng phân trang tối đa 50 bản ghi/lần. Các filter hỗ tr�
 
 ## Cách kiểm tra
 
-Admin hiện tại có thể truy cập thẳng `http://localhost:3000/staff`. Tài khoản role Staff sẽ được tạo/quản lý trong module Admin.
+Tài khoản role Staff truy cập `http://localhost:3000/staff`. Admin truy cập `/staff` sẽ được chuyển về `/admin` và API Staff trả về `403`.
 
 ```powershell
 $env:RUN_STAFF_INTEGRATION='1'

@@ -9,7 +9,7 @@ export interface StaffDashboard { newLeads: number; myLeads: number; openRequest
 export interface StaffLead {
   _id: string; code: string; name: string; phone: string; email?: string; company?: string; serviceType?: string; budget?: string; message?: string
   source: string; priority: Priority; status: LeadStatus; assignedTo?: StaffMember | null; nextFollowUpAt?: string; lostReason?: string; createdAt: string
-  convertedCustomer?: string; convertedRequest?: string
+  convertedCustomer?: string; convertedRequest?: string | { _id: string; code: string; title: string; status: RequestStatus }
   notes?: Array<{ _id: string; content: string; author?: StaffMember; createdAt: string }>
   timeline?: Array<{ _id: string; action: string; fromStatus?: string; toStatus?: string; message?: string; actor?: StaffMember; at: string }>
 }
@@ -20,8 +20,8 @@ export interface StaffRequest {
   attachments: Array<{ _id: string; originalName: string; mimeType?: string; size?: number }>
 }
 export interface StaffMessage { _id: string; clientMessageId?: string; sender?: StaffMember; senderRole: string; visibility: "customer" | "internal"; content: string; createdAt: string; readByCustomerAt?: string; readByStaffAt?: string; deliveryStatus?: "sending" | "failed"; attachments: Array<{ _id: string; originalName: string }> }
-export interface StaffQuotation { _id: string; code: string; version: number; status: string; subtotal: number; taxRate: number; taxAmount: number; total: number; validUntil: string; createdAt: string; leadTime?: string; paymentTerms?: string; notes?: string; items: Array<{ description: string; quantity: number; unit: string; unitPrice: number; lineTotal: number }> }
-export interface StaffRequestDetail { request: StaffRequest; messages: StaffMessage[]; messagePage?: { hasMore: boolean; nextCursor: string | null }; quotations: StaffQuotation[] }
+export interface StaffQuotation { _id: string; code: string; version: number; status: string; subtotal: number; taxRate: number; taxAmount: number; total: number; validUntil: string; createdAt: string; leadTime?: string; paymentTerms?: string; notes?: string; responseNote?: string; items: Array<{ description: string; quantity: number; unit: string; unitPrice: number; lineTotal: number }> }
+export interface StaffRequestDetail { request: StaffRequest; messages: StaffMessage[]; messagePage?: { hasMore: boolean; nextCursor: string | null }; quotations: StaffQuotation[]; workOrder?: { _id: string; code: string; status: WorkOrderStatus } | null }
 export interface Paged<T> { items: T[]; total: number; page: number; pages: number }
 export interface StaffOrder {
   _id: string; code: string; status: OrderStatus; paymentStatus: PaymentStatus; paymentMethod: "cod" | "bank_transfer"
@@ -31,6 +31,7 @@ export interface StaffOrder {
   timeline: Array<{ _id: string; status: string; message?: string; at: string; actor?: StaffMember }>; createdAt: string
   paymentTimeline: Array<{ _id: string; status: PaymentStatus; message?: string; at: string; actor?: StaffMember }>
   shippingProvider?: string; trackingCode?: string; estimatedDeliveryAt?: string; cancellationReason?: string
+  customerConfirmedAt?: string; deliveryRecipientName?: string; deliveryConfirmationSource?: "staff" | "customer"
   afterSalesRequests?: Array<{ _id: string; type: "return" | "warranty" | "complaint"; reason: string; status: "submitted" | "reviewing" | "approved" | "rejected" | "received" | "resolved"; resolution?: string; submittedAt: string }>
   confirmedAt?: string; preparingAt?: string; shippedAt?: string; deliveredAt?: string; cancelledAt?: string; paidAt?: string; refundedAt?: string
 }

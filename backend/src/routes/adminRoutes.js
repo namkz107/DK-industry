@@ -7,11 +7,13 @@ const Lead = require('../models/Lead');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Project = require('../models/Project');
+const Quotation = require('../models/Quotation');
 const RefreshSession = require('../models/RefreshSession');
 const Service = require('../models/Service');
 const ServiceRequest = require('../models/ServiceRequest');
 const SiteSetting = require('../models/SiteSetting');
 const User = require('../models/User');
+const WorkOrder = require('../models/WorkOrder');
 const { validateImageFile } = require('../services/fileSecurityService');
 const { storeContentImage } = require('../services/fileStorageService');
 const { createNotification, dispatchSoon } = require('../services/notificationService');
@@ -47,6 +49,16 @@ const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const slugify = value => clean(value, 200).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const publicUser = user => ({ _id: user._id, name: user.name, email: user.email, phone: user.phone || '', role: user.role, status: user.status, emailVerified: Boolean(user.emailVerifiedAt), mfaEnabled: Boolean(user.mfaEnabledAt), lastLoginAt: user.lastLoginAt, createdAt: user.createdAt });
 
+function dashboardMonths() {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en', { timeZone: 'Asia/Bangkok', year: 'numeric', month: 'numeric' }).formatToParts(new Date()).filter(part => part.type !== 'literal').map(part => [part.type, Number(part.value)]));
+  const current = parts.year * 12 + parts.month - 1;
+  return Array.from({ length: 12 }, (_, index) => {
+    const value = current - 11 + index;
+    const year = Math.floor(value / 12); const month = value % 12 + 1;
+    return { key: `${year}-${String(month).padStart(2, '0')}`, label: `T${month}/${String(year).slice(-2)}` };
+  });
+}
+
 async function audit(req, action, entity, entityId, summary, metadata = {}) {
   await AuditLog.create({ actor: req.user._id, action, entity, entityId, summary, metadata });
 }
@@ -63,17 +75,40 @@ function listFilter(query, searchable, extra = {}) {
 
 router.get('/dashboard', async (req, res, next) => {
   try {
-    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
-    const [customers, staff, blockedUsers, products, lowStock, services, projects, openLeads, openRequests, openOrders, pendingOrders, revenue, monthlyRevenue, recentOrders, recentActivity] = await Promise.all([
+    const months = dashboardMonths();
+    const analyticsStart = new Date(`${months[0].key}-01T00:00:00+07:00`);
+    const monthStart = new Date(`${months.at(-1).key}-01T00:00:00+07:00`);
+    const analyticsPromise = Promise.all([
+      Order.aggregate([{ $match: { paymentStatus: 'paid', paidAt: { $gte: analyticsStart } } }, { $group: { _id: { $dateToString: { format: '%Y-%m', date: '$paidAt', timezone: 'Asia/Bangkok' } }, revenue: { $sum: '$total' }, orders: { $sum: 1 } } }, { $sort: { _id: 1 } }]),
+      Order.aggregate([{ $match: { createdAt: { $gte: analyticsStart } } }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
+      Lead.countDocuments({ createdAt: { $gte: analyticsStart }, status: { $ne: 'spam' } }),
+      ServiceRequest.countDocuments({ createdAt: { $gte: analyticsStart }, source: { $ne: 'lead_conversion' } }),
+      Quotation.distinct('request', { sentAt: { $gte: analyticsStart }, status: { $ne: 'draft' } }),
+      Order.countDocuments({ createdAt: { $gte: analyticsStart }, status: { $ne: 'cancelled' } }),
+      WorkOrder.countDocuments({ createdAt: { $gte: analyticsStart }, status: { $ne: 'cancelled' } }),
+      Order.aggregate([{ $match: { paymentStatus: 'paid', paidAt: { $gte: analyticsStart } } }, { $unwind: '$items' }, { $group: { _id: { product: '$items.product', name: '$items.name' }, quantity: { $sum: '$items.quantity' }, revenue: { $sum: '$items.lineTotal' } } }, { $sort: { revenue: -1 } }, { $limit: 5 }])
+    ]).then(([monthly, orderStatuses, leads, directRequests, quotedRequests, orders, workOrders, topProducts]) => {
+      const monthlyMap = new Map(monthly.map(item => [item._id, item]));
+      return {
+        revenueTrend: months.map(month => ({ ...month, revenue: monthlyMap.get(month.key)?.revenue || 0, orders: monthlyMap.get(month.key)?.orders || 0 })),
+        orderStatuses: orderStatuses.map(item => ({ status: item._id, count: item.count })),
+        conversion: { opportunities: leads + directRequests, quotations: quotedRequests.length, wins: orders + workOrders },
+        topProducts: topProducts.map(item => ({ productId: item._id.product, name: item._id.name, quantity: item.quantity, revenue: item.revenue }))
+      };
+    });
+    const [customers, staff, blockedUsers, products, lowStock, services, projects, openLeads, openRequests, openOrders, pendingOrders, revenue, monthlyRevenue, deliveredRevenue, monthlyDeliveredRevenue, deliveredOrders, recentOrders, recentActivity, analytics] = await Promise.all([
       User.countDocuments({ role: 'customer' }), User.countDocuments({ role: 'staff', status: 'active' }), User.countDocuments({ status: 'blocked' }),
       Product.countDocuments({ active: true }), Product.countDocuments({ active: true, priceOnRequest: false, stock: { $lte: 5 } }), Service.countDocuments({ published: true }), Project.countDocuments({ published: true }),
       Lead.countDocuments({ status: { $nin: ['won', 'lost', 'spam'] } }), ServiceRequest.countDocuments({ status: { $nin: ['accepted', 'rejected', 'cancelled'] } }), Order.countDocuments({ status: { $nin: ['delivered', 'cancelled'] } }), Order.countDocuments({ status: 'pending' }),
       Order.aggregate([{ $match: { paymentStatus: 'paid' } }, { $group: { _id: null, value: { $sum: '$total' } } }]),
       Order.aggregate([{ $match: { paymentStatus: 'paid', paidAt: { $gte: monthStart } } }, { $group: { _id: null, value: { $sum: '$total' } } }]),
+      Order.aggregate([{ $match: { paymentStatus: 'paid', status: 'delivered' } }, { $group: { _id: null, value: { $sum: '$total' } } }]),
+      Order.aggregate([{ $match: { paymentStatus: 'paid', status: 'delivered', deliveredAt: { $gte: monthStart } } }, { $group: { _id: null, value: { $sum: '$total' } } }]),
+      Order.countDocuments({ status: 'delivered' }),
       Order.find().select('code total status paymentStatus createdAt').populate('customer', 'name').sort({ createdAt: -1 }).limit(6).lean(),
-      AuditLog.find().populate('actor', 'name email').sort({ createdAt: -1 }).limit(8).lean()
+      AuditLog.find().populate('actor', 'name email').sort({ createdAt: -1 }).limit(8).lean(), analyticsPromise
     ]);
-    res.json({ success: true, data: { customers, staff, blockedUsers, products, lowStock, services, projects, openLeads, openRequests, openOrders, pendingOrders, revenue: revenue[0]?.value || 0, monthlyRevenue: monthlyRevenue[0]?.value || 0, recentOrders, recentActivity } });
+    res.json({ success: true, data: { customers, staff, blockedUsers, products, lowStock, services, projects, openLeads, openRequests, openOrders, pendingOrders, revenue: revenue[0]?.value || 0, monthlyRevenue: monthlyRevenue[0]?.value || 0, deliveredRevenue: deliveredRevenue[0]?.value || 0, monthlyDeliveredRevenue: monthlyDeliveredRevenue[0]?.value || 0, deliveredOrders, recentOrders, recentActivity, analytics } });
   } catch (error) { next(error); }
 });
 
