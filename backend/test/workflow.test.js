@@ -14,6 +14,13 @@ test('Lead chỉ đi theo các bước nghiệp vụ hợp lệ', () => {
   assert.throws(() => transitionLead(lead, 'new'), error => error.code === 'INVALID_STATUS_TRANSITION');
 });
 
+test('Lead có thể ghi nhận kết quả trực tiếp mà không ép qua trạng thái nội bộ', () => {
+  const lead = { status: 'new', timeline: [] };
+  transitionLead(lead, 'won', { message: 'Đã tạo hồ sơ tư vấn.' });
+  assert.equal(lead.status, 'won');
+  assert.equal(lead.timeline.length, 1);
+});
+
 test('Service Request không thể bỏ qua bước phân tích để chấp thuận', () => {
   const request = { status: 'submitted', timeline: [] };
   assert.throws(() => transitionServiceRequest(request, 'accepted'), error => error.code === 'INVALID_STATUS_TRANSITION');
@@ -24,6 +31,13 @@ test('Service Request không thể bỏ qua bước phân tích để chấp thu
   transitionServiceRequest(request, 'accepted');
   assert.equal(request.status, 'accepted');
   assert.ok(request.closedAt instanceof Date);
+});
+
+test('Service Request tự đi thẳng đến báo giá nhưng vẫn không thể tự chấp thuận', () => {
+  const request = { status: 'submitted', timeline: [] };
+  transitionServiceRequest(request, 'quoted', { message: 'Đã gửi báo giá.' });
+  assert.equal(request.status, 'quoted');
+  assert.throws(() => transitionServiceRequest({ status: 'submitted', timeline: [] }, 'accepted'), error => error.code === 'INVALID_STATUS_TRANSITION');
 });
 
 test('Order phải xác nhận trước khi chuẩn bị và giao hàng', () => {
@@ -42,4 +56,10 @@ test('Order phải xác nhận trước khi chuẩn bị và giao hàng', () => 
   assert.equal(order.paymentStatus, 'paid');
   assert.ok(order.deliveredAt instanceof Date);
   assert.throws(() => transitionPayment(order, 'unpaid'), error => error.code === 'INVALID_STATUS_TRANSITION');
+});
+
+test('Order đã xác nhận có thể xuất giao mà không cần bước chuẩn bị riêng', () => {
+  const order = { status: 'confirmed', timeline: [] };
+  transitionOrder(order, 'shipping', { message: 'Đã bàn giao vận chuyển.' });
+  assert.equal(order.status, 'shipping');
 });

@@ -27,7 +27,7 @@ const workOrderTransitions = {
   awaiting_contract: ['awaiting_deposit', 'scheduled', 'cancelled'],
   awaiting_deposit: ['scheduled', 'cancelled'],
   scheduled: ['in_progress', 'cancelled'],
-  in_progress: ['quality_check', 'cancelled'],
+  in_progress: ['quality_check', 'ready_for_delivery', 'cancelled'],
   quality_check: ['in_progress', 'ready_for_delivery'],
   ready_for_delivery: ['completed'],
   completed: [], cancelled: []
@@ -183,6 +183,7 @@ router.post('/leads/:id/convert', async (req, res, next) => {
       ensureOwnership(lead, req.user, 'Lead');
       if (lead.convertedRequest) fail('Lead đã được chuyển thành hồ sơ trước đó', 409);
       if (lead.status === 'spam') fail('Không thể chuyển đổi Lead bị đánh dấu spam', 409);
+      claimIfUnassigned(lead, req.user);
       const customerFilter = req.body.customerId && validId(req.body.customerId)
         ? { _id: req.body.customerId, role: 'customer', status: 'active' }
         : { role: 'customer', status: 'active', $or: [...(lead.email ? [{ email: lead.email }] : []), { phone: lead.phone }] };
@@ -204,6 +205,7 @@ router.post('/leads/:id/convert', async (req, res, next) => {
       lead.convertedCustomer = customer._id;
       lead.convertedRequest = request._id;
       lead.timeline.push({ action: 'converted', message: `Đã chuyển thành hồ sơ ${request.code}.`, actor: req.user._id });
+      if (lead.status !== 'won') transitionLead(lead, 'won', { actor: req.user._id, message: `Đã tạo hồ sơ ${request.code}.` });
       await lead.save(session ? { session } : undefined);
       await writeAudit({ actor: req.user._id, action: 'lead.converted', entity: 'lead', entityId: lead._id, summary: `Chuyển Lead ${lead.code} thành ${request.code}`, metadata: { customerId: customer._id, requestId: request._id }, session });
       return { lead, request, customer };
@@ -303,6 +305,9 @@ router.post('/requests/:id/messages', async (req, res, next) => {
     const result = await createIdempotentMessage({ request: request._id, sender: req.user._id, senderRole: req.user.role, visibility, content, clientMessageId: req.body.clientMessageId, readByStaffAt: new Date() });
     if (result.duplicate) return res.status(200).json({ success: true, message: 'Tin nhắn đã được gửi trước đó', data: publicMessage(result.message) });
     request.lastStaffMessageAt = new Date();
+    if (visibility === 'customer' && request.status === 'submitted') {
+      transitionServiceRequest(request, 'reviewing', { actor: req.user._id, actorType: 'staff', message: 'Đã bắt đầu xử lý và phản hồi khách hàng.' });
+    }
     await request.save();
     if (visibility === 'customer') {
       await createNotification({ recipient: request.customer, type: 'request.staff_message', title: `Phản hồi mới cho ${request.code}`, message: content.slice(0, 180), link: '/tai-khoan/yeu-cau', metadata: { requestId: request._id } });
@@ -321,7 +326,7 @@ router.post('/requests/:id/quotations', async (req, res, next) => {
     if (!request) fail('Không tìm thấy yêu cầu', 404);
     ensureOwnership(request, req.user, 'Hồ sơ');
     claimIfUnassigned(request, req.user);
-    if (!['reviewing', 'quoted'].includes(request.status)) fail('Yêu cầu phải đang đánh giá hoặc chờ phản hồi báo giá', 409);
+    if (!['submitted', 'reviewing', 'need_more_info', 'quoted'].includes(request.status)) fail('Yêu cầu đã đóng, không thể tạo báo giá', 409);
     if (!Array.isArray(req.body.items) || !req.body.items.length || req.body.items.length > 50) fail('Báo giá cần từ 1 đến 50 hạng mục');
     const items = req.body.items.map(item => ({ description: clean(item.description, 500), quantity: Number(item.quantity), unit: clean(item.unit, 50), unitPrice: Number(item.unitPrice), lineTotal: 0 }));
     if (items.some(item => !item.description || !item.unit || !Number.isFinite(item.quantity) || item.quantity <= 0 || !Number.isFinite(item.unitPrice) || item.unitPrice < 0)) fail('Hạng mục báo giá không hợp lệ');
@@ -344,6 +349,9 @@ router.post('/requests/:id/quotations', async (req, res, next) => {
       await writeAudit({ actor: req.user._id, action: 'quotation.sent', entity: 'quotation', entityId: quotation._id, summary: `Gửi báo giá ${quotation.code}`, metadata: { requestId: request._id, total: quotation.total } });
       dispatchSoon();
     } else {
+      if (request.status === 'submitted' || request.status === 'need_more_info') {
+        transitionServiceRequest(request, 'reviewing', { actor: req.user._id, actorType: 'staff', message: 'Đã bắt đầu lập báo giá.' });
+      }
       await request.save();
       await writeAudit({ actor: req.user._id, action: 'quotation.draft_created', entity: 'quotation', entityId: quotation._id, summary: `Tạo nháp báo giá ${quotation.code}`, metadata: { requestId: request._id, total: quotation.total } });
     }

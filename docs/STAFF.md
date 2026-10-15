@@ -28,8 +28,8 @@ Admin có toàn bộ quyền Staff và có thể chỉ định một nhân viên
 ## Workflow Lead
 
 1. Mở **Khách hàng tiềm năng**, ưu tiên Lead mới/chưa phân công.
-2. Bấm **Nhận phụ trách** trước khi gọi khách.
-3. Xác minh nhu cầu và chuyển `new → qualified` hoặc `contacted`.
+2. Liên hệ khách; hệ thống tự nhận phụ trách khi nhân viên thao tác lần đầu.
+3. Ghi nhận trực tiếp `contacted`, `won`, `lost` hoặc `spam`; các trạng thái phân tích cũ vẫn được hỗ trợ cho dữ liệu trước đây.
 4. Ghi lịch gọi tiếp theo và nội dung trao đổi.
 5. Chuyển qua `needs_analysis → quoted → won/lost`; nếu `lost` phải nhập lý do.
 6. Dữ liệu rác chuyển `spam`. Mọi thao tác trạng thái và phân công được lưu timeline.
@@ -37,7 +37,7 @@ Admin có toàn bộ quyền Staff và có thể chỉ định một nhân viên
 ## Workflow Service Request
 
 1. Mở **Yêu cầu dịch vụ**, nhận hồ sơ và đặt mức ưu tiên.
-2. Chuyển `submitted → reviewing` khi bắt đầu đánh giá.
+2. Phản hồi khách hoặc lập báo giá; hệ thống tự chuyển `submitted → reviewing` khi cần.
 3. Nếu thiếu dữ liệu, chọn `need_more_info` và ghi rõ thông tin khách phải bổ sung.
 4. Trao đổi công khai dùng **Gửi khách hàng**; nhận xét kỹ thuật riêng dùng **Chỉ nội bộ**.
 5. Lập báo giá gồm hạng mục, số lượng, đơn vị, đơn giá, VAT, hiệu lực và điều khoản.
@@ -48,7 +48,7 @@ Admin có toàn bộ quyền Staff và có thể chỉ định một nhân viên
 
 1. Đơn mới ở `pending`; Staff nhận phụ trách và kiểm tra tồn kho thực tế.
 2. Chuyển sang `confirmed` mới trừ tồn kho trên hệ thống.
-3. Thực hiện `confirmed → preparing → shipping → delivered` và ghi nội dung mỗi lần bàn giao.
+3. Thực hiện `confirmed → shipping → delivered`; `preparing` vẫn được hỗ trợ cho đơn cũ nhưng không còn bắt buộc.
 4. Có thể hủy ở `pending`, `confirmed` hoặc `preparing`. Nếu đã trừ kho nhưng chưa giao, hệ thống hoàn tồn tự động.
 5. Từ `shipping` không được hủy trực tiếp; cần xử lý hoàn hàng theo nghiệp vụ mở rộng sau này.
 6. Trạng thái thanh toán được theo dõi độc lập: `unpaid`, `pending`, `paid`, `refunded`.

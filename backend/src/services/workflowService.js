@@ -1,23 +1,23 @@
 const leadTransitions = {
-  new: ['qualified', 'contacted', 'lost', 'spam'],
-  qualified: ['contacted', 'needs_analysis', 'lost', 'spam'],
-  contacted: ['qualified', 'needs_analysis', 'quoted', 'lost', 'spam'],
-  needs_analysis: ['contacted', 'quoted', 'lost'],
+  new: ['qualified', 'contacted', 'quoted', 'won', 'lost', 'spam'],
+  qualified: ['contacted', 'needs_analysis', 'quoted', 'won', 'lost', 'spam'],
+  contacted: ['qualified', 'needs_analysis', 'quoted', 'won', 'lost', 'spam'],
+  needs_analysis: ['contacted', 'quoted', 'won', 'lost'],
   quoted: ['needs_analysis', 'won', 'lost'],
-  won: [], lost: ['contacted'], spam: []
+  won: [], lost: ['contacted', 'won'], spam: []
 };
 
 const requestTransitions = {
-  submitted: ['reviewing', 'cancelled', 'rejected'],
+  submitted: ['reviewing', 'need_more_info', 'quoted', 'cancelled', 'rejected'],
   reviewing: ['need_more_info', 'quoted', 'rejected', 'cancelled'],
-  need_more_info: ['reviewing', 'rejected', 'cancelled'],
+  need_more_info: ['reviewing', 'quoted', 'rejected', 'cancelled'],
   quoted: ['accepted', 'reviewing', 'cancelled'],
   accepted: [], rejected: ['reviewing'], cancelled: []
 };
 
 const orderTransitions = {
   pending: ['confirmed', 'cancelled'],
-  confirmed: ['preparing', 'cancelled'],
+  confirmed: ['preparing', 'shipping', 'cancelled'],
   preparing: ['shipping', 'cancelled'],
   shipping: ['delivered'],
   delivered: [], cancelled: []
