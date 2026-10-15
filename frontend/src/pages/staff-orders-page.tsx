@@ -6,12 +6,14 @@ import { StaffShell } from "@/components/staff/staff-shell"
 import { Pagination } from "@/components/pagination"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { MoneyInput } from "@/components/ui/numeric-input"
 import { Select } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/toast"
 import { usePageMeta } from "@/hooks/use-page-meta"
 import { staffClient } from "@/lib/staff-client"
 import { googleMapsDirectionsUrl } from "@/lib/google-maps"
+import { formatGroupedNumber, parseNumericInput } from "@/lib/numeric"
 import { cn } from "@/lib/utils"
 import type { OrderStatus, PaymentStatus, StaffOrder } from "@/types/staff"
 
@@ -59,17 +61,17 @@ function OrderDetail({ order, busy, onUpdate, onAfterSales }: { order: StaffOrde
   const [nextStatus, setNextStatus] = useState("")
   const [paymentStatus, setPaymentStatus] = useState("")
   const [message, setMessage] = useState("")
-  const [amountPaid, setAmountPaid] = useState(String(order.total))
+  const [amountPaid, setAmountPaid] = useState(formatGroupedNumber(order.total))
   const [paymentReference, setPaymentReference] = useState(order.paymentReference || "")
   const [internalNote, setInternalNote] = useState(order.internalNote || "")
-  const [shippingFee, setShippingFee] = useState(String(order.shippingFee || 0))
+  const [shippingFee, setShippingFee] = useState(formatGroupedNumber(order.shippingFee || 0))
   const [shippingProvider, setShippingProvider] = useState(order.shippingProvider || "")
   const [trackingCode, setTrackingCode] = useState(order.trackingCode || "")
   const [estimatedDeliveryAt, setEstimatedDeliveryAt] = useState(order.estimatedDeliveryAt?.slice(0, 16) || "")
 
   useEffect(() => {
-    setNextStatus(nextStatuses[order.status].find(status => status !== "cancelled") || ""); setPaymentStatus(""); setMessage(""); setAmountPaid(String(order.total)); setPaymentReference(order.paymentReference || ""); setInternalNote(order.internalNote || "")
-    setShippingFee(String(order.shippingFee || 0)); setShippingProvider(order.shippingProvider || ""); setTrackingCode(order.trackingCode || ""); setEstimatedDeliveryAt(order.estimatedDeliveryAt?.slice(0, 16) || "")
+    setNextStatus(nextStatuses[order.status].find(status => status !== "cancelled") || ""); setPaymentStatus(""); setMessage(""); setAmountPaid(formatGroupedNumber(order.total)); setPaymentReference(order.paymentReference || ""); setInternalNote(order.internalNote || "")
+    setShippingFee(formatGroupedNumber(order.shippingFee || 0)); setShippingProvider(order.shippingProvider || ""); setTrackingCode(order.trackingCode || ""); setEstimatedDeliveryAt(order.estimatedDeliveryAt?.slice(0, 16) || "")
   }, [order])
 
   const allowedPayments = paymentTransitions[order.paymentStatus].filter(status => (status !== "refund_pending" || order.status === "cancelled") && !(status === "paid" && order.paymentMethod === "cod"))
@@ -79,11 +81,11 @@ function OrderDetail({ order, busy, onUpdate, onAfterSales }: { order: StaffOrde
   const submitProgress = (event: FormEvent) => {
     event.preventDefault()
     const body: Parameters<typeof staffClient.updateOrder>[1] = { message, shippingProvider, trackingCode, estimatedDeliveryAt }
-    if (["pending", "confirmed", "preparing"].includes(order.status)) body.shippingFee = Number(shippingFee)
+    if (["pending", "confirmed", "preparing"].includes(order.status)) body.shippingFee = parseNumericInput(shippingFee)
     if (nextStatus) body.status = nextStatus as OrderStatus
     if (paymentStatus) {
       body.paymentStatus = paymentStatus as PaymentStatus
-      if (paymentStatus === "paid") { body.amountPaid = Number(amountPaid); body.paymentReference = paymentReference }
+      if (paymentStatus === "paid") { body.amountPaid = parseNumericInput(amountPaid); body.paymentReference = paymentReference }
       if (paymentStatus === "refunded") body.paymentReference = paymentReference
     }
     onUpdate(body)
@@ -99,7 +101,7 @@ function OrderDetail({ order, busy, onUpdate, onAfterSales }: { order: StaffOrde
 
     <Section icon={<Truck/>} title="Thông tin giao hàng">
       <div className="grid gap-3 md:grid-cols-2">
-        <Field label="Phí vận chuyển (VND)"><Input type="number" min="0" step="1000" disabled={Boolean(order.paymentLockedAt) || ["shipping", "delivered", "cancelled"].includes(order.status)} value={shippingFee} onChange={event => setShippingFee(event.target.value)}/></Field>
+        <Field label="Phí vận chuyển (VND)"><MoneyInput min="0" disabled={Boolean(order.paymentLockedAt) || ["shipping", "delivered", "cancelled"].includes(order.status)} value={shippingFee} onChange={event => setShippingFee(event.target.value)}/></Field>
         <Field label="Đơn vị / hình thức vận chuyển"><Input disabled={["delivered", "cancelled"].includes(order.status)} value={shippingProvider} onChange={event => setShippingProvider(event.target.value)} placeholder="Ví dụ: Viettel Post hoặc xe công ty"/></Field>
         <Field label="Mã vận đơn"><Input disabled={["delivered", "cancelled"].includes(order.status)} value={trackingCode} onChange={event => setTrackingCode(event.target.value)} placeholder="Có thể để trống nếu giao xe công ty"/></Field>
         <Field label="Thời gian giao dự kiến"><Input disabled={["delivered", "cancelled"].includes(order.status)} type="datetime-local" value={estimatedDeliveryAt} onChange={event => setEstimatedDeliveryAt(event.target.value)}/></Field>
@@ -111,7 +113,7 @@ function OrderDetail({ order, busy, onUpdate, onAfterSales }: { order: StaffOrde
       {!nextStatuses[order.status].length && !allowedPayments.length ? <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">Đơn hàng đã kết thúc, không còn bước xử lý tiếp theo.</p> : <form className="grid gap-3 lg:grid-cols-2" onSubmit={submitProgress}>
         <Filter value={nextStatus} onChange={setNextStatus} first="Không đổi tiến trình" options={nextStatuses[order.status].map(status => [status, statusNames[status]])}/>
         <Filter value={paymentStatus} onChange={setPaymentStatus} first="Không đổi thanh toán" options={allowedPayments.map(status => [status, paymentNames[status]])}/>
-        {paymentStatus === "paid" && <><Field label="Số tiền thực nhận"><Input type="number" min="0" step="1000" value={amountPaid} onChange={event => setAmountPaid(event.target.value)}/></Field><Field label="Mã / nội dung giao dịch"><Input value={paymentReference} onChange={event => setPaymentReference(event.target.value)} placeholder="Ví dụ: FT24200123456"/></Field></>}
+        {paymentStatus === "paid" && <><Field label="Số tiền thực nhận (VND)"><MoneyInput min="0" value={amountPaid} onChange={event => setAmountPaid(event.target.value)}/></Field><Field label="Mã / nội dung giao dịch"><Input value={paymentReference} onChange={event => setPaymentReference(event.target.value)} placeholder="Ví dụ: FT24200123456"/></Field></>}
         {paymentStatus === "refunded" && <Field label="Mã giao dịch hoàn tiền"><Input value={paymentReference} onChange={event => setPaymentReference(event.target.value)} placeholder="Mã đối soát hoàn tiền"/></Field>}
         <Input value={message} onChange={event => setMessage(event.target.value)} placeholder={nextStatus === "cancelled" ? "Bắt buộc nhập lý do hủy" : "Nội dung khách hàng sẽ nhìn thấy"}/>
         <Button disabled={busy || (!nextStatus && !paymentStatus) || (nextStatus === "cancelled" && message.trim().length < 5) || (paymentStatus === "paid" && order.paymentMethod === "bank_transfer" && paymentReference.trim().length < 3)}>{nextStatus ? statusNames[nextStatus as OrderStatus] : "Cập nhật thanh toán"}</Button>

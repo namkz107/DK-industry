@@ -94,8 +94,9 @@ function generateQuotationPdf({ quotation, request, customer }) {
       text('ĐIỀU KIỆN VÀ GHI CHÚ', { bold: true, size: 11, color: orange });
       doc.moveDown(0.45);
       conditions.forEach(([label, value]) => {
-        text(`${label}:`, { bold: true, size: 9.5 });
-        text(value, { size: 9.5, color: muted, indent: 12 });
+        ensureSpace(22);
+        doc.font('Bold').fontSize(9.5).fillColor(green).text(`${label}: `, { continued: true });
+        doc.font('Regular').fillColor(muted).text(String(value));
         doc.moveDown(0.35);
       });
     }

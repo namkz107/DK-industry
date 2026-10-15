@@ -20,7 +20,7 @@ export interface StaffRequest {
   attachments: Array<{ _id: string; originalName: string; mimeType?: string; size?: number }>
 }
 export interface StaffMessage { _id: string; clientMessageId?: string; sender?: StaffMember; senderRole: string; visibility: "customer" | "internal"; content: string; createdAt: string; readByCustomerAt?: string; readByStaffAt?: string; deliveryStatus?: "sending" | "failed"; attachments: Array<{ _id: string; originalName: string }> }
-export interface StaffQuotation { _id: string; code: string; version: number; status: string; subtotal: number; taxRate: number; taxAmount: number; total: number; validUntil: string; createdAt: string; items: Array<{ description: string; quantity: number; unit: string; unitPrice: number; lineTotal: number }> }
+export interface StaffQuotation { _id: string; code: string; version: number; status: string; subtotal: number; taxRate: number; taxAmount: number; total: number; validUntil: string; createdAt: string; leadTime?: string; paymentTerms?: string; notes?: string; items: Array<{ description: string; quantity: number; unit: string; unitPrice: number; lineTotal: number }> }
 export interface StaffRequestDetail { request: StaffRequest; messages: StaffMessage[]; messagePage?: { hasMore: boolean; nextCursor: string | null }; quotations: StaffQuotation[] }
 export interface Paged<T> { items: T[]; total: number; page: number; pages: number }
 export interface StaffOrder {

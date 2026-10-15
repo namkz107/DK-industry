@@ -339,15 +339,21 @@ router.post('/requests/:id/quotations', async (req, res, next) => {
     if (!['submitted', 'reviewing', 'need_more_info', 'quoted'].includes(request.status)) fail('Yêu cầu đã đóng, không thể tạo báo giá', 409);
     if (!Array.isArray(req.body.items) || !req.body.items.length || req.body.items.length > 50) fail('Báo giá cần từ 1 đến 50 hạng mục');
     const items = req.body.items.map(item => ({ description: clean(item.description, 500), quantity: Number(item.quantity), unit: clean(item.unit, 50), unitPrice: Number(item.unitPrice), lineTotal: 0 }));
-    if (items.some(item => !item.description || !item.unit || !Number.isFinite(item.quantity) || item.quantity <= 0 || !Number.isFinite(item.unitPrice) || item.unitPrice < 0)) fail('Hạng mục báo giá không hợp lệ');
+    if (items.some(item => !item.description || !item.unit || !Number.isInteger(item.quantity) || item.quantity <= 0 || !Number.isInteger(item.unitPrice) || item.unitPrice < 0)) fail('Số lượng phải là số nguyên dương và đơn giá phải là số nguyên không âm');
     const validUntil = new Date(req.body.validUntil);
     if (Number.isNaN(validUntil.getTime()) || validUntil <= new Date()) fail('Ngày hiệu lực báo giá phải ở tương lai');
+    const taxRate = Number(req.body.taxRate);
+    if (!Number.isInteger(taxRate) || taxRate < 0 || taxRate > 100) fail('Thuế VAT phải là số nguyên từ 0 đến 100');
+    const leadTimeDays = req.body.leadTimeDays === null || req.body.leadTimeDays === undefined || req.body.leadTimeDays === '' ? null : Number(req.body.leadTimeDays);
+    if (leadTimeDays !== null && (!Number.isInteger(leadTimeDays) || leadTimeDays <= 0)) fail('Thời gian thực hiện phải là số ngày nguyên dương');
+    const depositPercent = req.body.depositPercent === null || req.body.depositPercent === undefined || req.body.depositPercent === '' ? null : Number(req.body.depositPercent);
+    if (depositPercent !== null && (!Number.isInteger(depositPercent) || depositPercent < 0 || depositPercent > 100)) fail('Tỷ lệ đặt cọc phải là số nguyên từ 0 đến 100');
     const sequenced = await ServiceRequest.findByIdAndUpdate(request._id, { $inc: { quotationSequence: 1 } }, { new: true }).select('quotationSequence');
     const status = req.body.status === 'sent' ? 'sent' : 'draft';
     const quotation = await Quotation.create({
       request: request._id, customer: request.customer, version: sequenced.quotationSequence, items,
-      subtotal: 0, total: 0, taxRate: Math.min(100, Math.max(0, Number(req.body.taxRate) || 0)),
-      leadTime: clean(req.body.leadTime, 300), paymentTerms: clean(req.body.paymentTerms, 1000), notes: clean(req.body.notes, 2000), validUntil,
+      subtotal: 0, total: 0, taxRate,
+      leadTime: leadTimeDays === null ? clean(req.body.leadTime, 300) : `${leadTimeDays} ngày`, paymentTerms: depositPercent === null ? clean(req.body.paymentTerms, 1000) : `Đặt cọc ${depositPercent}%`, notes: clean(req.body.notes, 2000), validUntil,
       status, sentAt: status === 'sent' ? new Date() : undefined, createdBy: req.user._id
     });
     if (status === 'sent') {

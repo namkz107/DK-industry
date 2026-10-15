@@ -95,12 +95,14 @@ test('Staff xử lý Lead, Service Request, trao đổi và báo giá đúng quy
     assert.equal(internalMessage.status, 201);
 
     const quote = await call(`/staff/requests/${serviceRequest._id}/quotations`, staffToken, { method: 'POST', body: JSON.stringify({
-      status: 'sent', validUntil: new Date(Date.now() + 7 * 86400000), taxRate: 10, leadTime: '10 ngày', paymentTerms: 'Đặt cọc 50%',
+      status: 'sent', validUntil: new Date(Date.now() + 7 * 86400000), taxRate: 10, leadTimeDays: 10, depositPercent: 50,
       items: [{ description: 'Gia công chi tiết CNC', quantity: 10, unit: 'chiếc', unitPrice: 100000 }]
     }) });
     const quoteBody = await quote.json();
     assert.equal(quote.status, 201);
     assert.equal(quoteBody.data.total, 1100000);
+    assert.equal(quoteBody.data.leadTime, '10 ngày');
+    assert.equal(quoteBody.data.paymentTerms, 'Đặt cọc 50%');
 
     const customerDetail = await call(`/customer/requests/${serviceRequest._id}`, customerToken);
     const customerBody = await customerDetail.json();
