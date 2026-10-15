@@ -11,7 +11,8 @@
 `new → qualified → contacted → needs_analysis → quoted → won/lost`
 
 - `spam` dành cho dữ liệu rác. Mọi đổi trạng thái đi qua state machine và lưu nhật ký người thao tác.
-- Form công khai bắt buộc consent, kiểm tra thông tin liên hệ và chặn bản ghi giống hệt trong 10 phút.
+- Form công khai bắt buộc họ tên, số điện thoại, email nhận phản hồi và consent; hệ thống kiểm tra thông tin liên hệ và chặn bản ghi giống hệt trong 10 phút.
+- Yêu cầu của khách chưa đăng nhập được lưu thành Lead và hiển thị tại **Staff → Khách hàng tiềm năng**. Nhân viên liên hệ lại qua email hoặc điện thoại; ghi chú Lead chỉ dùng nội bộ.
 - Mã hồ sơ có dạng `LD-YYMMDD-XXXXXX`; UTM/referrer chỉ dùng để đo nguồn marketing.
 
 ## Luồng Service Request

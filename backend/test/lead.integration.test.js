@@ -25,6 +25,10 @@ test('Lead công khai có consent, mã hồ sơ, nguồn và chống gửi trùn
     const noConsent = await fetch(`${baseUrl}/leads`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     assert.equal(noConsent.status, 400);
 
+    const noEmail = await fetch(`${baseUrl}/leads`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...payload, email: '', consent: true }) });
+    assert.equal(noEmail.status, 400);
+    assert.match((await noEmail.json()).message, /email/i);
+
     const first = await fetch(`${baseUrl}/leads`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...payload, consent: true }) });
     const firstBody = await first.json();
     assert.equal(first.status, 201);
@@ -39,6 +43,7 @@ test('Lead công khai có consent, mã hồ sơ, nguồn và chống gửi trùn
 
     const stored = await Lead.findById(firstBody.data.id).lean();
     assert.equal(stored.phone, phone);
+    assert.equal(stored.email, payload.email);
     assert.equal(stored.consent, true);
     assert.equal(stored.sourceDetails.utmSource, 'integration-test');
     assert.equal(stored.timeline[0].toStatus, 'new');

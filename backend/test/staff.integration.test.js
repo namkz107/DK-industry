@@ -10,6 +10,7 @@ process.env.JWT_SECRET ||= 'local_staff_integration_secret_longer_than_32_charac
 
 const app = require('../src/app');
 const Lead = require('../src/models/Lead');
+const Notification = require('../src/models/Notification');
 const Order = require('../src/models/Order');
 const Product = require('../src/models/Product');
 const Quotation = require('../src/models/Quotation');
@@ -50,7 +51,7 @@ test('Staff xử lý Lead, Service Request, trao đổi và báo giá đúng quy
     const staffToken = createAccessToken(staff, new mongoose.Types.ObjectId());
     const otherStaffToken = createAccessToken(otherStaff, new mongoose.Types.ObjectId());
 
-    lead = await Lead.create({ name: 'Lead Staff Test', phone: '0901234567', email: `lead-${suffix}@example.com`, serviceType: 'Gia công CNC', message: 'Cần tư vấn gia công.', consent: true });
+    lead = await Lead.create({ name: 'Lead Staff Test', phone: '0901234567', email: customer.email, serviceType: 'Gia công CNC', message: 'Cần tư vấn gia công.', consent: true });
     serviceRequest = await ServiceRequest.create({
       code: `YC-STAFF-${suffix}`, customer: customer._id, requestType: 'machining', title: 'Gia công chi tiết Staff test',
       description: 'Hồ sơ dùng để kiểm thử quy trình nhân viên.', contact: { name: customer.name, phone: customer.phone, email: customer.email },
@@ -79,8 +80,17 @@ test('Staff xử lý Lead, Service Request, trao đổi và báo giá đúng quy
     const otherCannotEditOwnedLead = await call(`/staff/leads/${lead._id}`, otherStaffToken, { method: 'PATCH', body: JSON.stringify({ priority: 'urgent' }) });
     assert.equal(otherCannotEditOwnedLead.status, 409);
 
+    const converted = await call(`/staff/leads/${lead._id}/convert`, staffToken, { method: 'POST' });
+    const convertedBody = await converted.json();
+    assert.equal(converted.status, 201);
+    assert.match(convertedBody.data.requestCode, /^YC-/);
+    assert.ok(await ServiceRequest.exists({ _id: convertedBody.data.requestId, sourceLead: lead._id, customer: customer._id }));
+
     const review = await call(`/staff/requests/${serviceRequest._id}`, staffToken, { method: 'PATCH', body: JSON.stringify({ assignedTo: 'me', priority: 'urgent', status: 'reviewing', message: 'Kỹ thuật bắt đầu kiểm tra bản vẽ.' }) });
     assert.equal(review.status, 200);
+    const needMoreInfo = await call(`/staff/requests/${serviceRequest._id}`, staffToken, { method: 'PATCH', body: JSON.stringify({ status: 'need_more_info', message: 'Vui lòng bổ sung dung sai của chi tiết.', visibility: 'customer' }) });
+    assert.equal(needMoreInfo.status, 200);
+    assert.ok(await Notification.exists({ recipient: customer._id, type: 'request.status_updated', 'metadata.requestId': serviceRequest._id }));
     const internalMessage = await call(`/staff/requests/${serviceRequest._id}/messages`, staffToken, { method: 'POST', body: JSON.stringify({ visibility: 'internal', content: 'Cần kiểm tra lại dung sai trước khi báo giá.' }) });
     assert.equal(internalMessage.status, 201);
 
@@ -141,9 +151,13 @@ test('Staff xử lý Lead, Service Request, trao đổi và báo giá đúng quy
   } finally {
     if (serviceRequest) {
       await Promise.all([Quotation.deleteMany({ request: serviceRequest._id }), RequestMessage.deleteMany({ request: serviceRequest._id })]);
+      await Notification.deleteMany({ 'metadata.requestId': serviceRequest._id });
       await ServiceRequest.deleteOne({ _id: serviceRequest._id });
     }
-    if (lead) await Lead.deleteOne({ _id: lead._id });
+    if (lead) {
+      await ServiceRequest.deleteMany({ sourceLead: lead._id });
+      await Lead.deleteOne({ _id: lead._id });
+    }
     if (order) await Order.deleteOne({ _id: order._id });
     if (deliveryOrder) await Order.deleteOne({ _id: deliveryOrder._id });
     if (product) await Product.deleteOne({ _id: product._id });

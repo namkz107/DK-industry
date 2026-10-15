@@ -49,7 +49,7 @@ function plainText({ eyebrow, title, greeting, paragraphs = [], details = [], ct
   ].filter(value => value !== null && value !== undefined).join('\n').trim();
 }
 
-function renderBrandedEmail({ preheader = '', eyebrow = 'THÔNG BÁO TỪ CÔNG TY', title, greeting = 'Kính gửi Quý khách hàng,', paragraphs = [], details = [], cta, notice = '' }) {
+function renderBrandedEmail({ preheader = '', eyebrow = 'THÔNG BÁO TỪ CÔNG TY', title, greeting = 'Kính gửi Quý khách hàng,', paragraphs = [], contentHtml = '', details = [], cta, notice = '' }) {
   const company = brand();
   const safeCtaUrl = cleanUrl(cta?.url);
   const detailRows = details.map((item, index) => `<tr>
@@ -77,6 +77,7 @@ function renderBrandedEmail({ preheader = '', eyebrow = 'THÔNG BÁO TỪ CÔNG 
         <h1 style="margin:8px 0 0;font-family:Arial,sans-serif;font-size:26px;line-height:34px;color:#022c22;">${escapeHtml(title)}</h1>
         <p style="margin:20px 0 0;font-family:Arial,sans-serif;font-size:15px;line-height:24px;color:#334155;">${escapeHtml(greeting)}</p>
         ${paragraphs.map(paragraph => `<p style="margin:12px 0 0;font-family:Arial,sans-serif;font-size:15px;line-height:24px;color:#475569;">${escapeHtml(paragraph)}</p>`).join('')}
+        ${contentHtml}
       </td></tr>
       ${details.length ? `<tr><td style="padding:12px 30px;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f0fdf4;border:1px solid #d1fae5;border-radius:14px;"><tr><td style="padding:18px 20px;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">${detailRows}</table></td></tr></table></td></tr>` : ''}
       ${safeCtaUrl ? `<tr><td align="center" style="padding:18px 30px 14px;"><table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr><td bgcolor="#ea580c" style="border-radius:12px;"><a href="${escapeHtml(safeCtaUrl)}" style="display:inline-block;padding:14px 24px;font-family:Arial,sans-serif;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:12px;">${escapeHtml(cta.label)} &rarr;</a></td></tr></table></td></tr>` : ''}
@@ -147,4 +148,73 @@ function notificationEmail({ notification, recipientName, actionUrl }) {
   });
 }
 
-module.exports = { escapeHtml, notificationEmail, passwordResetEmail, renderBrandedEmail, verificationEmail };
+const formatMoney = value => `${Number(value || 0).toLocaleString('vi-VN')} đ`;
+
+function quotationEmail({ quotation, request, customer, actionUrl }) {
+  const rows = quotation.items.map((item, index) => `<tr>
+    <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:center;font-family:Arial,sans-serif;font-size:12px;color:#475569;">${index + 1}</td>
+    <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;font-family:Arial,sans-serif;font-size:12px;color:#0f172a;">${escapeHtml(item.description)}</td>
+    <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:center;font-family:Arial,sans-serif;font-size:12px;color:#475569;">${escapeHtml(item.quantity)}</td>
+    <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;font-family:Arial,sans-serif;font-size:12px;color:#475569;">${escapeHtml(item.unit)}</td>
+    <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-family:Arial,sans-serif;font-size:12px;color:#475569;white-space:nowrap;">${formatMoney(item.unitPrice)}</td>
+    <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-family:Arial,sans-serif;font-size:12px;font-weight:700;color:#022c22;white-space:nowrap;">${formatMoney(item.lineTotal)}</td>
+  </tr>`).join('');
+  const conditionRows = [
+    quotation.leadTime && ['Thời gian thực hiện', quotation.leadTime],
+    quotation.paymentTerms && ['Điều khoản thanh toán', quotation.paymentTerms],
+    quotation.notes && ['Ghi chú', quotation.notes]
+  ].filter(Boolean).map(([label, value]) => `<p style="margin:7px 0;font-family:Arial,sans-serif;font-size:13px;line-height:20px;color:#475569;"><strong style="color:#022c22;">${escapeHtml(label)}:</strong> ${escapeHtml(value)}</p>`).join('');
+  const contentHtml = `
+    <div style="margin-top:20px;overflow:hidden;border:1px solid #cbd5e1;border-radius:12px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;">
+        <thead><tr style="background:#022c22;">
+          <th style="padding:10px 6px;font-family:Arial,sans-serif;font-size:11px;color:#ffffff;">STT</th>
+          <th align="left" style="padding:10px 8px;font-family:Arial,sans-serif;font-size:11px;color:#ffffff;">HẠNG MỤC</th>
+          <th style="padding:10px 6px;font-family:Arial,sans-serif;font-size:11px;color:#ffffff;">SL</th>
+          <th align="left" style="padding:10px 8px;font-family:Arial,sans-serif;font-size:11px;color:#ffffff;">ĐƠN VỊ</th>
+          <th align="right" style="padding:10px 8px;font-family:Arial,sans-serif;font-size:11px;color:#ffffff;">ĐƠN GIÁ</th>
+          <th align="right" style="padding:10px 8px;font-family:Arial,sans-serif;font-size:11px;color:#ffffff;">THÀNH TIỀN</th>
+        </tr></thead><tbody>${rows}</tbody>
+      </table>
+    </div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:14px;background:#f8fafc;border-radius:12px;"><tr><td style="padding:16px 18px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+        <tr><td style="font-family:Arial,sans-serif;font-size:13px;color:#64748b;">Tạm tính</td><td align="right" style="font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#022c22;">${formatMoney(quotation.subtotal)}</td></tr>
+        <tr><td style="padding-top:8px;font-family:Arial,sans-serif;font-size:13px;color:#64748b;">VAT (${escapeHtml(quotation.taxRate || 0)}%)</td><td align="right" style="padding-top:8px;font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#022c22;">${formatMoney(quotation.taxAmount)}</td></tr>
+        <tr><td style="padding-top:12px;border-top:1px solid #cbd5e1;font-family:Arial,sans-serif;font-size:16px;font-weight:700;color:#022c22;">Tổng cộng</td><td align="right" style="padding-top:12px;border-top:1px solid #cbd5e1;font-family:Arial,sans-serif;font-size:18px;font-weight:700;color:#ea580c;">${formatMoney(quotation.total)}</td></tr>
+      </table>
+    </td></tr></table>
+    ${conditionRows ? `<div style="margin-top:16px;padding:14px 16px;background:#fff7ed;border-left:4px solid #f97316;border-radius:8px;">${conditionRows}</div>` : ''}`;
+  const rendered = renderBrandedEmail({
+    preheader: `Báo giá ${quotation.code} - ${formatMoney(quotation.total)}`,
+    eyebrow: 'BÁO GIÁ CHI TIẾT',
+    title: `Báo giá ${quotation.code}`,
+    greeting: `Xin chào ${customer?.name || 'Quý khách'},`,
+    paragraphs: [`Chúng tôi gửi bạn báo giá cho yêu cầu ${request?.code || ''} - ${request?.title || ''}. File PDF đầy đủ được đính kèm email này.`],
+    contentHtml,
+    details: [
+      { label: 'Mã báo giá', value: quotation.code, highlight: true },
+      { label: 'Hiệu lực đến', value: new Date(quotation.validUntil).toLocaleDateString('vi-VN') }
+    ],
+    cta: actionUrl ? { label: 'Xem và phản hồi báo giá', url: actionUrl } : undefined
+  });
+  const itemText = quotation.items.map((item, index) => `${index + 1}. ${item.description} - ${item.quantity} ${item.unit} x ${formatMoney(item.unitPrice)} = ${formatMoney(item.lineTotal)}`).join('\n');
+  rendered.text = [
+    `BÁO GIÁ ${quotation.code}`,
+    `Kính gửi: ${customer?.name || 'Quý khách'}`,
+    `Yêu cầu: ${request?.code || ''} - ${request?.title || ''}`,
+    '', 'CÁC HẠNG MỤC', itemText, '',
+    `Tạm tính: ${formatMoney(quotation.subtotal)}`,
+    `VAT (${quotation.taxRate || 0}%): ${formatMoney(quotation.taxAmount)}`,
+    `TỔNG CỘNG: ${formatMoney(quotation.total)}`,
+    `Hiệu lực đến: ${new Date(quotation.validUntil).toLocaleDateString('vi-VN')}`,
+    quotation.leadTime && `Thời gian thực hiện: ${quotation.leadTime}`,
+    quotation.paymentTerms && `Điều khoản thanh toán: ${quotation.paymentTerms}`,
+    quotation.notes && `Ghi chú: ${quotation.notes}`,
+    actionUrl && `Xem và phản hồi: ${actionUrl}`,
+    '', `File báo giá ${quotation.code}.pdf được đính kèm email này.`
+  ].filter(Boolean).join('\n');
+  return rendered;
+}
+
+module.exports = { escapeHtml, notificationEmail, passwordResetEmail, quotationEmail, renderBrandedEmail, verificationEmail };

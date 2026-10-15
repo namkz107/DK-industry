@@ -2,7 +2,9 @@
   "name": "dk-industry-api",
   "version": "1.0.0",
   "private": true,
-  "engines": { "node": ">=20.19" },
+  "engines": {
+    "node": ">=20.19"
+  },
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
@@ -27,6 +29,7 @@
     "morgan": "^1.10.1",
     "multer": "^2.4.0",
     "nodemailer": "^10.0.12",
+    "pdfkit": "^0.20.2",
     "socket.io": "^4.8.1"
   },
   "devDependencies": {

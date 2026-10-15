@@ -184,8 +184,9 @@ router.post('/leads/:id/convert', async (req, res, next) => {
       if (lead.convertedRequest) fail('Lead đã được chuyển thành hồ sơ trước đó', 409);
       if (lead.status === 'spam') fail('Không thể chuyển đổi Lead bị đánh dấu spam', 409);
       claimIfUnassigned(lead, req.user);
-      const customerFilter = req.body.customerId && validId(req.body.customerId)
-        ? { _id: req.body.customerId, role: 'customer', status: 'active' }
+      const customerId = req.body?.customerId;
+      const customerFilter = customerId && validId(customerId)
+        ? { _id: customerId, role: 'customer', status: 'active' }
         : { role: 'customer', status: 'active', $or: [...(lead.email ? [{ email: lead.email }] : []), { phone: lead.phone }] };
       const customerQuery = User.findOne(customerFilter);
       if (session) customerQuery.session(session);
@@ -268,6 +269,7 @@ router.patch('/requests/:id', async (req, res, next) => {
     if (!validId(req.params.id)) fail('Yêu cầu không hợp lệ', 404);
     const request = await ServiceRequest.findById(req.params.id).select('+internalSummary');
     if (!request) fail('Không tìm thấy yêu cầu', 404);
+    let customerMessage = '';
     ensureOwnership(request, req.user, 'Hồ sơ');
     claimIfUnassigned(request, req.user);
     if (req.body.assignedTo !== undefined) {
@@ -284,9 +286,17 @@ router.patch('/requests/:id', async (req, res, next) => {
       const message = clean(req.body.message, 1000);
       if (req.body.status === 'need_more_info' && !message) fail('Cần nêu rõ thông tin khách hàng phải bổ sung');
       transitionServiceRequest(request, req.body.status, { actor: req.user._id, actorType: 'staff', message });
-      if (message) await RequestMessage.create({ request: request._id, sender: req.user._id, senderRole: req.user.role, visibility: req.body.visibility === 'internal' ? 'internal' : 'customer', content: message, readByStaffAt: new Date() });
+      const visibility = req.body.visibility === 'internal' ? 'internal' : 'customer';
+      if (message) {
+        await RequestMessage.create({ request: request._id, sender: req.user._id, senderRole: req.user.role, visibility, content: message, readByStaffAt: new Date() });
+        if (visibility === 'customer') customerMessage = message;
+      }
     }
     await request.save();
+    if (customerMessage) {
+      await createNotification({ recipient: request.customer, type: 'request.status_updated', title: `Cập nhật yêu cầu ${request.code}`, message: customerMessage.slice(0, 180), link: '/tai-khoan/yeu-cau', metadata: { requestId: request._id } });
+      dispatchSoon();
+    }
     emitRequestUpdated(request._id, 'staff_update', { visibility: req.body.visibility === 'internal' ? 'internal' : 'customer' });
     res.json({ success: true, message: 'Đã cập nhật yêu cầu', data: request });
   } catch (error) { next(error); }

@@ -14,7 +14,7 @@ import { useToast } from "@/components/ui/toast"
 const quoteSchema = z.object({
   name: z.string().trim().min(2, "Vui lòng nhập họ và tên"),
   phone: z.string().trim().regex(/^[0-9+\s]{9,15}$/, "Số điện thoại chưa đúng"),
-  email: z.string().trim().email("Email chưa đúng").or(z.literal("")),
+  email: z.string().trim().min(1, "Vui lòng nhập email nhận phản hồi").email("Email chưa đúng"),
   serviceType: z.string().min(1, "Vui lòng chọn nhu cầu"),
   budget: z.string(),
   message: z.string().trim().max(2000, "Nội dung tối đa 2.000 ký tự"),
@@ -25,7 +25,7 @@ type QuoteData = z.infer<typeof quoteSchema>
 export function QuoteDialog({ open, onOpenChange, product }: { open: boolean; onOpenChange: (value: boolean) => void; product?: string }) {
   const toast = useToast()
   const form = useForm<QuoteData>({ resolver: zodResolver(quoteSchema), defaultValues: { name: "", phone: "", email: "", serviceType: product ? "Cung ứng thiết bị" : "", budget: "Chưa xác định", message: product ? `Tôi cần báo giá: ${product}` : "", consent: false } })
-  const mutation = useMutation({ mutationFn: api.createLead, onSuccess: result => { form.reset(); onOpenChange(false); toast.success(`${result.message}. Mã tiếp nhận: ${result.data.code}.`, { title: "Đã tiếp nhận yêu cầu" }) }, onError: error => toast.error(error.message, { title: "Không thể gửi yêu cầu" }) })
+  const mutation = useMutation({ mutationFn: api.createLead, onSuccess: result => { form.reset(); onOpenChange(false); toast.success(`${result.message}. Mã tiếp nhận: ${result.data.code}. Chúng tôi sẽ phản hồi qua email hoặc số điện thoại bạn đã cung cấp.`, { title: "Đã tiếp nhận yêu cầu" }) }, onError: error => toast.error(error.message, { title: "Không thể gửi yêu cầu" }) })
   const submit = form.handleSubmit(data => {
     const params = new URLSearchParams(window.location.search)
     mutation.mutate({ ...data, sourceDetails: { landingPage: window.location.href, referrer: document.referrer, utmSource: params.get("utm_source"), utmMedium: params.get("utm_medium"), utmCampaign: params.get("utm_campaign") } })
@@ -38,7 +38,7 @@ export function QuoteDialog({ open, onOpenChange, product }: { open: boolean; on
         <div className="hidden bg-emerald-950 p-10 text-white lg:block">
           <p className="mb-5 text-xs font-bold uppercase tracking-[.2em] text-orange-400">Yêu cầu tư vấn</p>
           <Dialog.Title className="font-display text-4xl font-semibold leading-tight">Cho chúng tôi biết bài toán của bạn.</Dialog.Title>
-          <Dialog.Description className="mt-5 text-base leading-7 text-emerald-50/70">Kỹ sư Cơ khí Đăng Khoa sẽ phân tích yêu cầu và phản hồi trong vòng 2 giờ làm việc.</Dialog.Description>
+          <Dialog.Description className="mt-5 text-base leading-7 text-emerald-50/70">Kỹ sư Cơ khí Đăng Khoa sẽ phân tích yêu cầu và phản hồi qua email hoặc điện thoại trong vòng 2 giờ làm việc.</Dialog.Description>
           <ul className="mt-9 space-y-4 text-sm font-semibold">{["Tư vấn hoàn toàn miễn phí", "Bảo mật thông tin dự án", "Giải pháp đúng nhu cầu"].map(item => <li className="flex items-center gap-3" key={item}><CheckCircle2 className="size-5 text-orange-400" />{item}</li>)}</ul>
         </div>
         <form className="p-6 sm:p-10" onSubmit={submit} noValidate>
@@ -47,7 +47,7 @@ export function QuoteDialog({ open, onOpenChange, product }: { open: boolean; on
             <Field label="Họ và tên" error={form.formState.errors.name?.message}><Input autoFocus autoComplete="name" placeholder="Nguyễn Văn A" {...form.register("name")} /></Field>
             <Field label="Số điện thoại" error={form.formState.errors.phone?.message}><Input inputMode="tel" autoComplete="tel" placeholder="0912 345 678" {...form.register("phone")} /></Field>
           </div>
-          <Field label="Email (không bắt buộc)" error={form.formState.errors.email?.message}><Input type="email" autoComplete="email" placeholder="email@congty.vn" {...form.register("email")} /></Field>
+          <Field label="Email nhận phản hồi" error={form.formState.errors.email?.message}><Input type="email" autoComplete="email" placeholder="email@congty.vn" required {...form.register("email")} /></Field>
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="Bạn cần hỗ trợ gì?" error={form.formState.errors.serviceType?.message}><Select ariaLabel="Dịch vụ cần hỗ trợ" value={form.watch("serviceType")} onChange={value => form.setValue("serviceType", value, { shouldDirty: true, shouldValidate: true })} options={["Chọn dịch vụ", "Tư vấn kỹ thuật", "Gia công cơ khí", "Thi công công nghiệp", "Cung ứng thiết bị"].map((label, index) => ({ value: index ? label : "", label }))}/></Field>
             <Field label="Ngân sách dự kiến"><Select ariaLabel="Ngân sách dự kiến" value={form.watch("budget")} onChange={value => form.setValue("budget", value, { shouldDirty: true })} options={["Chưa xác định", "Dưới 100 triệu", "100 - 500 triệu", "500 triệu - 2 tỷ", "Trên 2 tỷ"].map(value => ({ value, label: value }))}/></Field>

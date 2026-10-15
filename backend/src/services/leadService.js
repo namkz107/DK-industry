@@ -16,7 +16,8 @@ async function createPublicLead(payload = {}, source = {}) {
   const message = clean(payload.message, 3000);
   if (name.length < 2) throw Object.assign(new Error('Vui lòng nhập họ tên hợp lệ'), { status: 400 });
   if (!phonePattern.test(phone)) throw Object.assign(new Error('Số điện thoại Việt Nam không hợp lệ'), { status: 400 });
-  if (email && !emailPattern.test(email)) throw Object.assign(new Error('Email không hợp lệ'), { status: 400 });
+  if (!email) throw Object.assign(new Error('Vui lòng nhập email nhận phản hồi'), { status: 400 });
+  if (!emailPattern.test(email)) throw Object.assign(new Error('Email không hợp lệ'), { status: 400 });
   if (!serviceType) throw Object.assign(new Error('Vui lòng chọn nhu cầu cần hỗ trợ'), { status: 400 });
   if (payload.consent !== true) throw Object.assign(new Error('Bạn cần đồng ý để chúng tôi liên hệ xử lý yêu cầu'), { status: 400 });
 
@@ -37,7 +38,7 @@ async function createPublicLead(payload = {}, source = {}) {
     utmSource: clean(source.utmSource, 100), utmMedium: clean(source.utmMedium, 100), utmCampaign: clean(source.utmCampaign, 150)
   };
   const lead = await Lead.create({
-    name, phone, email: email || undefined, serviceType, budget, message, products: productSnapshots,
+    name, phone, email, serviceType, budget, message, products: productSnapshots,
     source: 'website', sourceDetails, consent: true,
     timeline: [{ action: 'created', toStatus: 'new', message: 'Khách gửi yêu cầu từ website.' }]
   });

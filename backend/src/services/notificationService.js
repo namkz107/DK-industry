@@ -1,7 +1,10 @@
 const Notification = require('../models/Notification');
+const Quotation = require('../models/Quotation');
+const ServiceRequest = require('../models/ServiceRequest');
 const User = require('../models/User');
 const { smtpConfigured } = require('../config/runtime');
-const { notificationEmail } = require('./emailTemplateService');
+const { notificationEmail, quotationEmail } = require('./emailTemplateService');
+const { generateQuotationPdf } = require('./quotationDocumentService');
 
 const emailMaxAttempts = () => Math.max(1, Math.min(10, Number(process.env.EMAIL_MAX_ATTEMPTS) || 5));
 const retryDelayMs = attempt => Math.min(60 * 60 * 1000, 60 * 1000 * (2 ** Math.max(0, attempt - 1)));
@@ -94,16 +97,29 @@ async function dispatchPendingEmails(limit = 25) {
     if (!notification) break;
     try {
       const baseUrl = (process.env.CLIENT_URL || '').split(',')[0];
-      await notification.populate('recipient', 'name');
+      await notification.populate('recipient', 'name email company phone');
       const actionUrl = notification.link ? `${baseUrl.replace(/\/$/, '')}${notification.link.startsWith('/') ? notification.link : `/${notification.link}`}` : '';
-      const emailContent = notificationEmail({ notification, recipientName: notification.recipient?.name, actionUrl });
+      let emailContent;
+      let attachments;
+      if (notification.type === 'quotation.sent' && notification.metadata?.quotationId) {
+        const [quotation, request] = await Promise.all([
+          Quotation.findById(notification.metadata.quotationId).lean(),
+          ServiceRequest.findById(notification.metadata.requestId).select('code title').lean()
+        ]);
+        if (!quotation || !request) throw new Error('Không tìm thấy dữ liệu để tạo email báo giá');
+        emailContent = quotationEmail({ quotation, request, customer: notification.recipient, actionUrl });
+        attachments = [{ filename: `Bao-gia-${quotation.code}.pdf`, content: await generateQuotationPdf({ quotation, request, customer: notification.recipient }), contentType: 'application/pdf' }];
+      } else {
+        emailContent = notificationEmail({ notification, recipientName: notification.recipient?.name, actionUrl });
+      }
       await transporter.sendMail({
         from: process.env.SMTP_FROM || process.env.EMAIL_FROM,
         replyTo: process.env.COMPANY_EMAIL || undefined,
         to: notification.email.address,
         subject: notification.title,
         text: emailContent.text,
-        html: emailContent.html
+        html: emailContent.html,
+        attachments
       });
       notification.email.status = 'sent';
       notification.email.sentAt = new Date();

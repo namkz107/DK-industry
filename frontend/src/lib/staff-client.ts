@@ -12,7 +12,7 @@ export const staffClient = {
   lead: (id: string) => authClient.authenticated<Result<StaffLead>>(`/staff/leads/${id}`),
   updateLead: (id: string, body: { status?: LeadStatus; priority?: Priority; assignedTo?: string; nextFollowUpAt?: string; message?: string; lostReason?: string }) => authClient.authenticated<Result<StaffLead>>(`/staff/leads/${id}`, json("PATCH", body)),
   addLeadNote: (id: string, content: string) => authClient.authenticated<Result<unknown>>(`/staff/leads/${id}/notes`, json("POST", { content })),
-  convertLead: (id: string) => authClient.authenticated<Result<{ leadId: string; requestId: string; requestCode: string; customerId: string }>>(`/staff/leads/${id}/convert`, { method: "POST" }),
+  convertLead: (id: string) => authClient.authenticated<Result<{ leadId: string; requestId: string; requestCode: string; customerId: string }>>(`/staff/leads/${id}/convert`, json("POST", {})),
   requests: (filters: { q?: string; status?: string; priority?: string; assigned?: string; page?: number } = {}) => authClient.authenticated<Result<Paged<StaffRequest>>>(`/staff/requests?${query(filters)}`),
   request: (id: string) => authClient.authenticated<Result<StaffRequestDetail>>(`/staff/requests/${id}`),
   requestMessages: (id: string, before?: string | null) => authClient.authenticated<Result<{ items: StaffMessage[]; hasMore: boolean; nextCursor: string | null }>>(`/staff/requests/${id}/messages?limit=50${before ? `&before=${encodeURIComponent(before)}` : ""}`),

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { notificationEmail, passwordResetEmail, verificationEmail } = require('../src/services/emailTemplateService');
+const { notificationEmail, passwordResetEmail, quotationEmail, verificationEmail } = require('../src/services/emailTemplateService');
 
 test('verification email renders branded HTML and a plain-text fallback', () => {
   const email = verificationEmail({ name: 'Nguyễn Văn A', actionUrl: 'https://example.com/xac-minh?token=abc' });
@@ -25,4 +25,26 @@ test('notification email includes category, reference and CTA', () => {
   assert.match(email.html, /CẬP NHẬT ĐƠN HÀNG/);
   assert.match(email.html, /DH-261014-ABC/);
   assert.match(email.text, /Xem chi tiết: https:\/\/example\.com\/tai-khoan\/don-hang/);
+});
+
+test('quotation email includes every item, totals, terms and PDF notice', () => {
+  const email = quotationEmail({
+    quotation: {
+      code: 'BG-261015-ABC123',
+      items: [
+        { description: 'Gia công chi tiết CNC', quantity: 2, unit: 'cái', unitPrice: 500000, lineTotal: 1000000 },
+        { description: 'Xử lý bề mặt', quantity: 1, unit: 'lô', unitPrice: 200000, lineTotal: 200000 }
+      ],
+      subtotal: 1200000, taxRate: 10, taxAmount: 120000, total: 1320000,
+      validUntil: new Date('2026-10-31T00:00:00.000Z'), leadTime: '10 ngày làm việc', paymentTerms: 'Đặt cọc 50%', notes: 'Giao hàng tại xưởng.'
+    },
+    request: { code: 'YC-261015-TEST', title: 'Cung ứng thiết bị' },
+    customer: { name: 'Nam' },
+    actionUrl: 'https://example.com/tai-khoan/yeu-cau'
+  });
+  assert.match(email.html, /Gia công chi tiết CNC/);
+  assert.match(email.html, /Xử lý bề mặt/);
+  assert.match(email.html, /1\.320\.000/);
+  assert.match(email.text, /File báo giá BG-261015-ABC123\.pdf/);
+  assert.match(email.text, /Đặt cọc 50%/);
 });
