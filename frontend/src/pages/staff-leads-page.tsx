@@ -54,7 +54,7 @@ export function StaffLeadsPage() {
   </StaffShell>
 }
 
-function LeadDetail({ lead, busy, error, onUpdate, onNote, onConvert }: { lead: StaffLead; busy: boolean; error: Error | null; onUpdate: (body: Parameters<typeof staffClient.updateLead>[1]) => void; onNote: (content: string) => void; onConvert: () => void }) {
+export function LeadDetail({ lead, busy, error, onUpdate, onNote, onConvert }: { lead: StaffLead; busy: boolean; error: Error | null; onUpdate: (body: Parameters<typeof staffClient.updateLead>[1]) => void; onNote: (content: string) => void; onConvert: () => void }) {
   const [status, setStatus] = useState<LeadStatus | "">(""); const [message, setMessage] = useState(""); const [note, setNote] = useState("")
   useEffect(() => { setStatus(""); setMessage(""); setNote("") }, [lead._id, lead.status])
   const submitStatus = (event: FormEvent) => { event.preventDefault(); if (status) onUpdate({ status, message, lostReason: status === "lost" ? message : undefined }) }

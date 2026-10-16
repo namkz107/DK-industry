@@ -41,7 +41,7 @@ export function StaffWorkOrdersPage() {
   </StaffShell>
 }
 
-function WorkOrderDetail({ item, busy, error, onUpdate }: { item: StaffWorkOrder; busy: boolean; error: Error | null; onUpdate: (body: Parameters<typeof staffClient.updateWorkOrder>[1]) => void }) {
+export function WorkOrderDetail({ item, busy, error, onUpdate }: { item: StaffWorkOrder; busy: boolean; error: Error | null; onUpdate: (body: Parameters<typeof staffClient.updateWorkOrder>[1]) => void }) {
   const incomplete = Boolean(item.integrityIssues?.length || !item.customer || !item.request || !item.quotation)
   const [form, setForm] = useState({ contractReference: item.contractReference || "", purchaseOrderReference: item.purchaseOrderReference || "", depositRequired: formatGroupedNumber(item.depositRequired || 0), depositPaid: formatGroupedNumber(item.depositPaid || 0), plannedStartAt: item.plannedStartAt?.slice(0, 16) || "", plannedDeliveryAt: item.plannedDeliveryAt?.slice(0, 16) || "" })
   const [status, setStatus] = useState("")

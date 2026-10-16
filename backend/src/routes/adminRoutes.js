@@ -291,7 +291,7 @@ for (const [path, kind, Model, activeField, searchable] of [
 }
 
 router.get('/audit-logs', async (req, res, next) => {
-  try { const { page, limit } = pageValues(req.query); const filter = {}; if (req.query.entity && ['user', 'product', 'service', 'project', 'site_setting', 'privacy_request'].includes(req.query.entity)) filter.entity = req.query.entity; const [items, total] = await Promise.all([AuditLog.find(filter).populate('actor', 'name email').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(), AuditLog.countDocuments(filter)]); res.json({ success: true, data: { items, total, page, pages: Math.ceil(total / limit) } }); } catch (error) { next(error); }
+  try { const { page, limit } = pageValues(req.query); const filter = {}; if (req.query.entity && ['user', 'product', 'service', 'project', 'site_setting', 'lead', 'request', 'quotation', 'work_order', 'order', 'payment', 'inventory', 'privacy_request'].includes(req.query.entity)) filter.entity = req.query.entity; const [items, total] = await Promise.all([AuditLog.find(filter).populate('actor', 'name email').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(), AuditLog.countDocuments(filter)]); res.json({ success: true, data: { items, total, page, pages: Math.ceil(total / limit) } }); } catch (error) { next(error); }
 });
 
 module.exports = router;
