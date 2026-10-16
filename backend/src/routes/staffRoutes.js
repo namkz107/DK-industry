@@ -500,7 +500,7 @@ router.get('/orders', async (req, res, next) => {
   try {
     const { page, limit } = pageValues(req.query);
     const filter = {};
-    if (orderStatuses.has(req.query.status)) filter.status = req.query.status;
+    if (orderStatuses.has(req.query.status)) filter.status = req.query.status === 'confirmed' ? { $in: ['confirmed', 'preparing'] } : req.query.status;
     if (paymentStatuses.has(req.query.paymentStatus)) filter.paymentStatus = req.query.paymentStatus;
     const assignedTo = assignmentFilter(req.query, req.user);
     if (assignedTo !== undefined) filter.assignedTo = assignedTo;

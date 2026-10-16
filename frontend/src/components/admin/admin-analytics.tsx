@@ -5,8 +5,8 @@ const money = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND
 const compactMoney = new Intl.NumberFormat("vi-VN", { notation: "compact", maximumFractionDigits: 1 })
 const statusConfig: Record<string, { label: string; color: string }> = {
   pending: { label: "Chờ xác nhận", color: "#f97316" }, confirmed: { label: "Đã xác nhận", color: "#0f766e" },
-  preparing: { label: "Đang chuẩn bị", color: "#0284c7" }, shipping: { label: "Đang giao", color: "#7c3aed" },
-  delivered: { label: "Giao thành công", color: "#16a34a" }, cancelled: { label: "Đã hủy", color: "#94a3b8" },
+  preparing: { label: "Đã xác nhận", color: "#0284c7" }, shipping: { label: "Đang giao", color: "#7c3aed" },
+  delivered: { label: "Hoàn tất", color: "#16a34a" }, cancelled: { label: "Đã hủy", color: "#94a3b8" },
 }
 
 export function AdminAnalyticsPanel({ analytics }: { analytics?: AdminAnalytics }) {

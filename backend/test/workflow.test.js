@@ -58,10 +58,9 @@ test('Order phải xác nhận trước khi chuẩn bị và giao hàng', () => 
   assert.throws(() => transitionPayment(order, 'unpaid'), error => error.code === 'INVALID_STATUS_TRANSITION');
 });
 
-test('Order không bỏ qua bước chuẩn bị hàng trước khi xuất giao', () => {
+test('Order có thể xuất giao ngay sau khi xác nhận', () => {
   const order = { status: 'confirmed', timeline: [] };
-  assert.throws(() => transitionOrder(order, 'shipping'), error => error.code === 'INVALID_STATUS_TRANSITION');
-  transitionOrder(order, 'preparing', { message: 'Đang chuẩn bị hàng.' });
   transitionOrder(order, 'shipping', { message: 'Đã bàn giao vận chuyển.' });
-  assert.equal(order.timeline.length, 2);
+  assert.equal(order.status, 'shipping');
+  assert.equal(order.timeline.length, 1);
 });

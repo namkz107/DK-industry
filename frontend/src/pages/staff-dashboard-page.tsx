@@ -17,7 +17,7 @@ export function StaffDashboardPage() {
     { label: "Tin khách chưa đọc", value: data?.unreadCustomers, detail: "Ưu tiên phản hồi sớm", icon: MailWarning, to: "/staff/requests" },
     { label: "Yêu cầu khẩn", value: data?.urgent, detail: "Cần kiểm tra ngay", icon: AlertTriangle, to: "/staff/requests?priority=urgent" },
     { label: "Đơn mới", value: data?.pendingOrders, detail: "Cần xác nhận tồn kho", icon: PackageCheck, to: "/staff/orders?status=pending" },
-    { label: "Đơn tôi phụ trách", value: data?.myOrders, detail: "Đang chuẩn bị hoặc giao", icon: PackageCheck, to: "/staff/orders?assigned=mine" },
+    { label: "Đơn tôi phụ trách", value: data?.myOrders, detail: "Đã xác nhận hoặc đang giao", icon: PackageCheck, to: "/staff/orders?assigned=mine" },
   ]
   return <StaffShell title="Tổng quan công việc" description="Nhìn nhanh các việc cần ưu tiên và đi thẳng tới hồ sơ cần xử lý.">
     {summary.isError && <p className="rounded-2xl bg-red-50 p-5 font-semibold text-red-700">Không tải được dữ liệu. Vui lòng thử lại.</p>}

@@ -26,7 +26,7 @@ export const router = createBrowserRouter([{ element: <AppLayout />, errorElemen
     { element: <RequireCustomer />, children: [
       { path: "/tai-khoan/ho-so", lazy: async () => { const module = await import("@/pages/customer-profile-page"); return { Component: module.CustomerProfilePage } } },
       { path: "/gio-hang", lazy: async () => { const module = await import("@/pages/cart-page"); return { Component: module.CartPage } } },
-      { path: "/tai-khoan/don-hang", lazy: async () => { const module = await import("@/pages/orders-page"); return { Component: module.OrdersPage } } },
+      { path: "/tai-khoan/don-hang", lazy: async () => { const module = await import("@/pages/customer-orders-page"); return { Component: module.CustomerOrdersPage } } },
       { path: "/tai-khoan/yeu-cau", lazy: async () => { const module = await import("@/pages/requests-page"); return { Component: module.RequestsPage } } },
     ] },
     { element: <RequireStaff />, children: [

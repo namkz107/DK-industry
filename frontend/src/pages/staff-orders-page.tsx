@@ -17,15 +17,15 @@ import { formatGroupedNumber, parseNumericInput } from "@/lib/numeric"
 import { cn } from "@/lib/utils"
 import type { OrderStatus, PaymentStatus, StaffOrder } from "@/types/staff"
 
-const statusNames: Record<OrderStatus, string> = { pending: "Chờ xác nhận", confirmed: "Đã xác nhận", preparing: "Đang chuẩn bị", shipping: "Đang giao", delivered: "Giao thành công", cancelled: "Đã hủy" }
+const statusNames: Record<OrderStatus, string> = { pending: "Chờ xác nhận", confirmed: "Đã xác nhận", preparing: "Đã xác nhận", shipping: "Đang giao", delivered: "Hoàn tất", cancelled: "Đã hủy" }
 const paymentNames: Record<PaymentStatus, string> = { unpaid: "Chưa thanh toán", pending: "Chờ đối soát", paid: "Đã thanh toán", refund_pending: "Chờ hoàn tiền", refunded: "Đã hoàn tiền" }
-const nextStatuses: Record<OrderStatus, OrderStatus[]> = { pending: ["confirmed", "cancelled"], confirmed: ["preparing", "cancelled"], preparing: ["shipping", "cancelled"], shipping: ["delivered"], delivered: [], cancelled: [] }
-const actionNames: Partial<Record<OrderStatus, string>> = { confirmed: "Xác nhận đơn", preparing: "Bắt đầu chuẩn bị hàng", shipping: "Bắt đầu giao hàng", delivered: "Xác nhận đã giao" }
+const nextStatuses: Record<OrderStatus, OrderStatus[]> = { pending: ["confirmed", "cancelled"], confirmed: ["shipping", "cancelled"], preparing: ["shipping", "cancelled"], shipping: ["delivered"], delivered: [], cancelled: [] }
+const actionNames: Partial<Record<OrderStatus, string>> = { confirmed: "Xác nhận đơn", shipping: "Bắt đầu giao hàng", delivered: "Hoàn tất đơn" }
 const paymentTransitions: Record<PaymentStatus, PaymentStatus[]> = { unpaid: ["pending", "paid"], pending: ["unpaid", "paid"], paid: ["refund_pending"], refund_pending: ["refunded"], refunded: [] }
 const money = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" })
 
 export function StaffOrdersPage() {
-  usePageMeta("Quản lý đơn hàng", "Xác nhận kho, thanh toán, đóng gói và điều phối giao hàng.")
+  usePageMeta("Quản lý đơn hàng", "Xác nhận đơn, giao hàng và hoàn tất trong ba bước.")
   const [params] = useSearchParams()
   const client = useQueryClient()
   const toast = useToast()
@@ -44,10 +44,10 @@ export function StaffOrdersPage() {
   const update = useMutation({ mutationFn: (body: Parameters<typeof staffClient.updateOrder>[1]) => staffClient.updateOrder(selected, body), onSuccess: result => { toast.success(result.message || "Đã lưu thay đổi đơn hàng"); refresh() }, onError: error => toast.error(error.message) })
   const afterSales = useMutation({ mutationFn: ({ requestId, status, resolution }: { requestId: string; status: string; resolution?: string }) => staffClient.updateAfterSales(selected, requestId, { status, resolution }), onSuccess: result => { toast.success(result.message || "Đã cập nhật yêu cầu hậu mãi"); refresh() }, onError: error => toast.error(error.message) })
 
-  return <StaffShell title="Đơn hàng thương mại" description="Xác nhận tồn kho, thanh toán và giao hàng trong ít thao tác nhất.">
+  return <StaffShell title="Đơn hàng thương mại" description="Nhận đơn, xác nhận, giao hàng và hoàn tất trong ít thao tác nhất.">
     <div className="mb-5 grid gap-3 rounded-2xl border bg-white p-4 md:grid-cols-[1fr_180px_180px_170px]">
       <label className="relative"><Search className="absolute left-3 top-3.5 size-5 text-slate-400"/><Input className="pl-10" value={filters.q} onChange={event => setFilters({ ...filters, q: event.target.value })} placeholder="Mã đơn, người nhận, điện thoại..."/></label>
-      <Filter value={filters.status} onChange={status => setFilters({ ...filters, status })} first="Mọi trạng thái" options={Object.entries(statusNames)}/>
+      <Filter value={filters.status} onChange={status => setFilters({ ...filters, status })} first="Mọi trạng thái" options={[["pending", "Chờ xác nhận"], ["confirmed", "Đã xác nhận"], ["shipping", "Đang giao"], ["delivered", "Hoàn tất"], ["cancelled", "Đã hủy"]]}/>
       <Filter value={filters.paymentStatus} onChange={paymentStatus => setFilters({ ...filters, paymentStatus })} first="Mọi thanh toán" options={Object.entries(paymentNames)}/>
       <Filter value={filters.assigned} onChange={assigned => setFilters({ ...filters, assigned })} first="Tất cả phụ trách" options={[["mine", "Của tôi"], ["unassigned", "Chưa phân công"]]}/>
     </div>

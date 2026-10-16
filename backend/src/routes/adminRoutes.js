@@ -89,9 +89,14 @@ router.get('/dashboard', async (req, res, next) => {
       Order.aggregate([{ $match: { paymentStatus: 'paid', paidAt: { $gte: analyticsStart } } }, { $unwind: '$items' }, { $group: { _id: { product: '$items.product', name: '$items.name' }, quantity: { $sum: '$items.quantity' }, revenue: { $sum: '$items.lineTotal' } } }, { $sort: { revenue: -1 } }, { $limit: 5 }])
     ]).then(([monthly, orderStatuses, leads, directRequests, quotedRequests, orders, workOrders, topProducts]) => {
       const monthlyMap = new Map(monthly.map(item => [item._id, item]));
+      const statusMap = orderStatuses.reduce((map, item) => {
+        const status = item._id === 'preparing' ? 'confirmed' : item._id;
+        map.set(status, (map.get(status) || 0) + item.count);
+        return map;
+      }, new Map());
       return {
         revenueTrend: months.map(month => ({ ...month, revenue: monthlyMap.get(month.key)?.revenue || 0, orders: monthlyMap.get(month.key)?.orders || 0 })),
-        orderStatuses: orderStatuses.map(item => ({ status: item._id, count: item.count })),
+        orderStatuses: Array.from(statusMap, ([status, count]) => ({ status, count })),
         conversion: { opportunities: leads + directRequests, quotations: quotedRequests.length, wins: orders + workOrders },
         topProducts: topProducts.map(item => ({ productId: item._id.product, name: item._id.name, quantity: item.quantity, revenue: item.revenue }))
       };

@@ -17,7 +17,7 @@ const requestTransitions = {
 
 const orderTransitions = {
   pending: ['confirmed', 'cancelled'],
-  confirmed: ['preparing', 'cancelled'],
+  confirmed: ['preparing', 'shipping', 'cancelled'],
   preparing: ['shipping', 'cancelled'],
   shipping: ['delivered'],
   delivered: [], cancelled: []
