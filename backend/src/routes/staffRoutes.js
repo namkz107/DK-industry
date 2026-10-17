@@ -576,8 +576,12 @@ router.patch('/orders/:id', async (req, res, next) => {
       if (!current) fail('Không tìm thấy đơn hàng', 404);
       ensureOwnership(current, req.user, 'Đơn hàng');
       const before = { status: current.status, paymentStatus: current.paymentStatus, shippingFee: current.shippingFee, total: current.total, assignedTo: current.assignedTo };
+      const terminalOrder = ['delivered', 'cancelled'].includes(current.status);
 
-      if (req.body.assignedTo !== undefined) current.assignedTo = await assignUser(req.body.assignedTo, req.user);
+      if (req.body.assignedTo !== undefined) {
+        if (terminalOrder) fail('Không thể phân công đơn hàng đã kết thúc', 409);
+        current.assignedTo = await assignUser(req.body.assignedTo, req.user);
+      }
       if (req.body.internalNote !== undefined) current.internalNote = clean(req.body.internalNote, 3000);
       if (req.body.shippingFee !== undefined) {
         if (!['pending', 'confirmed', 'preparing'].includes(current.status)) fail('Chỉ cập nhật phí vận chuyển trước khi xuất giao');
@@ -589,6 +593,8 @@ router.patch('/orders/:id', async (req, res, next) => {
         current.shippingFee = Math.round(shippingFee);
         current.total = current.subtotal + current.shippingFee;
       }
+      const updatesShipping = req.body.shippingProvider !== undefined || req.body.trackingCode !== undefined || req.body.estimatedDeliveryAt !== undefined;
+      if (terminalOrder && updatesShipping) fail('Không thể cập nhật vận chuyển cho đơn hàng đã kết thúc', 409);
       if (req.body.shippingProvider !== undefined) current.shippingProvider = clean(req.body.shippingProvider, 150);
       if (req.body.trackingCode !== undefined) current.trackingCode = clean(req.body.trackingCode, 150);
       if (req.body.estimatedDeliveryAt !== undefined) {

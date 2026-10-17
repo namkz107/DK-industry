@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { cn, formatPrice, scrollToPageTop } from "@/lib/utils"
+import { cn, formatAddressParts, formatPrice, scrollToPageTop } from "@/lib/utils"
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -12,6 +12,10 @@ describe("frontend utilities", () => {
 
   it("merges Tailwind classes without retaining conflicting values", () => {
     expect(cn("px-2 text-sm", null, "px-4")).toBe("text-sm px-4")
+  })
+
+  it("formats an address without repeating administrative areas", () => {
+    expect(formatAddressParts(["Phường Hoàn Kiếm", "Phường Hoàn Kiếm", "Hà Nội", " Hà Nội "])).toBe("Phường Hoàn Kiếm, Hà Nội")
   })
 
   it("scrolls smoothly to the beginning of the page", () => {

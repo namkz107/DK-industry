@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react"
+import { LoaderCircle } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { Outlet, ScrollRestoration, useLocation, useNavigate } from "react-router-dom"
 import { SiteFooter } from "@/components/site-footer"
@@ -22,5 +23,5 @@ export function AppLayout() {
     if (user) return
     navigate("/dang-ky", { state: { from: target } })
   }
-  return <><GlobalLoading /><a href="#main" className="skip-link">Chuyển đến nội dung chính</a><SiteHeader onQuote={() => openQuote()} /><main id="main"><AnimatePresence mode="wait" initial={false}><motion.div key={location.pathname} initial={reduceMotion ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }} transition={{ duration: reduceMotion ? 0 : .32, ease: [.2,.75,.2,1] }}><Outlet context={{ openQuote, canRequestQuote } satisfies LayoutContext} /></motion.div></AnimatePresence></main><SiteFooter /><Suspense fallback={null}><SupportChatWidget/></Suspense><ScrollRestoration /></>
+  return <><GlobalLoading /><a href="#main" className="skip-link">Chuyển đến nội dung chính</a><SiteHeader onQuote={() => openQuote()} /><main id="main"><AnimatePresence mode="wait" initial={false}><motion.div key={location.pathname} initial={reduceMotion ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }} transition={{ duration: reduceMotion ? 0 : .32, ease: [.2,.75,.2,1] }}><Suspense fallback={<div className="grid min-h-[45vh] place-items-center" role="status" aria-label="Đang tải trang"><div className="flex items-center gap-3 font-semibold text-emerald-900"><LoaderCircle className="size-6 animate-spin"/>Đang tải trang...</div></div>}><Outlet context={{ openQuote, canRequestQuote } satisfies LayoutContext} /></Suspense></motion.div></AnimatePresence></main><SiteFooter /><Suspense fallback={null}><SupportChatWidget/></Suspense><ScrollRestoration /></>
 }

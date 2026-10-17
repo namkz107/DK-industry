@@ -50,3 +50,14 @@ test('Nominatim reverse lookup converts browser coordinates into a shipping addr
   assert.equal(item.district, 'Thường Tín');
   assert.equal(item.province, 'Hà Nội');
 });
+
+test('Nominatim does not duplicate a city into street and district fields', async () => {
+  global.fetch = async () => response([{ place_id: 789, display_name: 'Phường Hoàn Kiếm, Hà Nội, Việt Nam', lat: '21.0285', lon: '105.8542', address: { quarter: 'Phường Hoàn Kiếm', city: 'Hà Nội', state: 'Hà Nội' } }]);
+
+  const [item] = await searchLocations('Hoàn Kiếm address mapping unique');
+
+  assert.equal(item.addressLine, '');
+  assert.equal(item.ward, 'Phường Hoàn Kiếm');
+  assert.equal(item.district, '');
+  assert.equal(item.province, 'Hà Nội');
+});

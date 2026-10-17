@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/toast"
 import { usePageMeta } from "@/hooks/use-page-meta"
 import { customerClient } from "@/lib/customer-client"
-import { cn, formatPrice, scrollToPageTop } from "@/lib/utils"
+import { cn, formatAddressParts, formatPrice, scrollToPageTop } from "@/lib/utils"
 import type { CustomerOrder, PaymentStatus } from "@/types/customer"
 
 type OrderGroup = "all" | "pending" | "confirmed" | "shipping" | "delivered" | "cancelled"
@@ -124,7 +124,7 @@ function OrderDetail({ order, busy, onCancel, onConfirmReceived }: { order: Cust
   const [reason, setReason] = useState("")
   const [receiptOpen, setReceiptOpen] = useState(false)
   const status = statuses[order.status] || { label: order.status, className: "bg-slate-100 text-slate-700" }
-  const address = [order.shippingAddress.addressLine, order.shippingAddress.ward, order.shippingAddress.district, order.shippingAddress.province].filter(Boolean).join(", ")
+  const address = formatAddressParts([order.shippingAddress.addressLine, order.shippingAddress.ward, order.shippingAddress.district, order.shippingAddress.province])
 
   useEffect(() => { setCancelling(false); setReason(""); setReceiptOpen(false) }, [order._id])
 

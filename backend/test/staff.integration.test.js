@@ -128,6 +128,10 @@ test('Staff xử lý Lead, Service Request, trao đổi và báo giá đúng quy
     assert.equal(cancelOrder.status, 200);
     assert.equal((await Product.findById(product._id)).stock, 5);
     assert.equal((await Order.findById(order._id)).paymentStatus, 'refund_pending');
+    const cannotReassignCancelled = await call(`/staff/orders/${order._id}`, staffToken, { method: 'PATCH', body: JSON.stringify({ assignedTo: 'me' }) });
+    assert.equal(cannotReassignCancelled.status, 409);
+    const cannotEditCancelledShipping = await call(`/staff/orders/${order._id}`, staffToken, { method: 'PATCH', body: JSON.stringify({ shippingProvider: 'Xe khác' }) });
+    assert.equal(cannotEditCancelledShipping.status, 409);
 
     deliveryOrder = await Order.create({
       code: `DH-DELIVERY-${suffix}`, customer: customer._id, paymentMethod: 'bank_transfer',
@@ -151,6 +155,8 @@ test('Staff xử lý Lead, Service Request, trao đổi và báo giá đúng quy
     const delivered = await call(`/staff/orders/${deliveryOrder._id}`, staffToken, { method: 'PATCH', body: JSON.stringify({ status: 'delivered', deliveryConfirmed: true, deliveryRecipientName: customer.name, message: 'Khách đã nhận đủ hàng.' }) });
     assert.equal(delivered.status, 200);
     assert.ok((await Order.findById(deliveryOrder._id)).deliveredAt);
+    const cannotReassignDelivered = await call(`/staff/orders/${deliveryOrder._id}`, staffToken, { method: 'PATCH', body: JSON.stringify({ assignedTo: 'me' }) });
+    assert.equal(cannotReassignDelivered.status, 409);
     const customerConfirmed = await call(`/customer/orders/${deliveryOrder._id}/confirm-received`, customerToken, { method: 'PATCH' });
     assert.equal(customerConfirmed.status, 200);
     assert.ok((await Order.findById(deliveryOrder._id)).customerConfirmedAt);

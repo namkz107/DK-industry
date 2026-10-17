@@ -79,15 +79,15 @@ function locationFromNominatim(item) {
   const formattedAddress = String(item?.display_name || '').trim();
   const road = firstValue(address, ['road', 'pedestrian', 'footway', 'residential', 'path']);
   const houseNumber = firstValue(address, ['house_number']);
-  const addressLine = [houseNumber, road].filter(Boolean).join(' ') || firstValue(address, ['building', 'amenity', 'shop', 'office']) || formattedAddress.split(',')[0]?.trim() || '';
+  const addressLine = [houseNumber, road].filter(Boolean).join(' ') || firstValue(address, ['building', 'amenity', 'shop', 'office']);
   return {
     placeId: item?.place_id === undefined ? '' : String(item.place_id),
     formattedAddress,
     latitude: Number(item?.lat),
     longitude: Number(item?.lon),
     addressLine,
-    ward: firstValue(address, ['quarter', 'suburb', 'neighbourhood', 'village', 'hamlet', 'municipality']),
-    district: firstValue(address, ['city_district', 'district', 'county', 'town', 'city']),
+    ward: firstValue(address, ['quarter', 'suburb', 'neighbourhood', 'village', 'hamlet']),
+    district: firstValue(address, ['city_district', 'district', 'county', 'town']),
     province: firstValue(address, ['state', 'province', 'city'])
   };
 }

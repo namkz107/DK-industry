@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/toast"
 import { usePageMeta } from "@/hooks/use-page-meta"
 import { customerClient } from "@/lib/customer-client"
-import { formatPrice, scrollToPageTop } from "@/lib/utils"
+import { formatAddressParts, formatPrice, scrollToPageTop } from "@/lib/utils"
 import type { CustomerOrder, PaymentStatus } from "@/types/customer"
 
 const statuses: Record<string, { label: string; className: string }> = {
@@ -77,7 +77,7 @@ function OrderCard({ order, busy, onCancel, onConfirmReceived, onAfterSales }: {
   const [afterSalesReason, setAfterSalesReason] = useState("")
   const [receiptOpen, setReceiptOpen] = useState(false)
   const status = statuses[order.status] || { label: order.status, className: "bg-slate-100 text-slate-700" }
-  const address = [order.shippingAddress.addressLine, order.shippingAddress.ward, order.shippingAddress.district, order.shippingAddress.province].filter(Boolean).join(", ")
+  const address = formatAddressParts([order.shippingAddress.addressLine, order.shippingAddress.ward, order.shippingAddress.district, order.shippingAddress.province])
 
   return <article className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
     <div className="flex flex-col justify-between gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:p-6">

@@ -71,6 +71,11 @@ test('Socket chat xác thực room, realtime, idempotency và bảo vệ ghi ch�
     assert.equal((await duplicate.json()).data._id, firstBody.data._id);
     assert.equal(await RequestMessage.countDocuments({ request: request._id, clientMessageId }), 1);
 
+    const claim = await fetch(`${origin}/api/staff/requests/${request._id}/claim`, {
+      method: 'POST', headers: { Authorization: `Bearer ${token(staff)}`, 'Content-Type': 'application/json' }, body: '{}'
+    });
+    assert.equal(claim.status, 200);
+
     let leaked = false;
     customerSocket.once('message:new', () => { leaked = true; });
     const internal = await fetch(`${origin}/api/staff/requests/${request._id}/messages`, {
