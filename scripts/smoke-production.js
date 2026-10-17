@@ -25,9 +25,17 @@ async function check(name, path, verify) {
 async function main() {
   await check('web home', '/', async (response, text) => response.status !== 200 || !text.includes('id="root"') ? 'SPA shell không hợp lệ' : '');
   await check('security headers', '/', async response => {
-    const required = ['content-security-policy', 'x-content-type-options', 'referrer-policy', 'permissions-policy'];
+    const required = ['content-security-policy', 'x-content-type-options', 'x-frame-options', 'strict-transport-security', 'referrer-policy', 'permissions-policy'];
     const missing = required.filter(name => !response.headers.get(name));
-    return missing.length ? `thiếu ${missing.join(', ')}` : '';
+    if (missing.length) return `thiếu ${missing.join(', ')}`;
+    if (response.headers.get('x-content-type-options')?.toLowerCase() !== 'nosniff') return 'X-Content-Type-Options phải là nosniff';
+    if (response.headers.get('x-frame-options')?.toUpperCase() !== 'DENY') return 'X-Frame-Options phải là DENY';
+    if (!/^max-age=\d+/i.test(response.headers.get('strict-transport-security') || '')) return 'HSTS không có max-age hợp lệ';
+    const csp = response.headers.get('content-security-policy') || '';
+    for (const directive of ["default-src 'self'", "object-src 'none'", "frame-ancestors 'none'", "form-action 'self'", 'upgrade-insecure-requests']) {
+      if (!csp.includes(directive)) return `CSP thiếu ${directive}`;
+    }
+    return '';
   });
   await check('API liveness', '/api/live', async (response, text) => {
     if (response.status !== 200) return `HTTP ${response.status}`;

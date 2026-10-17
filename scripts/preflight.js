@@ -33,6 +33,14 @@ function isHttpsOrigin(value) {
   } catch { return false; }
 }
 
+function isEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+}
+
+function isBoolean(value) {
+  return ['true', 'false'].includes(String(value || '').toLowerCase());
+}
+
 function validateProduction(backend, frontend) {
   const errors = [];
   const warnings = [];
@@ -64,8 +72,20 @@ function validateProduction(backend, frontend) {
   const cloudinaryUrl = String(backend.CLOUDINARY_URL || '').trim();
   if (isPlaceholder(cloudinaryUrl)) {
     for (const key of ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET']) requireValue('backend', backend, key);
+  } else if (!/^cloudinary:\/\/[^:\s]+:[^@\s]+@[^/\s]+$/.test(cloudinaryUrl)) {
+    errors.push('backend.CLOUDINARY_URL không đúng định dạng cloudinary://api_key:api_secret@cloud_name');
   }
-  for (const key of ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'EMAIL_FROM', 'COMPANY_NAME', 'COMPANY_PHONE', 'COMPANY_EMAIL', 'COMPANY_ADDRESS']) requireValue('backend', backend, key);
+  for (const key of ['SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE', 'SMTP_USER', 'SMTP_PASS', 'EMAIL_FROM', 'COMPANY_NAME', 'COMPANY_PHONE', 'COMPANY_EMAIL', 'COMPANY_ADDRESS', 'TERMS_VERSION']) requireValue('backend', backend, key);
+  const smtpPort = Number(backend.SMTP_PORT);
+  if (!Number.isInteger(smtpPort) || smtpPort < 1 || smtpPort > 65535) errors.push('backend.SMTP_PORT phải là cổng hợp lệ từ 1 đến 65535');
+  if (!isBoolean(backend.SMTP_SECURE)) errors.push('backend.SMTP_SECURE phải là true hoặc false');
+  if (smtpPort === 465 && backend.SMTP_SECURE !== 'true') warnings.push('SMTP cổng 465 thường yêu cầu SMTP_SECURE=true');
+  if (smtpPort === 587 && backend.SMTP_SECURE === 'true') warnings.push('SMTP cổng 587 thường dùng SMTP_SECURE=false và STARTTLS');
+  if (!isEmail(backend.COMPANY_EMAIL)) errors.push('backend.COMPANY_EMAIL phải là email hợp lệ');
+  const fromAddress = String(backend.EMAIL_FROM || '').match(/<([^>]+)>/)?.[1] || backend.EMAIL_FROM;
+  if (!isEmail(fromAddress)) errors.push('backend.EMAIL_FROM phải chứa email hợp lệ');
+  if (!isBoolean(backend.SUPPORT_AI_ENABLED)) errors.push('backend.SUPPORT_AI_ENABLED phải là true hoặc false');
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$/.test(String(backend.TERMS_VERSION || ''))) errors.push('backend.TERMS_VERSION phải là mã phiên bản chính sách hợp lệ');
   if (backend.SUPPORT_AI_ENABLED === 'true' && isPlaceholder(String(backend.GROQ_API_KEY || ''))) errors.push('backend.GROQ_API_KEY bắt buộc khi bật AI');
   if (String(backend.ADMIN_SEED_PASSWORD || '').trim() && !isPlaceholder(backend.ADMIN_SEED_PASSWORD)) warnings.push('Nên xóa ADMIN_SEED_PASSWORD khỏi production sau khi bootstrap Admin');
 
@@ -75,8 +95,18 @@ function validateProduction(backend, frontend) {
   if (!(apiUrl === '/api' || /^https:\/\/.+\/api\/?$/i.test(apiUrl))) errors.push('frontend.VITE_API_URL phải là /api hoặc URL HTTPS kết thúc bằng /api');
   const socketUrl = String(frontend.VITE_SOCKET_URL || '').trim();
   if (socketUrl && !isHttpsOrigin(socketUrl)) errors.push('frontend.VITE_SOCKET_URL phải để trống (same-origin) hoặc là HTTPS origin');
-  for (const key of ['VITE_CLOUDINARY_LOGO_URL', 'VITE_CLOUDINARY_CEO_IMAGE_URL', 'VITE_COMPANY_NAME', 'VITE_COMPANY_PHONE', 'VITE_COMPANY_PHONE_LABEL', 'VITE_COMPANY_EMAIL', 'VITE_COMPANY_ADDRESS', 'VITE_COMPANY_MAP_DESTINATION', 'VITE_COMPANY_TAX_CODE', 'VITE_COMPANY_REGISTRATION_NUMBER', 'VITE_COMPANY_LEGAL_REPRESENTATIVE']) requireValue('frontend', frontend, key);
+  for (const key of ['VITE_CLOUDINARY_LOGO_URL', 'VITE_CLOUDINARY_CEO_IMAGE_URL', 'VITE_COMPANY_NAME', 'VITE_COMPANY_PHONE', 'VITE_COMPANY_PHONE_LABEL', 'VITE_COMPANY_EMAIL', 'VITE_COMPANY_ADDRESS', 'VITE_COMPANY_MAP_DESTINATION', 'VITE_COMPANY_TAX_CODE', 'VITE_COMPANY_REGISTRATION_NUMBER', 'VITE_COMPANY_LEGAL_REPRESENTATIVE', 'VITE_POLICY_VERSION']) requireValue('frontend', frontend, key);
+  for (const key of ['VITE_CLOUDINARY_LOGO_URL', 'VITE_CLOUDINARY_CEO_IMAGE_URL']) {
+    try {
+      const url = new URL(frontend[key]);
+      if (url.protocol !== 'https:' || url.hostname !== 'res.cloudinary.com') throw new Error('invalid');
+    } catch { errors.push(`frontend.${key} phải là URL HTTPS của res.cloudinary.com`); }
+  }
+  if (!isEmail(frontend.VITE_COMPANY_EMAIL)) errors.push('frontend.VITE_COMPANY_EMAIL phải là email hợp lệ');
+  const coordinates = String(frontend.VITE_COMPANY_MAP_DESTINATION || '').split(',').map(Number);
+  if (coordinates.length !== 2 || !coordinates.every(Number.isFinite) || Math.abs(coordinates[0]) > 90 || Math.abs(coordinates[1]) > 180) errors.push('frontend.VITE_COMPANY_MAP_DESTINATION phải có dạng vĩ_độ,kinh_độ hợp lệ');
   if (frontend.VITE_POLICY_VERSION !== backend.TERMS_VERSION) errors.push('VITE_POLICY_VERSION phải trùng TERMS_VERSION');
+  if (String(frontend.VITE_COMPANY_EMAIL || '').toLowerCase() !== String(backend.COMPANY_EMAIL || '').toLowerCase()) errors.push('VITE_COMPANY_EMAIL phải trùng backend.COMPANY_EMAIL');
   if (siteUrl && origins.length && !origins.includes(siteUrl)) errors.push('VITE_SITE_URL phải có trong backend.CLIENT_URL');
 
   return { ok: errors.length === 0, errors, warnings };

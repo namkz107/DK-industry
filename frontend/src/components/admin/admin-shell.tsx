@@ -10,6 +10,7 @@ const navigation = [
   { to: "/admin/noi-dung", label: "Nội dung website", icon: Boxes },
   { to: "/admin/gioi-thieu", label: "Giới thiệu", icon: Image },
   { to: "/admin/nhat-ky", label: "Nhật ký", icon: ClipboardClock },
+  { to: "/admin/quyen-rieng-tu", label: "Quyền riêng tư", icon: ShieldCheck },
 ]
 
 export function AdminShell({ title, description, action, children }: PropsWithChildren<{ title: string; description: string; action?: ReactNode }>) {
