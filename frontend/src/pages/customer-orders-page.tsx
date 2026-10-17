@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Banknote, Check, CheckCircle2, ChevronDown, ChevronRight, Clock3, LoaderCircle, MapPin, PackageOpen, Truck, XCircle } from "lucide-react"
+import { Banknote, Check, CheckCircle2, ChevronRight, Clock3, LoaderCircle, MapPin, PackageOpen, Truck, XCircle } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { CustomerShell } from "@/components/customer/customer-shell"
@@ -43,7 +43,7 @@ const tabs: Array<{ value: OrderGroup; label: string }> = [
 const orderGroup = (status: string): OrderGroup => status === "preparing" ? "confirmed" : status as OrderGroup
 
 export function CustomerOrdersPage() {
-  usePageMeta("Đơn hàng của tôi", "Theo dõi đơn hàng, thanh toán và giao nhận tại một nơi.")
+  usePageMeta("Đơn sản phẩm", "Theo dõi thanh toán và giao nhận sản phẩm tại một nơi.")
   const queryClient = useQueryClient()
   const toast = useToast()
   const [activeGroup, setActiveGroup] = useState<OrderGroup>("all")
@@ -90,7 +90,7 @@ export function CustomerOrdersPage() {
     return result
   }, { all: 0, pending: 0, confirmed: 0, shipping: 0, delivered: 0, cancelled: 0 }), [allOrders])
 
-  return <CustomerShell title="Đơn hàng của tôi" description="Chọn trạng thái, sau đó chọn một đơn để xem và xử lý.">
+  return <CustomerShell title="Đơn sản phẩm" description="Theo dõi xác nhận, thanh toán và giao nhận từng đơn sản phẩm.">
     {orders.isLoading ? <Loading/> : orders.error ? <ErrorText error={orders.error}/> : !allOrders.length ? <Empty/> : <>
       <nav aria-label="Lọc đơn hàng theo trạng thái" className="mb-5 flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
         {tabs.map(tab => <button key={tab.value} type="button" onClick={() => setActiveGroup(tab.value)} className={cn("flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-4 text-sm font-bold transition", activeGroup === tab.value ? "bg-emerald-950 text-white shadow-md" : "text-slate-600 hover:bg-slate-100 hover:text-emerald-950")}><span>{tab.label}</span><span className={cn("rounded-full px-2 py-0.5 text-xs", activeGroup === tab.value ? "bg-white/15 text-white" : "bg-slate-100 text-slate-500")}>{counts[tab.value]}</span></button>)}
@@ -137,13 +137,13 @@ function OrderDetail({ order, busy, onCancel, onConfirmReceived }: { order: Cust
       {order.status !== "cancelled" && <OrderProgress status={order.status}/>}
       <section><h3 className="mb-3 text-sm font-black uppercase tracking-wider text-slate-400">Sản phẩm</h3><div className="divide-y divide-slate-100">{order.items.map(item => <div className="flex items-center gap-4 py-3 first:pt-0" key={`${order._id}-${item.product}`}>{item.image ? <img className="size-14 rounded-xl object-cover" src={item.image} alt={item.name}/> : <div className="grid size-14 shrink-0 place-items-center rounded-xl bg-slate-100"><PackageOpen className="size-5 text-slate-400"/></div>}<div className="min-w-0 flex-1"><h4 className="font-bold text-emerald-950">{item.name}</h4><p className="text-sm text-slate-500">{item.quantity} {item.unit} × {formatPrice(item.price)}</p></div><strong className="text-sm text-slate-800">{formatPrice(item.lineTotal)}</strong></div>)}</div></section>
       <div className="mt-4 grid gap-3 rounded-2xl bg-slate-50 p-4 sm:grid-cols-3"><Cost label="Tiền hàng" value={formatPrice(order.subtotal)}/><Cost label="Vận chuyển" value={order.shippingFee ? formatPrice(order.shippingFee) : "Chưa phát sinh"}/><Cost label="Thanh toán" value={order.paymentMethod === "cod" ? "Khi nhận hàng" : "Chuyển khoản"}/></div>
-      <details className="group mt-4 rounded-2xl border border-slate-200 p-4" open={order.status === "shipping"}>
-        <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between font-bold text-emerald-950">Thông tin giao nhận<ChevronDown className="size-5 transition group-open:rotate-180"/></summary>
+      <section className="mt-4 rounded-2xl border border-slate-200 p-4">
+        <div><p className="text-xs font-black uppercase tracking-wider text-orange-700">Giao nhận</p><h3 className="mt-1 font-display text-lg font-bold text-emerald-950">Địa chỉ và tiến trình</h3></div>
         <div className="mt-4 grid gap-5 border-t border-slate-200 pt-4 md:grid-cols-2">
           <div className="space-y-4 text-sm"><div className="flex gap-3"><MapPin className="mt-0.5 size-5 shrink-0 text-orange-600"/><p className="leading-6 text-slate-600"><strong className="block text-slate-800">{order.shippingAddress.recipientName} · {order.shippingAddress.phone}</strong>{address}</p></div>{order.shippingProvider && <div className="flex gap-3"><Truck className="size-5 shrink-0 text-orange-600"/><p className="text-slate-600"><strong className="block text-slate-800">{order.shippingProvider}</strong>{order.trackingCode ? `Mã vận đơn: ${order.trackingCode}` : "Đơn vị vận chuyển đang tiếp nhận"}{order.estimatedDeliveryAt && <span className="mt-1 block">Dự kiến: {dateTime(order.estimatedDeliveryAt)}</span>}</p></div>}<div className="flex gap-3"><Banknote className="size-5 shrink-0 text-orange-600"/><p><strong className="block text-slate-800">{paymentNames[order.paymentStatus]}</strong><span className="text-slate-500">{order.paymentMethod === "cod" ? "Thanh toán khi nhận hàng" : "Chuyển khoản ngân hàng"}</span></p></div></div>
           <ol className="space-y-3">{order.timeline.map((item, index) => <li className="flex gap-3 text-sm" key={`${item.at}-${index}`}><span className="mt-1 size-2 shrink-0 rounded-full bg-orange-500"/><div><strong className="text-slate-800">{statuses[item.status]?.label || item.status}</strong>{item.message && <p className="mt-1 leading-5 text-slate-500">{item.message}</p>}<time className="mt-1 block text-xs text-slate-400">{dateTime(item.at)}</time></div></li>)}</ol>
         </div>
-      </details>
+      </section>
       {['shipping', 'delivered'].includes(order.status) && !order.customerConfirmedAt && <div className="mt-4 flex flex-col justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:flex-row sm:items-center"><div><strong className="text-emerald-950">Bạn đã nhận đủ hàng?</strong><p className="mt-1 text-sm text-emerald-800">Xác nhận để chuyển đơn sang hoàn tất.</p></div><Button className="shrink-0" onClick={() => setReceiptOpen(true)}><CheckCircle2 className="size-5"/>Đã nhận đủ hàng</Button></div>}
       {order.customerConfirmedAt && <p className="mt-4 flex items-center gap-2 rounded-2xl bg-emerald-50 p-4 text-sm font-bold text-emerald-800"><CheckCircle2 className="size-5"/>Đã xác nhận nhận hàng lúc {dateTime(order.customerConfirmedAt)}.</p>}
       {order.status === "pending" && (cancelling ? <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4"><label className="text-sm font-bold text-red-900">Lý do hủy đơn<Textarea className="mt-2 bg-white text-slate-900" value={reason} onChange={event => setReason(event.target.value)} placeholder="Ví dụ: Tôi đặt nhầm số lượng sản phẩm"/></label><div className="mt-3 flex flex-wrap gap-2"><Button variant="destructive" disabled={busy || reason.trim().length < 5} onClick={() => onCancel(reason.trim())}><XCircle className="size-5"/>Xác nhận hủy</Button><Button variant="outline" disabled={busy} onClick={() => { setCancelling(false); setReason("") }}>Giữ lại đơn</Button></div></div> : <Button className="mt-4" variant="ghost" onClick={() => setCancelling(true)}><XCircle className="size-5 text-red-600"/>Hủy đơn hàng</Button>)}

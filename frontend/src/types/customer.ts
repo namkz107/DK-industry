@@ -63,13 +63,15 @@ export interface Quotation {
   status: "sent" | "accepted" | "rejected" | "superseded" | "expired"; sentAt?: string; respondedAt?: string; responseNote?: string
 }
 export interface QuotationResponse extends Quotation {
-  nextAction: "wait_for_contract" | "wait_for_revised_quotation"
+  nextAction: "track_project" | "wait_for_revised_quotation"
   workOrder?: Pick<WorkOrder, "_id" | "code" | "status"> | null
 }
 export interface WorkOrder {
   _id: string; code: string; status: "awaiting_contract" | "awaiting_deposit" | "scheduled" | "in_progress" | "quality_check" | "ready_for_delivery" | "completed" | "cancelled"
   agreedTotal: number; depositRequired: number; depositPaid: number; contractReference?: string; purchaseOrderReference?: string
-  plannedStartAt?: string; plannedDeliveryAt?: string; timeline: TimelineItem[]
+  plannedStartAt?: string; plannedDeliveryAt?: string; timeline: TimelineItem[]; createdAt: string
+  request?: { _id: string; code: string; title: string; description?: string } | null
+  quotation?: { _id: string; code: string; total: number; leadTime?: string; paymentTerms?: string; notes?: string } | null
 }
 export interface CustomerRequest {
   _id: string; code: string; requestType: "machining" | "product_quote" | "consulting"; title: string; description: string
@@ -80,7 +82,7 @@ export interface CustomerRequest {
 export interface MessagePage { hasMore: boolean; nextCursor: string | null }
 export interface RequestDetail { request: CustomerRequest; messages: RequestMessage[]; messagePage?: MessagePage; quotations: Quotation[]; workOrder?: WorkOrder | null }
 
-export interface CustomerSummary { orders: number; openOrders: number; requests: number; openRequests: number; cartItems: number }
+export interface CustomerSummary { orders: number; openOrders: number; requests: number; openRequests: number; activeProjects: number; completedProjects: number; cartItems: number }
 export type PrivacyRequestStatus = "submitted" | "reviewing" | "approved" | "rejected" | "completed" | "cancelled"
 export interface PrivacyRequest {
   _id: string; type: "deletion"; status: PrivacyRequestStatus; reason: string; resolution?: string

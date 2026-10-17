@@ -58,6 +58,7 @@ test('Admin quản lý nhân sự, nội dung và nhật ký đúng quyền', { 
     assert.equal(typeof dashboardBody.data.monthlyDeliveredRevenue, 'number');
     assert.equal(typeof dashboardBody.data.deliveredOrders, 'number');
     assert.equal((await call('/staff/dashboard', adminToken)).status, 403);
+    assert.equal((await call('/admin/work-orders?state=active', adminToken)).status, 200);
 
     const imageForm = new FormData();
     const validPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL3XQAAAABJRU5ErkJggg==', 'base64');

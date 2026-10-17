@@ -128,7 +128,8 @@ function passwordResetEmail({ name, actionUrl }) {
 
 function notificationCategory(type = '') {
   if (type.startsWith('order.')) return 'CẬP NHẬT ĐƠN HÀNG';
-  if (type.startsWith('quotation.') || type.startsWith('request.') || type.startsWith('work_order.')) return 'YÊU CẦU & BÁO GIÁ';
+  if (type.startsWith('work_order.')) return 'CẬP NHẬT DỰ ÁN';
+  if (type.startsWith('quotation.') || type.startsWith('request.')) return 'YÊU CẦU & BÁO GIÁ';
   if (type.startsWith('support.')) return 'CHĂM SÓC KHÁCH HÀNG';
   if (type.startsWith('privacy.')) return 'QUYỀN RIÊNG TƯ';
   if (type.startsWith('lead.')) return 'THÔNG BÁO KINH DOANH';
@@ -136,7 +137,7 @@ function notificationCategory(type = '') {
 }
 
 function notificationEmail({ notification, recipientName, actionUrl }) {
-  const reference = String(notification.title || '').match(/(?:DH|YC|BG|CV)-[A-Z0-9-]+/i)?.[0];
+  const reference = String(notification.title || '').match(/(?:DH|YC|BG|CV|DA)-[A-Z0-9-]+/i)?.[0];
   return renderBrandedEmail({
     preheader: notification.message,
     eyebrow: notificationCategory(notification.type),

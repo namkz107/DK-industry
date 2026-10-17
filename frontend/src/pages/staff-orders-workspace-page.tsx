@@ -30,7 +30,7 @@ const money = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND
 const orderSteps: Array<{ status: OrderStatus; label: string }> = [{ status: "pending", label: "Đã đặt" }, { status: "confirmed", label: "Xác nhận" }, { status: "shipping", label: "Đang giao" }, { status: "delivered", label: "Hoàn tất" }]
 
 export function StaffOrdersWorkspacePage() {
-  usePageMeta("Quản lý đơn hàng", "Danh sách gọn, chi tiết xử lý trong một cửa sổ riêng.")
+  usePageMeta("Đơn sản phẩm", "Tiếp nhận và theo dõi các đơn mua sản phẩm.")
   const [params] = useSearchParams()
   const queryClient = useQueryClient()
   const toast = useToast()
@@ -51,7 +51,7 @@ export function StaffOrdersWorkspacePage() {
   const items = list.data?.data.items || []
   const hasFilters = Boolean(filters.q || filters.status || filters.paymentStatus || filters.assigned)
 
-  return <StaffShell title="Đơn hàng thương mại" description="Tìm đơn trong danh sách và mở cửa sổ xử lý mà không rời vị trí hiện tại.">
+  return <StaffShell title="Đơn sản phẩm" description="Kiểm tra tồn kho, xác nhận và theo dõi giao hàng sản phẩm.">
     <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-slate-900 px-5 py-5 text-white sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-4"><div className="flex items-center gap-3"><span className="grid size-11 place-items-center rounded-2xl bg-white/10 text-orange-300 ring-1 ring-white/15"><Sparkles className="size-5"/></span><div><h2 className="font-display text-xl font-bold">Danh sách đơn hàng</h2><p className="mt-1 text-sm text-emerald-100/70">Chọn một đơn để xem và xử lý ngay trong cửa sổ làm việc.</p></div></div><div className="flex items-center gap-2"><span className="rounded-full bg-orange-400 px-3 py-1.5 text-xs font-black text-emerald-950">{list.data?.data.total || 0} đơn</span><button type="button" onClick={() => void list.refetch()} className="grid size-10 place-items-center rounded-xl bg-white/10 text-white ring-1 ring-white/15 transition hover:bg-white/20" aria-label="Làm mới danh sách"><RefreshCw className={cn("size-4", list.isFetching && "animate-spin")}/></button></div></div>

@@ -1,5 +1,5 @@
 import { authClient } from "@/lib/auth-client"
-import type { AboutSiteSetting, AdminDashboard, AdminPaged, AdminPrivacyRequest, AdminProduct, AdminProject, AdminService, AdminUser, AuditLog } from "@/types/admin"
+import type { AboutSiteSetting, AdminDashboard, AdminPaged, AdminPrivacyRequest, AdminProduct, AdminProject, AdminService, AdminUser, AdminWorkOrder, AuditLog } from "@/types/admin"
 
 type Result<T> = { success: boolean; data: T; message?: string }
 const json = (method: string, body?: unknown): RequestInit => ({ method, body: body === undefined ? undefined : JSON.stringify(body) })
@@ -7,6 +7,8 @@ const query = (values: Record<string, string | number | undefined>) => new URLSe
 
 export const adminClient = {
   dashboard: () => authClient.authenticated<Result<AdminDashboard>>("/admin/dashboard"),
+  workOrders: (filters: { q?: string; state?: string; page?: number } = {}) => authClient.authenticated<Result<AdminPaged<AdminWorkOrder>>>(`/admin/work-orders?${query(filters)}`),
+  workOrder: (id: string) => authClient.authenticated<Result<AdminWorkOrder>>(`/admin/work-orders/${id}`),
   uploadImage: (file: File) => { const body = new FormData(); body.append("image", file); return authClient.authenticated<Result<{ url: string; filename: string }>>("/admin/uploads/images", { method: "POST", body }) },
   aboutSettings: () => authClient.authenticated<Result<AboutSiteSetting>>("/admin/site-settings/about"),
   updateAboutSettings: (body: { leaderImage: string }) => authClient.authenticated<Result<AboutSiteSetting>>("/admin/site-settings/about", json("PATCH", body)),

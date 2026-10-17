@@ -136,10 +136,14 @@ test('Customer quản lý hồ sơ, giỏ hàng, đơn hàng và yêu cầu riê
     assert.equal(acceptQuote.status, 200);
     const acceptQuoteBody = await acceptQuote.json();
     assert.equal(acceptQuoteBody.data.status, 'accepted');
-    assert.equal(acceptQuoteBody.data.nextAction, 'wait_for_contract');
+    assert.equal(acceptQuoteBody.data.nextAction, 'track_project');
     assert.ok(acceptQuoteBody.data.workOrder.code);
     assert.equal((await ServiceRequest.findById(serviceRequest._id)).status, 'accepted');
-    assert.ok(await WorkOrder.exists({ request: serviceRequest._id, quotation: secondQuote._id, status: 'awaiting_contract' }));
+    assert.ok(await WorkOrder.exists({ request: serviceRequest._id, quotation: secondQuote._id, status: 'scheduled' }));
+    const projectsResponse = await request('/customer/projects', customer.accessToken);
+    const projectsBody = await projectsResponse.json();
+    assert.equal(projectsResponse.status, 200);
+    assert.ok(projectsBody.data.some(item => item.request?._id === serviceRequest._id && item.quotation?._id === String(secondQuote._id)));
 
     const cancelForm = new FormData(); cancelForm.append('requestType', 'consulting'); cancelForm.append('title', 'Yêu cầu để kiểm thử hủy'); cancelForm.append('description', 'Yêu cầu này được tạo riêng để kiểm tra thao tác hủy.');
     const cancellableResponse = await request('/customer/requests', customer.accessToken, { method: 'POST', body: cancelForm });

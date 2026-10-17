@@ -7,7 +7,7 @@ import { notificationClient, type NotificationItem } from "@/lib/notification-cl
 import { cn } from "@/lib/utils"
 
 export function NotificationsPage() {
-  usePageMeta("Thông báo", "Cập nhật đơn hàng, báo giá và tiến độ công việc của bạn.")
+  usePageMeta("Thông báo", "Cập nhật đơn sản phẩm, báo giá và tiến độ dự án của bạn.")
   const navigate = useNavigate()
   const client = useQueryClient()
   const query = useQuery({ queryKey: ["notifications"], queryFn: notificationClient.list, refetchInterval: 60_000 })

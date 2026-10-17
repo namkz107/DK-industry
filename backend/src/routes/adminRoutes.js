@@ -3,7 +3,6 @@ const mongoose = require('mongoose');
 const multer = require('multer');
 const AuditLog = require('../models/AuditLog');
 const DataPrivacyRequest = require('../models/DataPrivacyRequest');
-const Lead = require('../models/Lead');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Project = require('../models/Project');
@@ -73,6 +72,14 @@ function listFilter(query, searchable, extra = {}) {
   return filter;
 }
 
+function populateProjectMonitor(query) {
+  return query
+    .populate('customer', 'name email phone company')
+    .populate('assignedTo', 'name email')
+    .populate('request', 'code title description requestType material quantity dimensions desiredDate budget')
+    .populate('quotation', 'code version items subtotal taxRate taxAmount total validUntil leadTime paymentTerms notes status createdAt');
+}
+
 router.get('/dashboard', async (req, res, next) => {
   try {
     const months = dashboardMonths();
@@ -81,13 +88,12 @@ router.get('/dashboard', async (req, res, next) => {
     const analyticsPromise = Promise.all([
       Order.aggregate([{ $match: { paymentStatus: 'paid', paidAt: { $gte: analyticsStart } } }, { $group: { _id: { $dateToString: { format: '%Y-%m', date: '$paidAt', timezone: 'Asia/Bangkok' } }, revenue: { $sum: '$total' }, orders: { $sum: 1 } } }, { $sort: { _id: 1 } }]),
       Order.aggregate([{ $match: { createdAt: { $gte: analyticsStart } } }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
-      Lead.countDocuments({ createdAt: { $gte: analyticsStart }, status: { $ne: 'spam' } }),
       ServiceRequest.countDocuments({ createdAt: { $gte: analyticsStart }, source: { $ne: 'lead_conversion' } }),
       Quotation.distinct('request', { sentAt: { $gte: analyticsStart }, status: { $ne: 'draft' } }),
       Order.countDocuments({ createdAt: { $gte: analyticsStart }, status: { $ne: 'cancelled' } }),
       WorkOrder.countDocuments({ createdAt: { $gte: analyticsStart }, status: { $ne: 'cancelled' } }),
       Order.aggregate([{ $match: { paymentStatus: 'paid', paidAt: { $gte: analyticsStart } } }, { $unwind: '$items' }, { $group: { _id: { product: '$items.product', name: '$items.name' }, quantity: { $sum: '$items.quantity' }, revenue: { $sum: '$items.lineTotal' } } }, { $sort: { revenue: -1 } }, { $limit: 5 }])
-    ]).then(([monthly, orderStatuses, leads, directRequests, quotedRequests, orders, workOrders, topProducts]) => {
+    ]).then(([monthly, orderStatuses, directRequests, quotedRequests, orders, workOrders, topProducts]) => {
       const monthlyMap = new Map(monthly.map(item => [item._id, item]));
       const statusMap = orderStatuses.reduce((map, item) => {
         const status = item._id === 'preparing' ? 'confirmed' : item._id;
@@ -97,14 +103,14 @@ router.get('/dashboard', async (req, res, next) => {
       return {
         revenueTrend: months.map(month => ({ ...month, revenue: monthlyMap.get(month.key)?.revenue || 0, orders: monthlyMap.get(month.key)?.orders || 0 })),
         orderStatuses: Array.from(statusMap, ([status, count]) => ({ status, count })),
-        conversion: { opportunities: leads + directRequests, quotations: quotedRequests.length, wins: orders + workOrders },
+        conversion: { opportunities: directRequests, quotations: quotedRequests.length, wins: orders + workOrders },
         topProducts: topProducts.map(item => ({ productId: item._id.product, name: item._id.name, quantity: item.quantity, revenue: item.revenue }))
       };
     });
-    const [customers, staff, blockedUsers, products, lowStock, services, projects, openLeads, openRequests, openOrders, pendingOrders, revenue, monthlyRevenue, deliveredRevenue, monthlyDeliveredRevenue, deliveredOrders, recentOrders, recentActivity, analytics] = await Promise.all([
+    const [customers, staff, blockedUsers, products, lowStock, services, projects, activeProjects, openRequests, openOrders, pendingOrders, revenue, monthlyRevenue, deliveredRevenue, monthlyDeliveredRevenue, deliveredOrders, recentOrders, recentActivity, analytics] = await Promise.all([
       User.countDocuments({ role: 'customer' }), User.countDocuments({ role: 'staff', status: 'active' }), User.countDocuments({ status: 'blocked' }),
       Product.countDocuments({ active: true, deletedAt: null }), Product.countDocuments({ active: true, deletedAt: null, priceOnRequest: false, stock: { $lte: 5 } }), Service.countDocuments({ published: true, deletedAt: null }), Project.countDocuments({ published: true, deletedAt: null }),
-      Lead.countDocuments({ status: { $nin: ['won', 'lost', 'spam'] } }), ServiceRequest.countDocuments({ status: { $nin: ['accepted', 'rejected', 'cancelled'] } }), Order.countDocuments({ status: { $nin: ['delivered', 'cancelled'] } }), Order.countDocuments({ status: 'pending' }),
+      WorkOrder.countDocuments({ status: { $nin: ['completed', 'cancelled'] } }), ServiceRequest.countDocuments({ status: { $nin: ['accepted', 'rejected', 'cancelled'] } }), Order.countDocuments({ status: { $nin: ['delivered', 'cancelled'] } }), Order.countDocuments({ status: 'pending' }),
       Order.aggregate([{ $match: { paymentStatus: 'paid' } }, { $group: { _id: null, value: { $sum: '$total' } } }]),
       Order.aggregate([{ $match: { paymentStatus: 'paid', paidAt: { $gte: monthStart } } }, { $group: { _id: null, value: { $sum: '$total' } } }]),
       Order.aggregate([{ $match: { paymentStatus: 'paid', status: 'delivered' } }, { $group: { _id: null, value: { $sum: '$total' } } }]),
@@ -113,7 +119,46 @@ router.get('/dashboard', async (req, res, next) => {
       Order.find().select('code total status paymentStatus createdAt').populate('customer', 'name').sort({ createdAt: -1 }).limit(6).lean(),
       AuditLog.find().populate('actor', 'name email').sort({ createdAt: -1 }).limit(8).lean(), analyticsPromise
     ]);
-    res.json({ success: true, data: { customers, staff, blockedUsers, products, lowStock, services, projects, openLeads, openRequests, openOrders, pendingOrders, revenue: revenue[0]?.value || 0, monthlyRevenue: monthlyRevenue[0]?.value || 0, deliveredRevenue: deliveredRevenue[0]?.value || 0, monthlyDeliveredRevenue: monthlyDeliveredRevenue[0]?.value || 0, deliveredOrders, recentOrders, recentActivity, analytics } });
+    res.json({ success: true, data: { customers, staff, blockedUsers, products, lowStock, services, projects, activeProjects, openRequests, openOrders, pendingOrders, revenue: revenue[0]?.value || 0, monthlyRevenue: monthlyRevenue[0]?.value || 0, deliveredRevenue: deliveredRevenue[0]?.value || 0, monthlyDeliveredRevenue: monthlyDeliveredRevenue[0]?.value || 0, deliveredOrders, recentOrders, recentActivity, analytics } });
+  } catch (error) { next(error); }
+});
+
+router.get('/work-orders', async (req, res, next) => {
+  try {
+    const { page, limit } = pageValues(req.query);
+    const filter = {};
+    if (req.query.state === 'active') filter.status = { $nin: ['completed', 'cancelled'] };
+    else if (req.query.state === 'completed') filter.status = 'completed';
+    else if (req.query.state === 'cancelled') filter.status = 'cancelled';
+    const q = clean(req.query.q, 100);
+    if (q) {
+      const pattern = { $regex: escapeRegex(q), $options: 'i' };
+      const [requests, quotations, customers] = await Promise.all([
+        ServiceRequest.find({ $or: [{ code: pattern }, { title: pattern }] }).select('_id').limit(100).lean(),
+        Quotation.find({ code: pattern }).select('_id').limit(100).lean(),
+        User.find({ role: 'customer', name: pattern }).select('_id').limit(100).lean()
+      ]);
+      filter.$or = [
+        { code: pattern },
+        { request: { $in: requests.map(item => item._id) } },
+        { quotation: { $in: quotations.map(item => item._id) } },
+        { customer: { $in: customers.map(item => item._id) } }
+      ];
+    }
+    const [items, total] = await Promise.all([
+      populateProjectMonitor(WorkOrder.find(filter)).sort({ updatedAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+      WorkOrder.countDocuments(filter)
+    ]);
+    res.json({ success: true, data: { items, total, page, pages: Math.max(1, Math.ceil(total / limit)) } });
+  } catch (error) { next(error); }
+});
+
+router.get('/work-orders/:id', async (req, res, next) => {
+  try {
+    if (!validId(req.params.id)) fail('Dự án không hợp lệ', 404);
+    const item = await populateProjectMonitor(WorkOrder.findById(req.params.id)).lean();
+    if (!item) fail('Không tìm thấy dự án', 404);
+    res.json({ success: true, data: item });
   } catch (error) { next(error); }
 });
 

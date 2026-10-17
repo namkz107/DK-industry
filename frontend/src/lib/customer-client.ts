@@ -1,5 +1,5 @@
 import { authClient } from "@/lib/auth-client"
-import type { Address, Cart, CustomerOrder, CustomerProfile, CustomerRequest, CustomerSummary, LocationDetails, MessagePage, PlaceSuggestion, PrivacyRequest, QuotationResponse, RequestDetail, RequestMessage } from "@/types/customer"
+import type { Address, Cart, CustomerOrder, CustomerProfile, CustomerRequest, CustomerSummary, LocationDetails, MessagePage, PlaceSuggestion, PrivacyRequest, QuotationResponse, RequestDetail, RequestMessage, WorkOrder } from "@/types/customer"
 
 type Result<T> = { success: boolean; data: T; message?: string }
 const json = (method: string, body?: unknown): RequestInit => ({ method, body: body === undefined ? undefined : JSON.stringify(body) })
@@ -27,6 +27,7 @@ export const customerClient = {
   confirmOrderReceived: (id: string) => authClient.authenticated<Result<CustomerOrder>>(`/customer/orders/${id}/confirm-received`, { method: "PATCH" }),
   createAfterSales: (id: string, body: { type: "return" | "warranty" | "complaint"; reason: string }) => authClient.authenticated<Result<CustomerOrder>>(`/customer/orders/${id}/after-sales`, json("POST", body)),
   requests: () => authClient.authenticated<Result<CustomerRequest[]>>("/customer/requests"),
+  projects: () => authClient.authenticated<Result<WorkOrder[]>>("/customer/projects"),
   requestDetail: (id: string) => authClient.authenticated<Result<RequestDetail>>(`/customer/requests/${id}`),
   requestMessages: (id: string, before?: string | null) => authClient.authenticated<Result<{ items: RequestMessage[] } & MessagePage>>(`/customer/requests/${id}/messages?limit=50${before ? `&before=${encodeURIComponent(before)}` : ""}`),
   createRequest: (body: FormData) => authClient.authenticated<Result<{ id: string; code: string; status: string }>>("/customer/requests", { method: "POST", body }),

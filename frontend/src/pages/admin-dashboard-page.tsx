@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { AlertTriangle, Boxes, CircleDollarSign, ClipboardList, PackageCheck, UserCog, UsersRound, Wrench } from "lucide-react"
+import { AlertTriangle, Boxes, CircleDollarSign, FolderKanban, PackageCheck, UserCog, UsersRound, Wrench } from "lucide-react"
 import { Link } from "react-router-dom"
 import { AdminShell } from "@/components/admin/admin-shell"
 import { AdminAnalyticsPanel } from "@/components/admin/admin-analytics"
@@ -14,12 +14,12 @@ export function AdminDashboardPage() {
   const cards = [
     { label: "Khách hàng", value: data?.customers, detail: "Tài khoản đã đăng ký", icon: UsersRound, to: "/admin/nhan-su?role=customer" },
     { label: "Nhân sự hoạt động", value: data?.staff, detail: `${data?.blockedUsers || 0} tài khoản đang khóa`, icon: UserCog, to: "/admin/nhan-su" },
-    { label: "Lead đang mở", value: data?.openLeads, detail: "Staff đang tiếp tục chăm sóc", icon: ClipboardList, to: "" },
     { label: "Yêu cầu đang mở", value: data?.openRequests, detail: "Staff đang xử lý hồ sơ", icon: Wrench, to: "" },
+    { label: "Dự án đang triển khai", value: data?.activeProjects, detail: "Đang theo dõi tiến độ", icon: FolderKanban, to: "" },
     { label: "Đơn đang xử lý", value: data?.openOrders, detail: `${data?.pendingOrders || 0} đơn chờ Staff xác nhận`, icon: PackageCheck, to: "" },
     { label: "Sản phẩm hoạt động", value: data?.products, detail: `${data?.lowStock || 0} sản phẩm sắp hết`, icon: data?.lowStock ? AlertTriangle : Boxes, to: "/admin/noi-dung?tab=products" },
   ]
-  return <AdminShell title="Tổng quan quản trị" description="Theo dõi số liệu chung; Lead, yêu cầu và đơn hàng được tài khoản Staff xử lý riêng.">
+  return <AdminShell title="Tổng quan quản trị" description="Theo dõi yêu cầu, dự án và đơn hàng trong cùng một quy trình vận hành.">
     {summary.isError && <p className="rounded-2xl bg-red-50 p-5 font-semibold text-red-700">Không tải được dữ liệu quản trị. Vui lòng thử lại.</p>}
     <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">{cards.map(({ label, value, detail, icon: Icon, to }) => { const content = <><div className="flex items-start justify-between"><span className="grid size-12 place-items-center rounded-2xl bg-emerald-950 text-white"><Icon className="size-6"/></span><strong className="font-display text-4xl text-orange-700">{summary.isLoading ? "–" : value ?? 0}</strong></div><h2 className="mt-5 text-xl font-bold text-emerald-950">{label}</h2><p className="mt-2 text-base text-slate-600">{detail}</p></>; return to ? <Link key={label} to={to} className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-orange-300 hover:shadow-xl">{content}</Link> : <article key={label} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">{content}</article> })}</div>
     <AdminAnalyticsPanel analytics={data?.analytics}/>

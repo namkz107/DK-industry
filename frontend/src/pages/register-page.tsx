@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { Eye, EyeOff, LoaderCircle, UserPlus } from "lucide-react"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
-import { Link, Navigate, useNavigate } from "react-router-dom"
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom"
 import { z } from "zod"
 import { AuthShell, Field } from "@/pages/login-page"
 import { Button } from "@/components/ui/button"
@@ -23,14 +23,16 @@ export function RegisterPage() {
   usePageMeta("Đăng ký", "Tạo tài khoản khách hàng Cơ khí Đăng Khoa.")
   const { user, ready, register } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const nextPath = (location.state as { from?: string } | null)?.from || "/tai-khoan"
   const [showPassword, setShowPassword] = useState(false)
   const [serverError, setServerError] = useState("")
   const form = useForm<RegisterData>({ resolver: zodResolver(schema), defaultValues: { name: "", email: "", phone: "", password: "", confirmPassword: "" } })
-  if (ready && user) return <Navigate to="/tai-khoan" replace/>
+  if (ready && user) return <Navigate to={nextPath} replace/>
   const submit = form.handleSubmit(async ({ confirmPassword: _, ...data }) => {
     void _
     setServerError("")
-    try { await register(data); navigate("/tai-khoan", { replace: true }) }
+    try { await register(data); navigate(nextPath, { replace: true }) }
     catch (error) { setServerError(error instanceof Error ? error.message : "Không thể đăng ký") }
   })
 
@@ -43,7 +45,7 @@ export function RegisterPage() {
       {serverError && <p role="alert" className="mb-5 rounded-xl bg-red-50 p-4 text-sm font-semibold text-red-700">{serverError}</p>}
       <Button className="w-full" size="lg" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? <><LoaderCircle className="size-5 animate-spin"/>Đang tạo tài khoản...</> : <><UserPlus className="size-5"/>Tạo tài khoản</>}</Button>
       <p className="mt-4 text-center text-xs leading-5 text-slate-500">Bằng việc đăng ký, bạn xác nhận đã đọc <Link className="font-bold text-orange-700" to="/chinh-sach/bao-mat">chính sách bảo mật</Link> và <Link className="font-bold text-orange-700" to="/chinh-sach/dieu-khoan">điều khoản sử dụng</Link>.</p>
-      <p className="mt-4 text-center text-sm text-slate-600">Đã có tài khoản? <Link className="font-bold text-orange-700 hover:underline" to="/dang-nhap">Đăng nhập</Link></p>
+      <p className="mt-4 text-center text-sm text-slate-600">Đã có tài khoản? <Link className="font-bold text-orange-700 hover:underline" to="/dang-nhap" state={{ from: nextPath }}>Đăng nhập</Link></p>
     </form>
   </AuthShell>
 }

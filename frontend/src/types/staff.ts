@@ -5,7 +5,7 @@ export type OrderStatus = "pending" | "confirmed" | "preparing" | "shipping" | "
 export type PaymentStatus = "unpaid" | "pending" | "paid" | "refund_pending" | "refunded"
 
 export interface StaffMember { _id: string; name: string; email: string; role: "staff" | "admin" }
-export interface StaffDashboard { newLeads: number; myLeads: number; openRequests: number; myRequests: number; unreadCustomers: number; urgent: number; pendingOrders: number; myOrders: number }
+export interface StaffDashboard { newRequests: number; myRequests: number; activeProjects: number; pendingOrders: number; myOrders: number }
 export interface StaffLead {
   _id: string; code: string; name: string; phone: string; email?: string; company?: string; serviceType?: string; budget?: string; message?: string
   source: string; priority: Priority; status: LeadStatus; assignedTo?: StaffMember | null; nextFollowUpAt?: string; lostReason?: string; createdAt: string
@@ -40,7 +40,7 @@ export interface StaffWorkOrder {
   _id: string; code: string; status: WorkOrderStatus; agreedTotal: number; depositRequired: number; depositPaid: number
   contractReference?: string; purchaseOrderReference?: string; plannedStartAt?: string; plannedDeliveryAt?: string; createdAt: string
   customer: { _id: string; name: string; email: string; phone?: string; company?: string } | null; assignedTo?: StaffMember | null
-  request: { _id: string; code: string; title: string } | null; quotation: { _id: string; code: string; total: number } | null
+  request: { _id: string; code: string; title: string } | null; quotation: { _id: string; code: string; total: number; leadTime?: string; paymentTerms?: string; notes?: string } | null
   integrityIssues?: Array<"customer" | "request" | "quotation">
   timeline: Array<{ status: string; message?: string; at: string }>
 }

@@ -86,7 +86,13 @@ test('Staff xử lý Lead, Service Request, trao đổi và báo giá đúng quy
     assert.match(convertedBody.data.requestCode, /^YC-/);
     assert.ok(await ServiceRequest.exists({ _id: convertedBody.data.requestId, sourceLead: lead._id, customer: customer._id }));
 
-    const review = await call(`/staff/requests/${serviceRequest._id}`, staffToken, { method: 'PATCH', body: JSON.stringify({ assignedTo: 'me', priority: 'urgent', status: 'reviewing', message: 'Kỹ thuật bắt đầu kiểm tra bản vẽ.' }) });
+    const claimRequest = await call(`/staff/requests/${serviceRequest._id}/claim`, staffToken, { method: 'POST', body: '{}' });
+    assert.equal(claimRequest.status, 200);
+    assert.equal((await ServiceRequest.findById(serviceRequest._id)).status, 'reviewing');
+    assert.ok(await Notification.exists({ recipient: customer._id, type: 'request.claimed', 'metadata.requestId': serviceRequest._id }));
+    const otherCannotClaim = await call(`/staff/requests/${serviceRequest._id}/claim`, otherStaffToken, { method: 'POST', body: '{}' });
+    assert.equal(otherCannotClaim.status, 409);
+    const review = await call(`/staff/requests/${serviceRequest._id}`, staffToken, { method: 'PATCH', body: JSON.stringify({ priority: 'urgent', status: 'reviewing', message: 'Kỹ thuật bắt đầu kiểm tra bản vẽ.' }) });
     assert.equal(review.status, 200);
     const needMoreInfo = await call(`/staff/requests/${serviceRequest._id}`, staffToken, { method: 'PATCH', body: JSON.stringify({ status: 'need_more_info', message: 'Vui lòng bổ sung dung sai của chi tiết.', visibility: 'customer' }) });
     assert.equal(needMoreInfo.status, 200);

@@ -24,8 +24,8 @@ const paymentStatuses = new Set(['unpaid', 'pending', 'paid', 'refund_pending', 
 const priorities = new Set(['low', 'normal', 'high', 'urgent']);
 const workOrderStatuses = new Set(['awaiting_contract', 'awaiting_deposit', 'scheduled', 'in_progress', 'quality_check', 'ready_for_delivery', 'completed', 'cancelled']);
 const workOrderTransitions = {
-  awaiting_contract: ['awaiting_deposit', 'scheduled', 'cancelled'],
-  awaiting_deposit: ['scheduled', 'cancelled'],
+  awaiting_contract: ['awaiting_deposit', 'scheduled', 'in_progress', 'cancelled'],
+  awaiting_deposit: ['scheduled', 'in_progress', 'cancelled'],
   scheduled: ['in_progress', 'cancelled'],
   in_progress: ['quality_check', 'ready_for_delivery', 'cancelled'],
   quality_check: ['in_progress', 'ready_for_delivery'],
@@ -74,17 +74,14 @@ function claimIfUnassigned(document, actor) {
 
 router.get('/dashboard', async (req, res, next) => {
   try {
-    const [newLeads, myLeads, openRequests, myRequests, unreadCustomers, urgent, pendingOrders, myOrders] = await Promise.all([
-      Lead.countDocuments({ status: 'new' }),
-      Lead.countDocuments({ assignedTo: req.user._id, status: { $nin: ['won', 'lost', 'spam'] } }),
-      ServiceRequest.countDocuments({ status: { $nin: ['accepted', 'rejected', 'cancelled'] } }),
+    const [newRequests, myRequests, activeProjects, pendingOrders, myOrders] = await Promise.all([
+      ServiceRequest.countDocuments({ assignedTo: null, status: 'submitted' }),
       ServiceRequest.countDocuments({ assignedTo: req.user._id, status: { $nin: ['accepted', 'rejected', 'cancelled'] } }),
-      RequestMessage.countDocuments({ senderRole: 'customer', readByStaffAt: null }),
-      ServiceRequest.countDocuments({ priority: 'urgent', status: { $nin: ['accepted', 'rejected', 'cancelled'] } }),
+      WorkOrder.countDocuments({ assignedTo: req.user._id, status: { $nin: ['completed', 'cancelled'] } }),
       Order.countDocuments({ status: 'pending' }),
       Order.countDocuments({ assignedTo: req.user._id, status: { $nin: ['delivered', 'cancelled'] } })
     ]);
-    res.json({ success: true, data: { newLeads, myLeads, openRequests, myRequests, unreadCustomers, urgent, pendingOrders, myOrders } });
+    res.json({ success: true, data: { newRequests, myRequests, activeProjects, pendingOrders, myOrders } });
   } catch (error) { next(error); }
 });
 
@@ -211,7 +208,7 @@ router.post('/leads/:id/convert', async (req, res, next) => {
       await writeAudit({ actor: req.user._id, action: 'lead.converted', entity: 'lead', entityId: lead._id, summary: `Chuyển Lead ${lead.code} thành ${request.code}`, metadata: { customerId: customer._id, requestId: request._id }, session });
       return { lead, request, customer };
     });
-    await createNotification({ recipient: result.customer._id, type: 'request.created_from_lead', title: `Hồ sơ tư vấn ${result.request.code} đã được tạo`, message: 'Yêu cầu trao đổi trước đó của bạn đã được đưa vào cổng khách hàng để theo dõi.', link: '/tai-khoan/yeu-cau' });
+    await createNotification({ recipient: result.customer._id, type: 'request.created_from_lead', title: `Hồ sơ tư vấn ${result.request.code} đã được tạo`, message: 'Yêu cầu trao đổi trước đó của bạn đã được đưa vào cổng khách hàng để theo dõi.', link: `/tai-khoan/yeu-cau?requestId=${result.request._id}` });
     dispatchSoon();
     res.status(201).json({ success: true, message: `Đã tạo yêu cầu ${result.request.code}. Bạn có thể kiểm tra và gửi báo giá ngay.`, data: { leadId: result.lead._id, requestId: result.request._id, requestCode: result.request.code, customerId: result.customer._id } });
   } catch (error) { next(error); }
@@ -221,6 +218,18 @@ router.get('/requests', async (req, res, next) => {
   try {
     const { page, limit } = pageValues(req.query);
     const filter = {};
+    if (req.query.view === 'new') {
+      filter.assignedTo = null;
+      filter.status = 'submitted';
+    } else if (req.query.view === 'active') {
+      filter.status = { $nin: ['accepted', 'rejected', 'cancelled'] };
+      if (req.user.role === 'staff') filter.assignedTo = req.user._id;
+    } else if (req.query.view === 'mine') {
+      filter.assignedTo = req.user._id;
+      filter.status = { $nin: ['accepted', 'rejected', 'cancelled'] };
+    } else if (req.query.view === 'closed') {
+      filter.status = { $in: ['accepted', 'rejected', 'cancelled'] };
+    }
     if (requestStatuses.has(req.query.status)) filter.status = req.query.status;
     if (priorities.has(req.query.priority)) filter.priority = req.query.priority;
     const assignedTo = assignmentFilter(req.query, req.user);
@@ -264,6 +273,37 @@ router.get('/requests/:id/messages', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+router.post('/requests/:id/claim', async (req, res, next) => {
+  try {
+    if (!validId(req.params.id)) fail('Yêu cầu không hợp lệ', 404);
+    const existing = await ServiceRequest.findById(req.params.id).select('assignedTo status code customer');
+    if (!existing) fail('Không tìm thấy yêu cầu', 404);
+    if (existing.assignedTo) {
+      if (String(existing.assignedTo) !== String(req.user._id)) fail('Yêu cầu đã được nhân viên khác nhận xử lý', 409);
+      return res.json({ success: true, message: 'Yêu cầu này đã thuộc phần phụ trách của bạn', data: existing });
+    }
+    if (existing.status !== 'submitted') fail('Yêu cầu không còn ở trạng thái chờ tiếp nhận', 409);
+    const message = 'Yêu cầu đã được nhân viên tiếp nhận. Chúng tôi đang kiểm tra thông tin và chuẩn bị báo giá.';
+    const request = await ServiceRequest.findOneAndUpdate(
+      { _id: existing._id, assignedTo: null, status: 'submitted' },
+      {
+        $set: { assignedTo: req.user._id, status: 'reviewing', closedAt: null, lastStaffMessageAt: new Date() },
+        $push: { timeline: { status: 'reviewing', message, actorType: 'staff', actor: req.user._id } }
+      },
+      { new: true, runValidators: true }
+    );
+    if (!request) fail('Yêu cầu vừa được nhân viên khác nhận xử lý', 409);
+    await Promise.all([
+      RequestMessage.create({ request: request._id, sender: req.user._id, senderRole: req.user.role, visibility: 'customer', content: message, readByStaffAt: new Date() }),
+      createNotification({ recipient: request.customer, type: 'request.claimed', title: `Yêu cầu ${request.code} đã được tiếp nhận`, message, link: `/tai-khoan/yeu-cau?requestId=${request._id}`, metadata: { requestId: request._id } }),
+      writeAudit({ actor: req.user._id, action: 'request.claimed', entity: 'request', entityId: request._id, summary: `Nhận xử lý yêu cầu ${request.code}` })
+    ]);
+    dispatchSoon();
+    emitRequestUpdated(request._id, 'request_claimed', { visibility: 'customer' });
+    res.json({ success: true, message: 'Đã nhận xử lý và thông báo cho khách hàng', data: request });
+  } catch (error) { next(error); }
+});
+
 router.patch('/requests/:id', async (req, res, next) => {
   try {
     if (!validId(req.params.id)) fail('Yêu cầu không hợp lệ', 404);
@@ -271,11 +311,11 @@ router.patch('/requests/:id', async (req, res, next) => {
     if (!request) fail('Không tìm thấy yêu cầu', 404);
     let customerMessage = '';
     ensureOwnership(request, req.user, 'Hồ sơ');
-    claimIfUnassigned(request, req.user);
     if (req.body.assignedTo !== undefined) {
       const nextAssignee = await assignUser(req.body.assignedTo, req.user);
       request.assignedTo = nextAssignee;
     }
+    if (!request.assignedTo) fail('Hãy nhận xử lý yêu cầu trước khi cập nhật', 409);
     if (req.body.priority !== undefined) {
       if (!priorities.has(req.body.priority)) fail('Mức ưu tiên không hợp lệ');
       request.priority = req.body.priority;
@@ -294,7 +334,7 @@ router.patch('/requests/:id', async (req, res, next) => {
     }
     await request.save();
     if (customerMessage) {
-      await createNotification({ recipient: request.customer, type: 'request.status_updated', title: `Cập nhật yêu cầu ${request.code}`, message: customerMessage.slice(0, 180), link: '/tai-khoan/yeu-cau', metadata: { requestId: request._id } });
+      await createNotification({ recipient: request.customer, type: 'request.status_updated', title: `Cập nhật yêu cầu ${request.code}`, message: customerMessage.slice(0, 180), link: `/tai-khoan/yeu-cau?requestId=${request._id}`, metadata: { requestId: request._id } });
       dispatchSoon();
     }
     emitRequestUpdated(request._id, 'staff_update', { visibility: req.body.visibility === 'internal' ? 'internal' : 'customer' });
@@ -307,7 +347,7 @@ router.post('/requests/:id/messages', async (req, res, next) => {
     const request = validId(req.params.id) ? await ServiceRequest.findById(req.params.id) : null;
     if (!request) fail('Không tìm thấy yêu cầu', 404);
     ensureOwnership(request, req.user, 'Hồ sơ');
-    claimIfUnassigned(request, req.user);
+    if (!request.assignedTo) fail('Hãy nhận xử lý yêu cầu trước khi trao đổi với khách hàng', 409);
     if (['accepted', 'rejected', 'cancelled'].includes(request.status)) fail('Hồ sơ đã đóng, không thể gửi thêm trao đổi', 409);
     const content = clean(req.body.content);
     if (!content) fail('Vui lòng nhập nội dung');
@@ -320,7 +360,7 @@ router.post('/requests/:id/messages', async (req, res, next) => {
     }
     await request.save();
     if (visibility === 'customer') {
-      await createNotification({ recipient: request.customer, type: 'request.staff_message', title: `Phản hồi mới cho ${request.code}`, message: content.slice(0, 180), link: '/tai-khoan/yeu-cau', metadata: { requestId: request._id } });
+      await createNotification({ recipient: request.customer, type: 'request.staff_message', title: `Phản hồi mới cho ${request.code}`, message: content.slice(0, 180), link: `/tai-khoan/yeu-cau?requestId=${request._id}`, metadata: { requestId: request._id } });
       dispatchSoon();
     }
     await result.message.populate('sender', 'name role');
@@ -335,7 +375,7 @@ router.post('/requests/:id/quotations', async (req, res, next) => {
     const request = validId(req.params.id) ? await ServiceRequest.findById(req.params.id) : null;
     if (!request) fail('Không tìm thấy yêu cầu', 404);
     ensureOwnership(request, req.user, 'Hồ sơ');
-    claimIfUnassigned(request, req.user);
+    if (!request.assignedTo) fail('Hãy nhận xử lý yêu cầu trước khi lập báo giá', 409);
     if (!['submitted', 'reviewing', 'need_more_info', 'quoted'].includes(request.status)) fail('Yêu cầu đã đóng, không thể tạo báo giá', 409);
     if (!Array.isArray(req.body.items) || !req.body.items.length || req.body.items.length > 50) fail('Báo giá cần từ 1 đến 50 hạng mục');
     const items = req.body.items.map(item => ({ description: clean(item.description, 500), quantity: Number(item.quantity), unit: clean(item.unit, 50), unitPrice: Number(item.unitPrice), lineTotal: 0 }));
@@ -361,7 +401,7 @@ router.post('/requests/:id/quotations', async (req, res, next) => {
       transitionServiceRequest(request, 'quoted', { actor: req.user._id, actorType: 'staff', message: `Đã gửi báo giá ${quotation.code}.` });
       request.lastStaffMessageAt = new Date();
       await Promise.all([request.save(), RequestMessage.create({ request: request._id, sender: req.user._id, senderRole: req.user.role, visibility: 'customer', content: `Cơ khí Đăng Khoa đã gửi báo giá ${quotation.code} (phiên bản ${quotation.version}).`, readByStaffAt: new Date() })]);
-      await createNotification({ recipient: request.customer, type: 'quotation.sent', title: `Bạn có báo giá mới ${quotation.code}`, message: `Báo giá có tổng giá trị ${quotation.total.toLocaleString('vi-VN')}đ và hiệu lực đến ${quotation.validUntil.toLocaleDateString('vi-VN')}.`, link: '/tai-khoan/yeu-cau', metadata: { requestId: request._id, quotationId: quotation._id } });
+      await createNotification({ recipient: request.customer, type: 'quotation.sent', title: `Bạn có báo giá mới ${quotation.code}`, message: `Báo giá có tổng giá trị ${quotation.total.toLocaleString('vi-VN')}đ và hiệu lực đến ${quotation.validUntil.toLocaleDateString('vi-VN')}.`, link: `/tai-khoan/yeu-cau?requestId=${request._id}`, metadata: { requestId: request._id, quotationId: quotation._id } });
       await writeAudit({ actor: req.user._id, action: 'quotation.sent', entity: 'quotation', entityId: quotation._id, summary: `Gửi báo giá ${quotation.code}`, metadata: { requestId: request._id, total: quotation.total } });
       dispatchSoon();
     } else {
@@ -382,7 +422,7 @@ router.patch('/requests/:requestId/quotations/:quotationId/send', async (req, re
     const [request, quotation] = await Promise.all([ServiceRequest.findById(req.params.requestId), Quotation.findOne({ _id: req.params.quotationId, request: req.params.requestId })]);
     if (!request || !quotation) fail('Không tìm thấy báo giá', 404);
     ensureOwnership(request, req.user, 'Hồ sơ');
-    claimIfUnassigned(request, req.user);
+    if (!request.assignedTo) fail('Hãy nhận xử lý yêu cầu trước khi gửi báo giá', 409);
     if (quotation.status !== 'draft') fail('Chỉ có thể gửi báo giá đang ở bản nháp', 409);
     if (quotation.validUntil <= new Date()) fail('Báo giá đã hết hiệu lực', 409);
     await Quotation.updateMany({ request: request._id, _id: { $ne: quotation._id }, status: { $in: ['sent', 'draft'] } }, { status: 'superseded' });
@@ -390,7 +430,7 @@ router.patch('/requests/:requestId/quotations/:quotationId/send', async (req, re
     transitionServiceRequest(request, 'quoted', { actor: req.user._id, actorType: 'staff', message: `Đã gửi báo giá ${quotation.code}.` });
     request.lastStaffMessageAt = new Date();
     await Promise.all([quotation.save(), request.save(), RequestMessage.create({ request: request._id, sender: req.user._id, senderRole: req.user.role, visibility: 'customer', content: `Cơ khí Đăng Khoa đã gửi báo giá ${quotation.code} (phiên bản ${quotation.version}).`, readByStaffAt: new Date() })]);
-    await createNotification({ recipient: request.customer, type: 'quotation.sent', title: `Bạn có báo giá mới ${quotation.code}`, message: `Báo giá có tổng giá trị ${quotation.total.toLocaleString('vi-VN')}đ và hiệu lực đến ${quotation.validUntil.toLocaleDateString('vi-VN')}.`, link: '/tai-khoan/yeu-cau', metadata: { requestId: request._id, quotationId: quotation._id } });
+    await createNotification({ recipient: request.customer, type: 'quotation.sent', title: `Bạn có báo giá mới ${quotation.code}`, message: `Báo giá có tổng giá trị ${quotation.total.toLocaleString('vi-VN')}đ và hiệu lực đến ${quotation.validUntil.toLocaleDateString('vi-VN')}.`, link: `/tai-khoan/yeu-cau?requestId=${request._id}`, metadata: { requestId: request._id, quotationId: quotation._id } });
     await writeAudit({ actor: req.user._id, action: 'quotation.sent', entity: 'quotation', entityId: quotation._id, summary: `Gửi báo giá ${quotation.code}`, metadata: { requestId: request._id, total: quotation.total } });
     dispatchSoon();
     emitRequestUpdated(request._id, 'quotation_sent');
@@ -422,13 +462,15 @@ router.get('/work-orders', async (req, res, next) => {
   try {
     const { page, limit } = pageValues(req.query);
     const filter = {};
+    if (req.query.view === 'active') filter.status = { $nin: ['completed', 'cancelled'] };
+    if (req.query.view === 'completed') filter.status = 'completed';
     if (workOrderStatuses.has(req.query.status)) filter.status = req.query.status;
     const assignedTo = assignmentFilter(req.query, req.user);
     if (assignedTo !== undefined) filter.assignedTo = assignedTo;
     const q = clean(req.query.q, 100);
     if (q) filter.$or = [{ code: { $regex: q, $options: 'i' } }, { contractReference: { $regex: q, $options: 'i' } }, { purchaseOrderReference: { $regex: q, $options: 'i' } }];
     const [items, total] = await Promise.all([
-      WorkOrder.find(filter).populate('customer', 'name email phone company').populate('assignedTo', 'name email').populate('request', 'code title').populate('quotation', 'code total').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+      WorkOrder.find(filter).populate('customer', 'name email phone company').populate('assignedTo', 'name email').populate('request', 'code title').populate('quotation', 'code total leadTime paymentTerms notes').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
       WorkOrder.countDocuments(filter)
     ]);
     res.json({ success: true, data: { items: items.map(workOrderWithIntegrity), total, page, pages: Math.ceil(total / limit) } });
@@ -437,28 +479,28 @@ router.get('/work-orders', async (req, res, next) => {
 
 router.get('/work-orders/:id', async (req, res, next) => {
   try {
-    if (!validId(req.params.id)) fail('Công việc không hợp lệ', 404);
+    if (!validId(req.params.id)) fail('Dự án không hợp lệ', 404);
     const data = await WorkOrder.findById(req.params.id).populate('customer', 'name email phone company').populate('assignedTo', 'name email').populate('request', 'code title description').populate('quotation').populate('timeline.actor', 'name role').lean();
-    if (!data) fail('Không tìm thấy công việc', 404);
+    if (!data) fail('Không tìm thấy dự án', 404);
     res.json({ success: true, data: workOrderWithIntegrity(data) });
   } catch (error) { next(error); }
 });
 
 router.patch('/work-orders/:id', async (req, res, next) => {
   try {
-    if (!validId(req.params.id)) fail('Công việc không hợp lệ', 404);
+    if (!validId(req.params.id)) fail('Dự án không hợp lệ', 404);
     const workOrder = await withTransaction(async session => {
       const query = WorkOrder.findById(req.params.id);
       if (session) query.session(session);
       const current = await query;
-      if (!current) fail('Không tìm thấy công việc', 404);
+      if (!current) fail('Không tìm thấy dự án', 404);
       const [customerExists, requestExists, quotationExists] = await Promise.all([
         User.exists({ _id: current.customer }),
         ServiceRequest.exists({ _id: current.request }),
         Quotation.exists({ _id: current.quotation })
       ]);
-      if (!customerExists || !requestExists || !quotationExists) fail('Hồ sơ công việc bị thiếu dữ liệu liên kết và không thể cập nhật', 409);
-      ensureOwnership(current, req.user, 'Công việc');
+      if (!customerExists || !requestExists || !quotationExists) fail('Hồ sơ dự án bị thiếu dữ liệu liên kết và không thể cập nhật', 409);
+      ensureOwnership(current, req.user, 'Dự án');
       const before = { status: current.status, assignedTo: current.assignedTo, depositRequired: current.depositRequired, depositPaid: current.depositPaid };
       if (req.body.assignedTo !== undefined) current.assignedTo = await assignUser(req.body.assignedTo, req.user);
       claimIfUnassigned(current, req.user);
@@ -480,19 +522,20 @@ router.patch('/work-orders/:id', async (req, res, next) => {
         current[field] = value;
       }
       if (req.body.status !== undefined && req.body.status !== current.status) {
-        if (!workOrderStatuses.has(req.body.status) || !workOrderTransitions[current.status]?.includes(req.body.status)) fail(`Không thể chuyển công việc từ ${current.status} sang ${req.body.status}`, 409);
+        if (!workOrderStatuses.has(req.body.status) || !workOrderTransitions[current.status]?.includes(req.body.status)) fail(`Không thể chuyển dự án từ ${current.status} sang ${req.body.status}`, 409);
         if (req.body.status === 'scheduled' && current.depositRequired > current.depositPaid) fail('Chưa thu đủ tiền đặt cọc để lên lịch thực hiện', 409);
         if (req.body.status === 'awaiting_deposit' && current.depositRequired <= 0) fail('Cần nhập số tiền đặt cọc trước khi chờ thanh toán');
         current.status = req.body.status;
         current.timeline.push({ status: current.status, message: clean(req.body.message, 1000), actor: req.user._id, actorType: 'staff' });
       }
       await current.save(session ? { session } : undefined);
-      await writeAudit({ actor: req.user._id, action: 'work_order.updated', entity: 'work_order', entityId: current._id, summary: `Cập nhật công việc ${current.code}`, metadata: { before, after: { status: current.status, assignedTo: current.assignedTo, depositRequired: current.depositRequired, depositPaid: current.depositPaid } }, session });
+      await writeAudit({ actor: req.user._id, action: 'work_order.updated', entity: 'work_order', entityId: current._id, summary: `Cập nhật dự án ${current.code}`, metadata: { before, after: { status: current.status, assignedTo: current.assignedTo, depositRequired: current.depositRequired, depositPaid: current.depositPaid } }, session });
       return current;
     });
-    await createNotification({ recipient: workOrder.customer, type: 'work_order.updated', title: `Công việc ${workOrder.code} đã được cập nhật`, message: `Trạng thái hiện tại: ${workOrder.status}.`, link: '/tai-khoan/yeu-cau' });
+    const projectLabels = { awaiting_contract: 'Chuẩn bị', awaiting_deposit: 'Chuẩn bị', scheduled: 'Chuẩn bị', in_progress: 'Đang thực hiện', quality_check: 'Đang thực hiện', ready_for_delivery: 'Chờ bàn giao', completed: 'Hoàn thành', cancelled: 'Đã hủy' };
+    await createNotification({ recipient: workOrder.customer, type: 'work_order.updated', title: `Dự án ${workOrder.code} đã được cập nhật`, message: `Tiến độ hiện tại: ${projectLabels[workOrder.status] || workOrder.status}.`, link: `/tai-khoan/du-an?projectId=${workOrder._id}` });
     dispatchSoon();
-    res.json({ success: true, message: 'Đã cập nhật công việc', data: workOrder });
+    res.json({ success: true, message: 'Đã cập nhật dự án', data: workOrder });
   } catch (error) { next(error); }
 });
 

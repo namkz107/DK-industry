@@ -1,14 +1,13 @@
-import { ClipboardList, LayoutDashboard, MapPinned, ShoppingCart } from "lucide-react"
+import { ClipboardList, FolderKanban, LayoutDashboard, PackageCheck } from "lucide-react"
 import type { PropsWithChildren, ReactNode } from "react"
 import { NavLink } from "react-router-dom"
 import { cn } from "@/lib/utils"
 
 const navigation = [
   { to: "/tai-khoan", label: "Tổng quan", icon: LayoutDashboard, end: true },
-  { to: "/tai-khoan/ho-so", label: "Hồ sơ & địa chỉ", icon: MapPinned },
-  { to: "/gio-hang", label: "Giỏ hàng", icon: ShoppingCart },
-  { to: "/tai-khoan/don-hang", label: "Đơn hàng", icon: ClipboardList },
   { to: "/tai-khoan/yeu-cau", label: "Yêu cầu gia công", icon: ClipboardList },
+  { to: "/tai-khoan/du-an", label: "Dự án của tôi", icon: FolderKanban },
+  { to: "/tai-khoan/don-hang", label: "Đơn sản phẩm", icon: PackageCheck },
 ]
 
 export function CustomerShell({ title, description, action, children }: PropsWithChildren<{ title: string; description: string; action?: ReactNode }>) {

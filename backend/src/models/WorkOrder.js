@@ -9,7 +9,7 @@ const milestoneSchema = new mongoose.Schema({
 }, { _id: true });
 
 const workOrderSchema = new mongoose.Schema({
-  code: { type: String, unique: true, default: () => `CV-${new Date().toISOString().slice(2, 10).replaceAll('-', '')}-${crypto.randomBytes(3).toString('hex').toUpperCase()}` },
+  code: { type: String, unique: true, default: () => `DA-${new Date().toISOString().slice(2, 10).replaceAll('-', '')}-${crypto.randomBytes(3).toString('hex').toUpperCase()}` },
   request: { type: mongoose.Schema.Types.ObjectId, ref: 'ServiceRequest', required: true, unique: true },
   quotation: { type: mongoose.Schema.Types.ObjectId, ref: 'Quotation', required: true, unique: true },
   customer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },

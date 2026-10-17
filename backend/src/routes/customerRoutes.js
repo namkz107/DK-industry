@@ -179,14 +179,16 @@ async function populatedCart(customerId, session = null) {
 
 router.get('/summary', async (req, res, next) => {
   try {
-    const [orders, openOrders, requests, openRequests, cart] = await Promise.all([
+    const [orders, openOrders, requests, openRequests, activeProjects, completedProjects, cart] = await Promise.all([
       Order.countDocuments({ customer: req.user._id }),
       Order.countDocuments({ customer: req.user._id, status: { $nin: ['delivered', 'cancelled'] } }),
       ServiceRequest.countDocuments({ customer: req.user._id }),
       ServiceRequest.countDocuments({ customer: req.user._id, status: { $nin: ['accepted', 'rejected', 'cancelled'] } }),
+      WorkOrder.countDocuments({ customer: req.user._id, status: { $nin: ['completed', 'cancelled'] } }),
+      WorkOrder.countDocuments({ customer: req.user._id, status: 'completed' }),
       populatedCart(req.user._id)
     ]);
-    res.json({ success: true, data: { orders, openOrders, requests, openRequests, cartItems: cartView(cart).itemCount } });
+    res.json({ success: true, data: { orders, openOrders, requests, openRequests, activeProjects, completedProjects, cartItems: cartView(cart).itemCount } });
   } catch (error) { next(error); }
 });
 
@@ -489,6 +491,19 @@ router.get('/requests', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+router.get('/projects', async (req, res, next) => {
+  try {
+    const data = await WorkOrder.find({ customer: req.user._id })
+      .select('-assignedTo')
+      .populate('request', 'code title description')
+      .populate('quotation', 'code total leadTime paymentTerms notes')
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+    res.json({ success: true, data });
+  } catch (error) { next(error); }
+});
+
 router.get('/requests/:id', async (req, res, next) => {
   try {
     if (!validId(req.params.id)) fail('Yêu cầu không hợp lệ', 404);
@@ -550,7 +565,7 @@ router.post('/requests', requireVerifiedEmail, upload.array('attachments', 5), a
     });
     filesCommitted = true;
     await RequestMessage.create({ request: request._id, sender: req.user._id, senderRole: 'customer', visibility: 'customer', content: description, readByCustomerAt: new Date() });
-    await notifyOperations({ type: 'request.created', title: `Yêu cầu mới ${request.code}`, message: `${req.user.name}: ${request.title}`, link: '/staff/requests', metadata: { requestId: request._id } });
+    await notifyOperations({ type: 'request.created', title: `Yêu cầu mới ${request.code}`, message: `${req.user.name}: ${request.title}`, link: `/staff/requests?requestId=${request._id}&view=new`, metadata: { requestId: request._id } });
     dispatchSoon();
     res.status(201).json({ success: true, message: 'Đã gửi yêu cầu, kỹ thuật sẽ phản hồi trong giờ làm việc', data: { id: request._id, code: request.code, status: request.status } });
   } catch (error) { if (!filesCommitted) await removeStoredFiles(storedFiles); next(error); }
@@ -586,7 +601,7 @@ router.post('/requests/:id/messages', upload.array('attachments', 3), async (req
       transitionServiceRequest(request, 'reviewing', { message: 'Khách hàng đã bổ sung thông tin.', actorType: 'customer', actor: req.user._id });
     }
     await request.save();
-    await notifyOperations({ type: 'request.customer_message', title: `Khách bổ sung yêu cầu ${request.code}`, message: content || 'Khách hàng đã gửi thêm tệp đính kèm.', link: '/staff/requests', metadata: { requestId: request._id } });
+    await notifyOperations({ type: 'request.customer_message', title: `Khách bổ sung yêu cầu ${request.code}`, message: content || 'Khách hàng đã gửi thêm tệp đính kèm.', link: `/staff/requests?requestId=${request._id}&view=mine`, metadata: { requestId: request._id } });
     dispatchSoon();
     emitMessage(result.message);
     emitRequestUpdated(request._id, 'customer_message');
@@ -642,8 +657,8 @@ router.patch('/requests/:requestId/quotations/:quotationId/respond', async (req,
         if (!workOrder) {
           const created = await WorkOrder.create([{
             request: request._id, quotation: updated._id, customer: req.user._id, assignedTo: request.assignedTo,
-            agreedTotal: updated.total, status: 'awaiting_contract',
-            timeline: [{ status: 'awaiting_contract', message: `Khởi tạo từ báo giá ${updated.code} đã được khách hàng chấp thuận.`, actorType: 'customer', actor: req.user._id }]
+            agreedTotal: updated.total, status: 'scheduled',
+            timeline: [{ status: 'scheduled', message: `Dự án được khởi tạo từ báo giá ${updated.code} đã được hai bên thống nhất.`, actorType: 'customer', actor: req.user._id }]
           }], session ? { session } : undefined);
           workOrder = created[0];
         }
@@ -652,24 +667,24 @@ router.patch('/requests/:requestId/quotations/:quotationId/respond', async (req,
       }
       request.lastCustomerMessageAt = new Date();
       await request.save(session ? { session } : undefined);
-      await RequestMessage.create([{ request: request._id, sender: req.user._id, senderRole: 'customer', visibility: 'customer', content: decision === 'accepted' ? `Tôi chấp thuận báo giá ${updated.code}.` : `Tôi chưa chấp thuận báo giá ${updated.code}.${responseNote ? ` ${responseNote}` : ''}`, readByCustomerAt: new Date() }], session ? { session } : undefined);
+      await RequestMessage.create([{ request: request._id, sender: req.user._id, senderRole: 'customer', visibility: 'customer', content: decision === 'accepted' ? `Tôi đồng ý báo giá ${updated.code}.` : `Tôi yêu cầu điều chỉnh báo giá ${updated.code}.${responseNote ? ` ${responseNote}` : ''}`, readByCustomerAt: new Date() }], session ? { session } : undefined);
       await writeAudit({ actor: req.user._id, action: `quotation.${decision}`, entity: 'quotation', entityId: updated._id, summary: `Khách hàng ${decision === 'accepted' ? 'chấp thuận' : 'từ chối'} báo giá ${updated.code}`, metadata: { requestId: request._id, workOrderId: workOrder?._id, responseNote }, session });
       return updated;
     });
     const staffLink = decision === 'accepted' && workOrder
       ? `/staff/work-orders?workOrderId=${workOrder._id}&q=${encodeURIComponent(workOrder.code)}`
       : `/staff/requests?requestId=${req.params.requestId}&q=${encodeURIComponent(requestCode)}`;
-    await notifyOperations({ type: `quotation.${decision}`, title: `Báo giá ${quotation.code} đã được phản hồi`, message: decision === 'accepted' ? `Khách hàng đã chấp thuận. Công việc ${workOrder?.code || ''} đã được khởi tạo.` : `Khách hàng yêu cầu điều chỉnh báo giá.${responseNote ? ` ${responseNote}` : ''}`, link: staffLink, metadata: { requestId: req.params.requestId, quotationId: quotation._id, workOrderId: workOrder?._id } });
+    await notifyOperations({ type: `quotation.${decision}`, title: `Báo giá ${quotation.code} đã được phản hồi`, message: decision === 'accepted' ? `Khách hàng đã đồng ý. Dự án ${workOrder?.code || ''} đã được khởi tạo.` : `Khách hàng yêu cầu điều chỉnh báo giá.${responseNote ? ` ${responseNote}` : ''}`, link: staffLink, metadata: { requestId: req.params.requestId, quotationId: quotation._id, workOrderId: workOrder?._id } });
     dispatchSoon();
     emitRequestUpdated(req.params.requestId, `quotation_${decision}`);
     res.json({
       success: true,
       message: decision === 'accepted'
-        ? `Đã chấp thuận báo giá. Công việc ${workOrder?.code || ''} đã được tạo để nhân viên tiếp tục xử lý.`
+        ? `Đã đồng ý báo giá. Dự án ${workOrder?.code || ''} đã được tạo để bạn theo dõi tiến độ.`
         : 'Đã gửi yêu cầu điều chỉnh. Nhân viên sẽ cập nhật và gửi lại báo giá mới tại hồ sơ này.',
       data: {
         ...quotation.toObject(),
-        nextAction: decision === 'accepted' ? 'wait_for_contract' : 'wait_for_revised_quotation',
+        nextAction: decision === 'accepted' ? 'track_project' : 'wait_for_revised_quotation',
         workOrder: workOrder ? { _id: workOrder._id, code: workOrder.code, status: workOrder.status } : null
       }
     });
@@ -700,7 +715,7 @@ router.patch('/requests/:id/cancel', async (req, res, next) => {
       await writeAudit({ actor: req.user._id, action: 'request.cancelled_by_customer', entity: 'request', entityId: current._id, summary: `Khách hủy yêu cầu ${current.code}`, session });
       return current;
     });
-    await notifyOperations({ type: 'request.cancelled', title: `Yêu cầu ${request.code} đã bị hủy`, message: `${req.user.name} đã hủy yêu cầu.`, link: '/staff/requests', metadata: { requestId: request._id } });
+    await notifyOperations({ type: 'request.cancelled', title: `Yêu cầu ${request.code} đã bị hủy`, message: `${req.user.name} đã hủy yêu cầu.`, link: `/staff/requests?requestId=${request._id}&view=closed`, metadata: { requestId: request._id } });
     dispatchSoon();
     emitRequestUpdated(request._id, 'cancelled');
     res.json({ success: true, message: 'Đã hủy yêu cầu', data: request });
