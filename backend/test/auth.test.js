@@ -6,6 +6,7 @@ process.env.JWT_SECRET = 'unit_test_secret_that_is_longer_than_32_characters';
 const User = require('../src/models/User');
 const { createAccessToken, verifyAccessToken, newCsrfToken, newRefreshToken, hashToken, refreshCookieOptions } = require('../src/services/authService');
 const { requireVerifiedEmail } = require('../src/middleware/authenticate');
+const { matchesCurrentEmailVerificationVersion } = require('../src/services/accountTokenService');
 
 test('access token giữ đúng danh tính và vai trò trong 15 phút', () => {
   const user = {
@@ -21,6 +22,18 @@ test('access token giữ đúng danh tính và vai trò trong 15 phút', () => {
   assert.equal(payload.role, 'staff');
   assert.equal(payload.tv, 2);
   assert.ok(payload.exp - payload.iat <= 15 * 60);
+});
+
+test('chỉ email xác minh được phát hành mới nhất có hiệu lực', () => {
+  const user = { emailVerificationVersion: 2 };
+
+  assert.equal(matchesCurrentEmailVerificationVersion({ version: 1 }, user), false);
+  assert.equal(matchesCurrentEmailVerificationVersion({ version: 2 }, user), true);
+  assert.equal(matchesCurrentEmailVerificationVersion({}, user), false);
+});
+
+test('link hiện có trước khi triển khai vẫn hợp lệ cho đến lần gửi lại tiếp theo', () => {
+  assert.equal(matchesCurrentEmailVerificationVersion({}, { emailVerificationVersion: 0 }), true);
 });
 
 test('refresh token đủ ngẫu nhiên và chỉ lưu dạng hash', () => {

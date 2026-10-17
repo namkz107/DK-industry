@@ -1,5 +1,4 @@
 const express = require('express');
-const crypto = require('crypto');
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const RefreshSession = require('../models/RefreshSession');
@@ -9,6 +8,7 @@ const { createAccessToken, createMfaChallenge, createSession, hashToken, newCsrf
 const { decryptSecret, encryptSecret, generateRecoveryCodes, generateSecret, hashRecoveryCode, otpAuthUrl, recoveryCodeHash, verifyTotp } = require('../services/mfaService');
 const { sendDirectEmail } = require('../services/notificationService');
 const { passwordResetEmail, verificationEmail } = require('../services/emailTemplateService');
+const { issueAccountToken, matchesCurrentEmailVerificationVersion } = require('../services/accountTokenService');
 
 const router = express.Router();
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -20,13 +20,6 @@ function validatePassword(password) {
 }
 
 const sessionPayload = (user, tokens) => ({ user: publicUser(user), accessToken: tokens.accessToken, csrfToken: tokens.csrfToken });
-
-async function issueAccountToken(user, type, ttlMinutes) {
-  await AccountToken.deleteMany({ user: user._id, type, usedAt: null });
-  const token = crypto.randomBytes(32).toString('base64url');
-  await AccountToken.create({ user: user._id, type, tokenHash: hashToken(token), expiresAt: new Date(Date.now() + ttlMinutes * 60 * 1000) });
-  return token;
-}
 
 function clientUrl(path, token) {
   const base = (process.env.CLIENT_URL || 'http://localhost:3000').split(',')[0].replace(/\/$/, '');
@@ -91,8 +84,9 @@ router.post('/verify-email', async (req, res, next) => {
   try {
     const accountToken = await AccountToken.findOne({ tokenHash: hashToken(String(req.body.token || '')), type: 'email_verification', usedAt: null, expiresAt: { $gt: new Date() } });
     if (!accountToken) return res.status(400).json({ success: false, message: 'Liên kết xác minh không hợp lệ hoặc đã hết hạn' });
-    const user = await User.findById(accountToken.user);
+    const user = await User.findById(accountToken.user).select('+emailVerificationVersion');
     if (!user) return res.status(400).json({ success: false, message: 'Tài khoản không tồn tại' });
+    if (!matchesCurrentEmailVerificationVersion(accountToken, user)) return res.status(400).json({ success: false, message: 'Liên kết xác minh không còn hiệu lực. Vui lòng sử dụng email xác minh mới nhất.' });
     user.emailVerifiedAt = user.emailVerifiedAt || new Date();
     accountToken.usedAt = new Date();
     await Promise.all([user.save(), accountToken.save()]);

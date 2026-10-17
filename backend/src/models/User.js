@@ -31,6 +31,7 @@ const userSchema = new mongoose.Schema({
   tokenVersion: { type: Number, default: 0, select: false },
   lastLoginAt: Date,
   emailVerifiedAt: Date,
+  emailVerificationVersion: { type: Number, default: 0, min: 0, select: false },
   mfaEnabledAt: Date,
   mfaSecretEncrypted: { type: String, select: false },
   mfaPendingSecretEncrypted: { type: String, select: false },
