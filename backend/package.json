@@ -12,6 +12,7 @@
     "seed": "node src/seed.js",
     "seed:admin": "node src/bootstrapAdmin.js",
     "migrate:lead-service": "node src/migrateLeadService.js",
+    "migrate:project-details": "node src/migrateProjectDetails.js",
     "verify:integrations": "node src/verifyIntegrations.js",
     "test": "node --test"
   },

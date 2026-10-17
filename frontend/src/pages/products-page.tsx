@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { ArrowRight, LoaderCircle, PackageSearch, Search, ShoppingCart } from "lucide-react"
+import { ArrowRight, BadgeCheck, Boxes, LoaderCircle, PackageSearch, Search, ShoppingCart, Sparkles, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Link, useNavigate, useOutletContext } from "react-router-dom"
 import type { LayoutContext } from "@/components/app-layout"
-import { PageHero } from "@/components/page-hero"
+import { Pagination } from "@/components/pagination"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Select } from "@/components/ui/select"
 import { useToast } from "@/components/ui/toast"
 import { useAuth } from "@/contexts/auth-context"
 import { usePageMeta } from "@/hooks/use-page-meta"
@@ -13,6 +14,8 @@ import { api } from "@/lib/api"
 import { customerClient } from "@/lib/customer-client"
 import { formatPrice } from "@/lib/utils"
 import type { Product } from "@/types"
+
+const productsPerPage = 9
 
 export function ProductsPage() {
   usePageMeta("Sản phẩm công nghiệp", "Băng tải, bàn thao tác, giá kệ, tủ công nghiệp, thiết bị phòng sạch và sản phẩm inox theo yêu cầu.")
@@ -23,10 +26,14 @@ export function ProductsPage() {
   const toast = useToast()
   const [search, setSearch] = useState("")
   const [category, setCategory] = useState("Tất cả")
+  const [page, setPage] = useState(1)
   const query = useQuery({ queryKey: ["products"], queryFn: api.products, staleTime: 5 * 60_000, retry: 1 })
   const products = useMemo(() => query.data?.data || [], [query.data?.data])
   const categories = useMemo(() => ["Tất cả", ...new Set(products.map(item => item.category))], [products])
   const filtered = useMemo(() => products.filter(item => (category === "Tất cả" || item.category === category) && `${item.name} ${item.category}`.toLowerCase().includes(search.toLowerCase())), [products, search, category])
+  const pages = Math.max(1, Math.ceil(filtered.length / productsPerPage))
+  const activePage = Math.min(page, pages)
+  const visibleProducts = filtered.slice((activePage - 1) * productsPerPage, activePage * productsPerPage)
   const add = useMutation({
     mutationFn: (product: Product) => customerClient.addCartItem(product._id),
     onSuccess: (_, product) => {
@@ -47,14 +54,30 @@ export function ProductsPage() {
     else openQuote(product.name)
   }
 
+  const clearFilters = () => { setSearch(""); setCategory("Tất cả"); setPage(1) }
+  const hasFilters = Boolean(search || category !== "Tất cả")
+
   return <>
-    <PageHero variant="products" eyebrow="Thiết bị & vật tư" title="Sản phẩm công nghiệp" description="Sản phẩm có giá được đặt trực tiếp; hàng chế tạo hoặc số lượng dự án sẽ chuyển sang yêu cầu báo giá."/>
-    <section className="section-space bg-stone-50"><div className="container-page">
-      {query.error && <p role="alert" className="mx-auto mb-5 max-w-2xl rounded-2xl bg-red-50 p-4 font-semibold text-red-700">Không thể tải danh mục sản phẩm. Vui lòng thử lại hoặc liên hệ hotline.</p>}
-      <label className="relative mx-auto block max-w-2xl"><span className="sr-only">Tìm sản phẩm</span><Search className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400"/><Input className="min-h-14 pl-12" value={search} onChange={event => setSearch(event.target.value)} placeholder="Nhập tên sản phẩm hoặc nhóm thiết bị..."/></label>
-      <div className="my-8 flex flex-wrap justify-center gap-2" aria-label="Lọc theo danh mục">{categories.map(item => <button className={`min-h-11 rounded-full border px-4 text-sm font-bold transition ${category === item ? "border-emerald-950 bg-emerald-950 text-white" : "border-slate-300 bg-white text-slate-700 hover:border-orange-500"}`} onClick={() => setCategory(item)} key={item}>{item}</button>)}</div>
-      <p className="mb-6 text-sm font-semibold text-slate-500">Hiển thị {filtered.length} sản phẩm</p>
-      {query.isLoading ? <p className="rounded-2xl border bg-white p-8 text-center text-slate-600">Đang tải sản phẩm...</p> : filtered.length ? <div className="reveal-grid grid gap-6 sm:grid-cols-2 lg:grid-cols-3">{filtered.map(product => {
+    <section className="relative isolate overflow-hidden bg-[#061d17] text-white">
+      <div className="absolute inset-0 opacity-60 [background:radial-gradient(circle_at_16%_18%,rgba(249,115,22,.2),transparent_25%),radial-gradient(circle_at_86%_82%,rgba(16,185,129,.15),transparent_28%)]"/>
+      <div className="absolute inset-0 opacity-[.07] [background-image:linear-gradient(rgba(255,255,255,.55)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.55)_1px,transparent_1px)] [background-size:64px_64px]"/>
+      <div className="container-page relative grid min-h-[610px] items-center gap-12 py-20 lg:grid-cols-[1.02fr_.98fr] lg:py-24">
+        <div className="relative z-10"><div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[.07] px-4 py-2 text-xs font-black uppercase tracking-[.18em] text-orange-300 backdrop-blur"><Sparkles className="size-4"/>Thiết bị & vật tư công nghiệp</div><h1 className="mt-7 max-w-3xl font-display text-[clamp(3rem,6.3vw,5.5rem)] font-bold leading-[.96] tracking-[-.055em]">Sản phẩm phù hợp với <span className="text-orange-400">từng nhu cầu vận hành.</span></h1><p className="mt-7 max-w-2xl text-lg leading-8 text-emerald-50/70">Thiết bị tiêu chuẩn có thể đặt trực tiếp; sản phẩm chế tạo riêng hoặc số lượng dự án sẽ được tư vấn và báo giá theo yêu cầu thực tế.</p><div className="mt-9 flex flex-wrap gap-3"><Button asChild size="lg"><a href="#danh-muc-san-pham">Khám phá sản phẩm<ArrowRight className="size-5"/></a></Button><Button asChild size="lg" variant="outline" className="border-white/20 bg-white/5 text-white hover:border-white/40 hover:bg-white/10 hover:text-white"><Link to="/lien-he">Trao đổi nhu cầu</Link></Button></div><div className="mt-10 flex flex-wrap gap-x-10 gap-y-5 border-t border-white/10 pt-7"><HeroFact value={products.length || "—"} label="Sản phẩm công bố"/><HeroFact value={Math.max(0, categories.length - 1) || "—"} label="Nhóm sản phẩm"/><HeroFact value="02" label="Hình thức đặt hàng"/></div></div>
+        <div className="relative hidden min-h-[470px] lg:block"><div className="absolute inset-y-3 right-0 w-[89%] overflow-hidden rounded-[2.5rem] border border-white/10 shadow-2xl shadow-black/30"><img className="size-full object-cover" src="/images/heroes/products-hero.jpg" alt="Thiết bị và sản phẩm cơ khí công nghiệp" fetchPriority="high"/><div className="absolute inset-0 bg-gradient-to-t from-[#061d17]/90 via-transparent to-transparent"/><div className="absolute inset-x-0 bottom-0 p-8"><span className="grid size-12 place-items-center rounded-2xl bg-orange-600"><Boxes className="size-6"/></span><p className="mt-5 max-w-sm font-display text-2xl font-bold">Sẵn sàng cung ứng. Linh hoạt chế tạo theo yêu cầu.</p></div></div><div className="absolute left-0 top-10 rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-xl"><BadgeCheck className="size-6 text-orange-400"/><p className="mt-3 text-sm font-bold">Thông tin giá và tồn kho rõ ràng</p></div></div>
+      </div>
+    </section>
+
+    <section id="danh-muc-san-pham" className="scroll-mt-24 bg-[#f4f5f2] py-16 sm:py-20 lg:py-24"><div className="container-page">
+      <div className="grid gap-7 lg:grid-cols-[.72fr_1.28fr] lg:items-end"><div><p className="text-xs font-black uppercase tracking-[.2em] text-orange-600">Danh mục sản phẩm</p><h2 className="mt-3 font-display text-4xl font-bold tracking-tight text-emerald-950 sm:text-5xl">Tìm đúng thiết bị cho công việc.</h2></div><p className="max-w-2xl text-lg leading-8 text-slate-600 lg:justify-self-end">Tìm theo tên hoặc chọn nhóm sản phẩm. Mỗi sản phẩm đều có thông tin giá, đơn vị và phương thức đặt hàng rõ ràng.</p></div>
+
+      <div className="mt-10 grid gap-4 md:grid-cols-[minmax(0,1fr)_290px] md:items-end">
+        <label className="block"><span className="mb-2 block text-xs font-black uppercase tracking-[.14em] text-slate-500">Tìm kiếm sản phẩm</span><span className="relative block"><Search className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-emerald-800"/><Input className="min-h-14 border-slate-200 bg-white pl-12 pr-11 shadow-sm focus:border-emerald-700 focus:ring-emerald-100" value={search} onChange={event => { setSearch(event.target.value); setPage(1) }} placeholder="Nhập tên sản phẩm hoặc nhóm thiết bị..."/>{search && <button type="button" className="absolute right-3 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" onClick={() => { setSearch(""); setPage(1) }} aria-label="Xóa từ khóa"><X className="size-4"/></button>}</span></label>
+        <div><span className="mb-2 block text-xs font-black uppercase tracking-[.14em] text-slate-500">Nhóm sản phẩm</span><Select className="[&>button]:min-h-14 [&>button]:border-slate-200 [&>button]:shadow-sm" ariaLabel="Chọn nhóm sản phẩm" value={category} onChange={value => { setCategory(value); setPage(1) }} options={categories.map(item => ({ value: item, label: item === "Tất cả" ? "Tất cả nhóm sản phẩm" : item }))}/></div>
+      </div>
+
+      {query.error && <div role="alert" className="mt-6 flex items-center justify-between gap-4 rounded-2xl border border-red-100 bg-red-50 p-5 text-red-700"><p className="font-semibold">Không thể tải danh mục sản phẩm. Vui lòng thử lại hoặc liên hệ hotline.</p><button className="shrink-0 text-sm font-black underline underline-offset-4" onClick={() => void query.refetch()}>Thử lại</button></div>}
+      <div className="mb-7 mt-8 flex items-center justify-between gap-4"><p className="text-sm font-semibold text-slate-500">Tìm thấy <strong className="font-display text-xl text-emerald-950">{filtered.length}</strong> sản phẩm{filtered.length > productsPerPage && <span> · Trang {activePage}/{pages}</span>}</p>{hasFilters && <button type="button" className="inline-flex items-center gap-2 text-sm font-bold text-orange-700 transition hover:text-orange-800" onClick={clearFilters}>Xóa bộ lọc<X className="size-4"/></button>}</div>
+      {query.isLoading ? <ProductsSkeleton/> : filtered.length ? <><div className="reveal-grid grid gap-6 sm:grid-cols-2 lg:grid-cols-3">{visibleProducts.map(product => {
         const orderable = Boolean(product.price && !product.priceOnRequest && product.stock && product.stock > 0)
         const addingThisProduct = add.isPending && add.variables?._id === product._id
         return <article className="motion-card group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" key={product._id}>
@@ -63,7 +86,17 @@ export function ProductsPage() {
             <div className="mt-6 grid gap-2"><Button asChild variant="outline"><Link to={`/san-pham/${product.slug}`}>Xem chi tiết</Link></Button>{canRequestQuote && (orderable ? <Button disabled={add.isPending} onClick={() => addToCart(product)}>{addingThisProduct ? <LoaderCircle className="size-4 animate-spin"/> : <ShoppingCart className="size-4"/>}{addingThisProduct ? "Đang thêm..." : "Thêm vào giỏ"}</Button> : <Button onClick={() => requestQuote(product)}>Yêu cầu báo giá <ArrowRight className="size-4"/></Button>)}</div>
           </div>
         </article>
-      })}</div> : <div className="rounded-3xl border border-dashed border-slate-300 bg-white py-20 text-center"><PackageSearch className="mx-auto size-12 text-slate-300"/><h2 className="mt-4 text-xl font-bold">{query.error ? "Không thể tải sản phẩm" : "Không tìm thấy sản phẩm"}</h2><p className="mt-2 text-slate-600">{query.error ? "Vui lòng tải lại trang sau ít phút." : "Thử một từ khóa ngắn hơn hoặc chọn “Tất cả”."}</p></div>}
+      })}</div><Pagination page={activePage} pages={pages} onChange={nextPage => { setPage(nextPage); document.getElementById("danh-muc-san-pham")?.scrollIntoView({ behavior: "smooth", block: "start" }) }}/></> : <div className="rounded-[2rem] border border-dashed border-slate-300 bg-white px-6 py-20 text-center"><span className="mx-auto grid size-16 place-items-center rounded-2xl bg-slate-100"><PackageSearch className="size-8 text-slate-400"/></span><h2 className="mt-5 font-display text-2xl font-bold text-emerald-950">{query.error ? "Không thể tải sản phẩm" : "Không tìm thấy sản phẩm phù hợp"}</h2><p className="mx-auto mt-3 max-w-md leading-7 text-slate-600">{query.error ? "Vui lòng tải lại trang sau ít phút." : "Thử một từ khóa ngắn hơn hoặc quay lại xem toàn bộ danh mục."}</p>{hasFilters && <Button className="mt-6" variant="outline" onClick={clearFilters}>Xem tất cả sản phẩm</Button>}</div>}
+
+      <div className="mt-16 overflow-hidden rounded-[2rem] bg-emerald-950 text-white lg:grid lg:grid-cols-[1fr_auto] lg:items-center"><div className="p-7 sm:p-10 lg:p-12"><p className="text-xs font-black uppercase tracking-[.18em] text-orange-400">Chưa thấy sản phẩm phù hợp?</p><h2 className="mt-3 max-w-2xl font-display text-3xl font-bold tracking-tight sm:text-4xl">Chúng tôi có thể chế tạo theo kích thước và yêu cầu riêng.</h2><p className="mt-4 max-w-xl leading-7 text-emerald-50/65">Gửi bản vẽ, thông số hoặc mô tả nhu cầu để đội ngũ kỹ thuật cùng bạn làm rõ phương án.</p></div><div className="border-t border-white/10 p-7 sm:p-10 lg:border-l lg:border-t-0 lg:p-12">{canRequestQuote ? <Button size="lg" onClick={() => openQuote("Sản phẩm chế tạo theo yêu cầu")}>Yêu cầu tư vấn<ArrowRight className="size-5"/></Button> : <Button asChild size="lg"><Link to="/lien-he">Liên hệ kỹ thuật<ArrowRight className="size-5"/></Link></Button>}</div></div>
     </div></section>
   </>
+}
+
+function HeroFact({ value, label }: { value: string | number; label: string }) {
+  return <div><strong className="font-display text-3xl font-bold">{value}</strong><span className="mt-1 block text-xs font-bold uppercase tracking-wider text-emerald-100/45">{label}</span></div>
+}
+
+function ProductsSkeleton() {
+  return <div className="grid animate-pulse gap-6 sm:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 6 }, (_, index) => <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white" key={index}><div className="aspect-[4/3] bg-slate-200"/><div className="space-y-4 p-6"><div className="h-3 w-24 rounded bg-orange-100"/><div className="h-7 w-4/5 rounded bg-slate-200"/><div className="h-5 w-1/3 rounded bg-slate-100"/><div className="mt-6 h-24 rounded-xl bg-slate-100"/></div></div>)}</div>
 }

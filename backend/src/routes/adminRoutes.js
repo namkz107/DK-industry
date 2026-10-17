@@ -103,7 +103,7 @@ router.get('/dashboard', async (req, res, next) => {
     });
     const [customers, staff, blockedUsers, products, lowStock, services, projects, openLeads, openRequests, openOrders, pendingOrders, revenue, monthlyRevenue, deliveredRevenue, monthlyDeliveredRevenue, deliveredOrders, recentOrders, recentActivity, analytics] = await Promise.all([
       User.countDocuments({ role: 'customer' }), User.countDocuments({ role: 'staff', status: 'active' }), User.countDocuments({ status: 'blocked' }),
-      Product.countDocuments({ active: true }), Product.countDocuments({ active: true, priceOnRequest: false, stock: { $lte: 5 } }), Service.countDocuments({ published: true }), Project.countDocuments({ published: true }),
+      Product.countDocuments({ active: true, deletedAt: null }), Product.countDocuments({ active: true, deletedAt: null, priceOnRequest: false, stock: { $lte: 5 } }), Service.countDocuments({ published: true, deletedAt: null }), Project.countDocuments({ published: true, deletedAt: null }),
       Lead.countDocuments({ status: { $nin: ['won', 'lost', 'spam'] } }), ServiceRequest.countDocuments({ status: { $nin: ['accepted', 'rejected', 'cancelled'] } }), Order.countDocuments({ status: { $nin: ['delivered', 'cancelled'] } }), Order.countDocuments({ status: 'pending' }),
       Order.aggregate([{ $match: { paymentStatus: 'paid' } }, { $group: { _id: null, value: { $sum: '$total' } } }]),
       Order.aggregate([{ $match: { paymentStatus: 'paid', paidAt: { $gte: monthStart } } }, { $group: { _id: null, value: { $sum: '$total' } } }]),
@@ -274,9 +274,28 @@ function contentValues(kind, body, current = {}) {
     const result = Object.fromEntries(allowed.filter(key => values[key] !== undefined).map(key => [key, values[key]])); result.name = name; result.summary = clean(result.summary, 500);
     if (!result.summary) fail('Mô tả ngắn dịch vụ là bắt buộc'); return result;
   }
-  const allowed = ['title', 'slug', 'category', 'client', 'location', 'year', 'description', 'challenge', 'solution', 'image', 'gallery', 'featured', 'published'];
+  const allowed = ['title', 'slug', 'category', 'client', 'location', 'year', 'description', 'objective', 'projectScale', 'durationDays', 'teamSize', 'scope', 'requirements', 'workItems', 'technicalHighlights', 'challenge', 'solution', 'results', 'customerFeedback', 'stages', 'image', 'gallery', 'featured', 'published'];
   const result = Object.fromEntries(allowed.filter(key => values[key] !== undefined).map(key => [key, values[key]])); result.title = name; result.category = clean(result.category, 150);
-  if (!result.category) fail('Danh mục dự án là bắt buộc'); return result;
+  if (!result.category) fail('Danh mục dự án là bắt buộc');
+  if (result.durationDays !== null && result.durationDays !== undefined && result.durationDays !== '') {
+    result.durationDays = Number(result.durationDays);
+    if (!Number.isInteger(result.durationDays) || result.durationDays < 1) fail('Số ngày thực hiện phải là số nguyên dương');
+  } else result.durationDays = null;
+  if (result.teamSize !== null && result.teamSize !== undefined && result.teamSize !== '') {
+    result.teamSize = Number(result.teamSize);
+    if (!Number.isInteger(result.teamSize) || result.teamSize < 1) fail('Quy mô nhân sự phải là số nguyên dương');
+  } else result.teamSize = null;
+  if (result.stages !== undefined) {
+    if (!Array.isArray(result.stages) || result.stages.length > 3) fail('Các giai đoạn dự án không hợp lệ');
+    result.stages = result.stages.map(stage => {
+      const phase = clean(stage?.phase, 20); const title = clean(stage?.title, 200); const description = clean(stage?.description, 5000);
+      if (!['before', 'during', 'after'].includes(phase) || !title) fail('Thông tin giai đoạn dự án không hợp lệ');
+      if (!Array.isArray(stage.images) || stage.images.length > 20) fail('Mỗi giai đoạn chỉ được tối đa 20 ảnh');
+      const images = stage.images.map(image => ({ url: clean(image?.url, 2000), caption: clean(image?.caption, 500) })).filter(image => image.url);
+      return { phase, title, description, images };
+    });
+  }
+  return result;
 }
 
 for (const [path, kind, Model, activeField, searchable] of [
@@ -284,10 +303,38 @@ for (const [path, kind, Model, activeField, searchable] of [
   ['services', 'service', Service, 'published', ['name', 'summary']],
   ['projects', 'project', Project, 'published', ['title', 'client', 'category']]
 ]) {
-  router.get(`/${path}`, async (req, res, next) => { try { const { page, limit } = pageValues(req.query); const filter = listFilter(req.query, searchable); if (req.query.state === 'published') filter[activeField] = true; if (req.query.state === 'hidden') filter[activeField] = false; const [items, total] = await Promise.all([Model.find(filter).sort({ updatedAt: -1 }).skip((page - 1) * limit).limit(limit).lean(), Model.countDocuments(filter)]); res.json({ success: true, data: { items, total, page, pages: Math.ceil(total / limit) } }); } catch (error) { next(error); } });
+  router.get(`/${path}`, async (req, res, next) => { try {
+    const { page, limit } = pageValues(req.query); const filter = listFilter(req.query, searchable);
+    if (req.query.state === 'deleted') filter.deletedAt = { $ne: null };
+    else { filter.deletedAt = null; if (req.query.state === 'published') filter[activeField] = true; if (req.query.state === 'hidden') filter[activeField] = false; }
+    const baseFilter = listFilter(req.query, searchable);
+    const [items, total, published, hidden, deleted] = await Promise.all([
+      Model.find(filter).sort({ updatedAt: -1 }).skip((page - 1) * limit).limit(limit).lean(), Model.countDocuments(filter),
+      Model.countDocuments({ ...baseFilter, [activeField]: true, deletedAt: null }),
+      Model.countDocuments({ ...baseFilter, [activeField]: false, deletedAt: null }),
+      Model.countDocuments({ ...baseFilter, deletedAt: { $ne: null } })
+    ]);
+    res.json({ success: true, data: { items, total, page, pages: Math.ceil(total / limit), counts: { published, hidden, deleted } } });
+  } catch (error) { next(error); } });
   router.post(`/${path}`, async (req, res, next) => { try { const data = await Model.create(contentValues(kind, req.body)); await audit(req, `${kind}.created`, kind, data._id, `Đã tạo ${kind}: ${data.name || data.title}`); res.status(201).json({ success: true, message: 'Đã tạo nội dung', data }); } catch (error) { next(error); } });
   router.patch(`/${path}/:id`, async (req, res, next) => { try { if (!validId(req.params.id)) fail('Nội dung không hợp lệ', 404); const current = await Model.findById(req.params.id).lean(); if (!current) fail('Không tìm thấy nội dung', 404); const data = await Model.findByIdAndUpdate(req.params.id, contentValues(kind, req.body, current), { new: true, runValidators: true }); await audit(req, `${kind}.updated`, kind, data._id, `Đã cập nhật ${kind}: ${data.name || data.title}`); res.json({ success: true, message: 'Đã cập nhật nội dung', data }); } catch (error) { next(error); } });
-  router.delete(`/${path}/:id`, async (req, res, next) => { try { if (!validId(req.params.id)) fail('Nội dung không hợp lệ', 404); const data = await Model.findByIdAndUpdate(req.params.id, { [activeField]: false }, { new: true }); if (!data) fail('Không tìm thấy nội dung', 404); await audit(req, `${kind}.hidden`, kind, data._id, `Đã ẩn ${kind}: ${data.name || data.title}`); res.json({ success: true, message: 'Đã ẩn nội dung thay vì xóa vĩnh viễn', data }); } catch (error) { next(error); } });
+  router.patch(`/${path}/:id/status`, async (req, res, next) => { try {
+    if (!validId(req.params.id)) fail('Nội dung không hợp lệ', 404);
+    const status = clean(req.body.status, 20);
+    if (!['published', 'hidden', 'deleted'].includes(status)) fail('Trạng thái nội dung không hợp lệ');
+    const update = status === 'deleted' ? { [activeField]: false, deletedAt: new Date() } : { [activeField]: status === 'published', deletedAt: null };
+    const data = await Model.findByIdAndUpdate(req.params.id, update, { new: true });
+    if (!data) fail('Không tìm thấy nội dung', 404);
+    await audit(req, `${kind}.${status}`, kind, data._id, `Đã chuyển ${kind} sang trạng thái ${status}: ${data.name || data.title}`);
+    res.json({ success: true, message: 'Đã cập nhật trạng thái nội dung', data });
+  } catch (error) { next(error); } });
+  router.delete(`/${path}/:id`, async (req, res, next) => { try {
+    if (!validId(req.params.id)) fail('Nội dung không hợp lệ', 404);
+    const data = await Model.findByIdAndUpdate(req.params.id, { [activeField]: false, deletedAt: new Date() }, { new: true });
+    if (!data) fail('Không tìm thấy nội dung', 404);
+    await audit(req, `${kind}.deleted`, kind, data._id, `Đã xóa ${kind}: ${data.name || data.title}`);
+    res.json({ success: true, message: 'Đã chuyển nội dung vào mục Đã xóa', data });
+  } catch (error) { next(error); } });
 }
 
 router.get('/audit-logs', async (req, res, next) => {

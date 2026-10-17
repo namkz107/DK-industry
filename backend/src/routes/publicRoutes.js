@@ -41,17 +41,24 @@ router.get('/site-settings/about', async (_req, res, next) => {
 
 router.get('/projects', async (req, res, next) => {
   try {
-    const query = { published: true };
+    const query = { published: true, deletedAt: null };
     if (req.query.featured !== undefined) query.featured = parseBoolean(req.query.featured);
     if (req.query.category) query.category = req.query.category;
-    const data = await Project.find(query).sort({ year: -1, createdAt: -1 }).limit(Math.min(Number(req.query.limit) || 20, 100));
-    res.json({ success: true, count: data.length, data });
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
+    const [data, count, total, categories] = await Promise.all([
+      Project.find(query).select('-client -deletedAt').sort({ featured: -1, year: -1, createdAt: -1 }).skip((page - 1) * limit).limit(limit),
+      Project.countDocuments(query),
+      Project.countDocuments({ published: true, deletedAt: null }),
+      Project.distinct('category', { published: true, deletedAt: null })
+    ]);
+    res.json({ success: true, count, total, page, pages: Math.max(1, Math.ceil(count / limit)), categories: categories.sort(), data });
   } catch (error) { next(error); }
 });
 
 router.get('/products', async (req, res, next) => {
   try {
-    const query = { active: true };
+    const query = { active: true, deletedAt: null };
     if (req.query.featured !== undefined) query.featured = parseBoolean(req.query.featured);
     if (req.query.category) query.category = req.query.category;
     if (req.query.search) query.$text = { $search: req.query.search };
@@ -63,7 +70,7 @@ router.get('/products', async (req, res, next) => {
 router.get('/products/:slug', async (req, res, next) => {
   try {
     const slug = String(req.params.slug || '').trim().toLowerCase();
-    const data = await Product.findOne({ slug, active: true }).lean();
+    const data = await Product.findOne({ slug, active: true, deletedAt: null }).lean();
     if (!data) return res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm' });
     res.json({ success: true, data });
   } catch (error) { next(error); }
@@ -71,7 +78,7 @@ router.get('/products/:slug', async (req, res, next) => {
 
 router.get('/services', async (req, res, next) => {
   try {
-    const query = { published: true };
+    const query = { published: true, deletedAt: null };
     if (req.query.featured !== undefined) query.featured = parseBoolean(req.query.featured);
     const data = await Service.find(query).sort({ order: 1, createdAt: -1 });
     res.json({ success: true, count: data.length, data });

@@ -14,7 +14,8 @@ const productSchema = new mongoose.Schema({
   image: String,
   images: [String],
   featured: { type: Boolean, default: false },
-  active: { type: Boolean, default: true }
+  active: { type: Boolean, default: true },
+  deletedAt: { type: Date, default: null, index: true }
 }, { timestamps: true });
 
 productSchema.index({ name: 'text', description: 'text', category: 'text' });

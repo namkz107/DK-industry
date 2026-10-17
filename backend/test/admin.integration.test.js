@@ -89,16 +89,31 @@ test('Admin quản lý nhân sự, nội dung và nhật ký đúng quyền', { 
 
     const productResponse = await call('/admin/products', adminToken, { method: 'POST', body: JSON.stringify({ name: 'Dao phay Admin Test', category: 'Dao cụ', sku: `${token}-SKU`, price: 250000, stock: 4, unit: 'chiếc', active: true }) });
     const productBody = await productResponse.json(); assert.equal(productResponse.status, 201); createdIds.products.push(productBody.data._id);
-    const hideProduct = await call(`/admin/products/${productBody.data._id}`, adminToken, { method: 'DELETE' }); assert.equal(hideProduct.status, 200); assert.equal((await Product.findById(productBody.data._id)).active, false);
+    const hideProduct = await call(`/admin/products/${productBody.data._id}/status`, adminToken, { method: 'PATCH', body: JSON.stringify({ status: 'hidden' }) });
+    assert.equal(hideProduct.status, 200); assert.equal((await Product.findById(productBody.data._id)).active, false);
+    const hiddenProducts = await (await call('/admin/products?state=hidden', adminToken)).json();
+    assert.ok(hiddenProducts.data.items.some(item => item._id === productBody.data._id));
+    assert.ok(hiddenProducts.data.counts.hidden >= 1);
+    const deleteProduct = await call(`/admin/products/${productBody.data._id}/status`, adminToken, { method: 'PATCH', body: JSON.stringify({ status: 'deleted' }) });
+    assert.equal(deleteProduct.status, 200); assert.ok((await Product.findById(productBody.data._id)).deletedAt);
+    const restoreProduct = await call(`/admin/products/${productBody.data._id}/status`, adminToken, { method: 'PATCH', body: JSON.stringify({ status: 'hidden' }) });
+    assert.equal(restoreProduct.status, 200); assert.equal((await Product.findById(productBody.data._id)).deletedAt, null);
 
     const serviceResponse = await call('/admin/services', adminToken, { method: 'POST', body: JSON.stringify({ name: 'Gia công Admin Test', summary: 'Dịch vụ được tạo trong kiểm thử tích hợp.', published: true }) });
     const serviceBody = await serviceResponse.json(); assert.equal(serviceResponse.status, 201); createdIds.services.push(serviceBody.data._id);
-    const projectResponse = await call('/admin/projects', adminToken, { method: 'POST', body: JSON.stringify({ title: 'Dự án Admin Test', category: 'Cơ khí chính xác', published: true }) });
+    const projectResponse = await call('/admin/projects', adminToken, { method: 'POST', body: JSON.stringify({ title: 'Dự án Admin Test', category: 'Cơ khí chính xác', client: 'Khách hàng bảo mật', location: 'Hà Nội', objective: 'Tự động hóa công đoạn', projectScale: '2 cụm thiết bị', durationDays: 30, teamSize: 8, scope: ['Thiết kế', 'Lắp đặt'], requirements: ['Dung sai 0,1mm'], workItems: ['Gia công'], technicalHighlights: ['Kiểm tra 100%'], results: 'Hoàn thành đúng tiến độ', stages: [{ phase: 'before', title: 'Khảo sát', description: 'Đo hiện trạng', images: [{ url: 'https://example.com/before.jpg', caption: 'Hiện trạng' }] }, { phase: 'during', title: 'Gia công', images: [] }, { phase: 'after', title: 'Bàn giao', images: [] }], published: true }) });
     const projectBody = await projectResponse.json(); assert.equal(projectResponse.status, 201); createdIds.projects.push(projectBody.data._id);
+    assert.equal(projectBody.data.durationDays, 30); assert.equal(projectBody.data.teamSize, 8); assert.deepEqual(projectBody.data.scope, ['Thiết kế', 'Lắp đặt']); assert.equal(projectBody.data.stages[0].images[0].caption, 'Hiện trạng');
+    const publicProjects = await (await fetch(`${baseUrl}/projects?limit=100`)).json();
+    const publicProject = publicProjects.data.find(item => item._id === projectBody.data._id);
+    assert.equal(publicProject.client, undefined); assert.equal(publicProject.stages[0].title, 'Khảo sát');
+    const pagedProjects = await (await fetch(`${baseUrl}/projects?limit=1&page=1`)).json();
+    assert.equal(pagedProjects.data.length, 1); assert.equal(pagedProjects.page, 1); assert.ok(pagedProjects.pages >= 1); assert.ok(pagedProjects.total >= pagedProjects.count); assert.ok(Array.isArray(pagedProjects.categories));
 
     const logsResponse = await call('/admin/audit-logs', adminToken); const logsBody = await logsResponse.json();
     assert.equal(logsResponse.status, 200);
     assert.ok(logsBody.data.items.some(item => item.action === 'product.hidden'));
+    assert.ok(logsBody.data.items.some(item => item.action === 'product.deleted'));
     assert.ok(logsBody.data.items.some(item => item.action === 'user.created'));
   } finally {
     await Promise.all([

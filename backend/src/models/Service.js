@@ -11,7 +11,8 @@ const serviceSchema = new mongoose.Schema({
   image: String,
   order: { type: Number, default: 0 },
   featured: { type: Boolean, default: false },
-  published: { type: Boolean, default: true }
+  published: { type: Boolean, default: true },
+  deletedAt: { type: Date, default: null, index: true }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Service', serviceSchema);

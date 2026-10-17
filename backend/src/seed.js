@@ -5,6 +5,8 @@ const Project = require('./models/Project');
 const Lead = require('./models/Lead');
 const Service = require('./models/Service');
 const bootstrapAdmin = require('./services/bootstrapAdmin');
+const projectDetails = require('./projectDetails');
+const additionalProjects = require('./additionalProjects');
 
 const products = [
   { name: 'Bộ truyền động công nghiệp', slug: 'bo-truyen-dong-cong-nghiep', sku: 'DK-TD-001', category: 'Truyền động', price: 4850000, unit: 'bộ', stock: 18, featured: true, image: 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&w=800&q=80' },
@@ -46,9 +48,19 @@ const services = [
   { name: 'Chế tạo hệ thống công nghiệp', slug: 'che-tao-he-thong-cong-nghiep', summary: 'Băng tải, bàn thao tác, giá kệ và kết cấu phụ trợ thiết kế theo mặt bằng nhà máy.', capabilities: ['Băng tải', 'Bàn thao tác', 'Giá kệ', 'Khung bảo vệ máy'], materials: ['Thép sơn', 'Inox', 'Nhôm định hình'], applications: ['Nhà máy', 'Kho vận', 'Dây chuyền lắp ráp'], image: 'https://images.unsplash.com/photo-1565793298595-6a879b1d9492?auto=format&fit=crop&w=1200&q=80', order: 6 }
 ];
 const projects = [
-  { title: 'Hệ thống băng tải nhà máy', slug: 'he-thong-bang-tai-nha-may', category: 'Gia công cơ khí', location: 'Bắc Ninh', year: '2025', featured: true, image: 'https://images.unsplash.com/photo-1565793298595-6a879b1d9492?auto=format&fit=crop&w=1200&q=80' },
-  { title: 'Nhà xưởng công nghiệp 8.000m²', slug: 'nha-xuong-cong-nghiep-8000m2', category: 'Kết cấu thép', location: 'Hưng Yên', year: '2025', featured: true, image: 'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?auto=format&fit=crop&w=1200&q=80' },
-  { title: 'Dây chuyền và hệ thống phụ trợ', slug: 'day-chuyen-va-he-thong-phu-tro', category: 'Hệ thống M&E', location: 'Hải Phòng', year: '2024', featured: true, image: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=1200&q=80' }
+  {
+    title: 'Hệ thống băng tải nhà máy', slug: 'he-thong-bang-tai-nha-may', category: 'Gia công cơ khí', location: 'Bắc Ninh', year: '2025', ...projectDetails['he-thong-bang-tai-nha-may'],
+    featured: true, image: 'https://images.unsplash.com/photo-1565793298595-6a879b1d9492?auto=format&fit=crop&w=1200&q=80'
+  },
+  {
+    title: 'Nhà xưởng công nghiệp 8.000m²', slug: 'nha-xuong-cong-nghiep-8000m2', category: 'Kết cấu thép', location: 'Hưng Yên', year: '2025', ...projectDetails['nha-xuong-cong-nghiep-8000m2'],
+    featured: true, image: 'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?auto=format&fit=crop&w=1200&q=80'
+  },
+  {
+    title: 'Dây chuyền và hệ thống phụ trợ', slug: 'day-chuyen-va-he-thong-phu-tro', category: 'Hệ thống M&E', location: 'Hải Phòng', year: '2024', ...projectDetails['day-chuyen-va-he-thong-phu-tro'],
+    featured: true, image: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=1200&q=80'
+  },
+  ...additionalProjects
 ];
 
 const leads = [

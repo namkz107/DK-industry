@@ -17,7 +17,7 @@ export const api = {
   products: () => request<ApiList<Product>>("/products?limit=100"),
   featuredProducts: () => request<ApiList<Product>>("/products?featured=true&limit=3"),
   product: (slug: string) => request<{ success: boolean; data: Product }>(`/products/${encodeURIComponent(slug)}`),
-  projects: () => request<ApiList<Project>>("/projects?limit=100"),
+  projects: (filters: { page?: number; limit?: number; category?: string } = {}) => { const params = new URLSearchParams(); if (filters.page) params.set("page", String(filters.page)); if (filters.limit) params.set("limit", String(filters.limit)); if (filters.category) params.set("category", filters.category); return request<ApiList<Project>>(`/projects?${params}`) },
   featuredProjects: () => request<ApiList<Project>>("/projects?featured=true&limit=3"),
   services: () => request<ApiList<Service>>("/services"),
   createLead: (payload: unknown) => request<{ success: boolean; message: string; data: { id: string; code: string; status: string; duplicate: boolean } }>("/leads", {

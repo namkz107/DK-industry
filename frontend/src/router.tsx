@@ -8,12 +8,12 @@ import { RouteErrorPage } from "@/pages/route-error-page"
 
 export const router = createBrowserRouter([{ element: <AppLayout />, errorElement: <RouteErrorPage/>, children: [
   { path: "/", lazy: async () => { const module = await import("@/pages/home-page"); return { Component: module.HomePage } } },
-  { path: "/gioi-thieu", lazy: async () => { const module = await import("@/pages/about-page"); return { Component: module.AboutPage } } },
+  { path: "/gioi-thieu", lazy: async () => { const module = await import("@/pages/about-redesign-page"); return { Component: module.AboutPage } } },
   { path: "/dich-vu", lazy: async () => { const module = await import("@/pages/services-page"); return { Component: module.ServicesPage } } },
   { path: "/du-an", lazy: async () => { const module = await import("@/pages/projects-page"); return { Component: module.ProjectsPage } } },
   { path: "/san-pham", lazy: async () => { const module = await import("@/pages/products-page"); return { Component: module.ProductsPage } } },
   { path: "/san-pham/:slug", lazy: async () => { const module = await import("@/pages/product-detail-page"); return { Component: module.ProductDetailPage } } },
-  { path: "/lien-he", lazy: async () => { const module = await import("@/pages/contact-page"); return { Component: module.ContactPage } } },
+  { path: "/lien-he", lazy: async () => { const module = await import("@/pages/contact-redesign-page"); return { Component: module.ContactPage } } },
   { path: "/chinh-sach/:slug", lazy: async () => { const module = await import("@/pages/policy-page"); return { Component: module.PolicyPage } } },
   { path: "/dang-nhap", lazy: async () => { const module = await import("@/pages/login-page"); return { Component: module.LoginPage } } },
   { path: "/dang-ky", lazy: async () => { const module = await import("@/pages/register-page"); return { Component: module.RegisterPage } } },
