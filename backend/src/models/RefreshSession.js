@@ -6,6 +6,7 @@ const refreshSessionSchema = new mongoose.Schema({
   csrfTokenHash: { type: String, required: true },
   expiresAt: { type: Date, required: true, index: { expires: 0 } },
   revokedAt: Date,
+  mfaVerifiedAt: Date,
   lastUsedAt: Date,
   userAgent: { type: String, maxlength: 500 },
   ip: { type: String, maxlength: 100 }

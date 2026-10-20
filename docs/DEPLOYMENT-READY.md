@@ -2,6 +2,10 @@
 
 Mã nguồn không khóa vào một nhà cung cấp hosting. Có thể dùng VPS, dịch vụ chạy Docker Compose hoặc tách hai image `api` và `web` lên các dịch vụ container khác nhau.
 
+Trước production, làm theo runbook kiểm chứng runtime:
+[`STAGING-RUNBOOK.md`](STAGING-RUNBOOK.md). Không tuyên bố production-ready chỉ
+vì unit/mock/static checks đạt trên máy thiếu Docker/ClamAV/age.
+
 ## 1. Chuẩn bị cấu hình
 
 ```powershell
@@ -28,13 +32,28 @@ npm run audit:prod
 ## 3. Chạy staging bằng Docker Compose
 
 ```powershell
-docker compose -f compose.production.yml config
-docker compose -f compose.production.yml build
-docker compose -f compose.production.yml up -d
-docker compose -f compose.production.yml ps
+Copy-Item compose.production.env.example compose.production.env
+docker compose --env-file compose.production.env -f compose.production.yml config
+docker compose --env-file compose.production.env -f compose.production.yml build
+docker compose --env-file compose.production.env -f compose.production.yml up -d
+docker compose --env-file compose.production.env -f compose.production.yml ps
 ```
 
-Web mặc định mở cổng `8080`. Trên hosting thật, đặt TLS/reverse proxy của nhà cung cấp phía trước cổng này. Chỉ expose dịch vụ `web`; dịch vụ `api` chỉ giao tiếp trong mạng Compose.
+`WEB_BIND_ADDRESS` bắt buộc phải được chọn rõ ràng. Khi reverse proxy chạy cùng
+máy, dùng `127.0.0.1`; khi proxy chạy máy khác, dùng private interface và firewall
+chỉ cho phép proxy truy cập. Không dùng `0.0.0.0` trước khi đã khóa firewall theo
+IP proxy/Cloudflare và kiểm thử rằng origin không thể truy cập trực tiếp từ
+Internet. Dịch vụ `api` chỉ giao tiếp trong mạng Compose.
+
+Nếu cấu hình bind mới làm reverse proxy mất kết nối, rollback bằng cách khôi phục
+địa chỉ private/bind cũ trong `compose.production.env`, chạy lại `docker compose
+up -d`, rồi kiểm tra từ proxy. Không mở tạm cổng origin ra Internet để xử lý lỗi.
+
+Compose còn chạy ClamAV trên mạng nội bộ bằng `expose`, không dùng `ports`.
+Container API chỉ healthy sau khi scanner healthy. Trước khi nhận upload thật,
+kiểm tra signature database đã cập nhật, gửi EICAR trong staging, thử dừng
+scanner và xác nhận upload trả lỗi fail-closed. Không đánh dấu scanner đã kiểm
+thử chỉ vì static Compose test đạt.
 
 ## 4. Khởi tạo tài khoản quản trị
 
@@ -56,7 +75,8 @@ Smoke test xác minh website, security headers, API liveness/readiness, SPA fall
 
 ## 6. Backup và khôi phục
 
-- Lập lịch `npm run backup:db` ít nhất mỗi ngày và chuyển file `.archive.gz` cùng `.sha256` sang vùng lưu trữ khác máy chủ.
+- Cài `age` và MongoDB Database Tools; cấu hình public `BACKUP_AGE_RECIPIENT` theo [`BACKUP-ENCRYPTION.md`](BACKUP-ENCRYPTION.md).
+- Lập lịch `npm run backup:db` ít nhất mỗi ngày và chỉ chuyển file `.archive.gz.age` cùng `.age.sha256` sang vùng lưu trữ khác máy chủ.
 - Thiết lập retention theo yêu cầu doanh nghiệp; không chỉ giữ backup trên cùng VPS.
 - Trước go-live, khôi phục một bản vào database có hậu tố `_test`, kiểm tra đăng nhập, sản phẩm, đơn hàng và yêu cầu kỹ thuật.
 - Ghi lại thời gian khôi phục thực tế để xác định RTO/RPO.

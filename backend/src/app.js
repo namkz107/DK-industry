@@ -10,7 +10,7 @@ const customerRoutes = require('./routes/customerRoutes');
 const staffRoutes = require('./routes/staffRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const supportRoutes = require('./routes/supportRoutes');
-const { authenticate, requireRole } = require('./middleware/authenticate');
+const { authenticate, requireAdminMfa, requireRole } = require('./middleware/authenticate');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 const { apiLimiter, leadLimiter, authLimiter, emailActionLimiter, registrationLimiter, customerRequestLimiter, chatMessageLimiter, locationLimiter, privacyRequestLimiter, supportMessageLimiter, rejectUnsafeKeys } = require('./middleware/security');
 const { clientOrigins } = require('./config/runtime');
@@ -54,7 +54,7 @@ app.use('/api/notifications', authenticate, notificationRoutes);
 app.use('/api/customer', authenticate, requireRole('customer'), customerRoutes);
 app.use('/api/staff', authenticate, requireRole('staff'), staffRoutes);
 app.use('/api', publicRoutes);
-app.use('/api/admin', authenticate, requireRole('admin'), adminRoutes);
+app.use('/api/admin', authenticate, requireRole('admin'), requireAdminMfa, adminRoutes);
 app.use(notFound);
 app.use(errorHandler);
 

@@ -3,10 +3,10 @@ const assert = require('node:assert/strict');
 const { notificationEmail, passwordResetEmail, quotationEmail, verificationEmail } = require('../src/services/emailTemplateService');
 
 test('verification email renders branded HTML and a plain-text fallback', () => {
-  const email = verificationEmail({ name: 'Nguyễn Văn A', actionUrl: 'https://example.com/xac-minh?token=abc' });
+  const email = verificationEmail({ name: 'Nguyễn Văn A', actionUrl: 'https://example.com/xac-minh#token=abc' });
   assert.match(email.html, /Cơ khí Đăng Khoa/);
   assert.match(email.html, /Xác minh email/);
-  assert.match(email.html, /https:\/\/example\.com\/xac-minh\?token=abc/);
+  assert.match(email.html, /https:\/\/example\.com\/xac-minh#token=abc/);
   assert.match(email.text, /Nguyễn Văn A/);
   assert.match(email.text, /Hiệu lực liên kết: 24 giờ/);
 });

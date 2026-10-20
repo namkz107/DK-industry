@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const auditLogSchema = new mongoose.Schema({
   actor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   action: { type: String, required: true, trim: true, index: true },
-  entity: { type: String, required: true, enum: ['user', 'product', 'service', 'project', 'site_setting', 'lead', 'request', 'quotation', 'work_order', 'order', 'payment', 'inventory', 'privacy_request'], index: true },
+  entity: { type: String, required: true, enum: ['user', 'product', 'service', 'project', 'site_setting', 'lead', 'request', 'quotation', 'work_order', 'order', 'payment', 'inventory', 'privacy_request', 'quarantined_file'], index: true },
   entityId: { type: mongoose.Schema.Types.ObjectId, required: true },
   summary: { type: String, required: true, trim: true, maxlength: 500 },
   metadata: { type: mongoose.Schema.Types.Mixed, default: {} }

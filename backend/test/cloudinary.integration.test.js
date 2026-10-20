@@ -14,6 +14,7 @@ test('Cloudinary stores private customer files and proxies an authorized downloa
   let stored = [];
   try {
     stored = await storeCustomerFiles([{ originalname: 'cloudinary-check.pdf', mimetype: 'application/pdf', size: source.length, buffer: source }]);
+    stored = stored.map(file => ({ ...file, scanStatus: 'clean', scannedAt: new Date() }));
     const descriptor = decodeDescriptor(stored[0].storedName);
     assert.ok(descriptor.publicId);
     assert.equal(descriptor.format, 'pdf');

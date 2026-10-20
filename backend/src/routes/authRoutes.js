@@ -9,6 +9,7 @@ const { decryptSecret, encryptSecret, generateRecoveryCodes, generateSecret, has
 const { sendDirectEmail } = require('../services/notificationService');
 const { passwordResetEmail, verificationEmail } = require('../services/emailTemplateService');
 const { issueAccountToken, matchesCurrentEmailVerificationVersion } = require('../services/accountTokenService');
+const { disconnectSessionSockets, disconnectUserSockets } = require('../services/socketSessionService');
 
 const router = express.Router();
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -23,7 +24,9 @@ const sessionPayload = (user, tokens) => ({ user: publicUser(user), accessToken:
 
 function clientUrl(path, token) {
   const base = (process.env.CLIENT_URL || 'http://localhost:3000').split(',')[0].replace(/\/$/, '');
-  return `${base}${path}?token=${encodeURIComponent(token)}`;
+  // URL fragments are not sent in HTTP requests, access logs, or Referer
+  // headers. The frontend consumes the token and submits it in the POST body.
+  return `${base}${path}#token=${encodeURIComponent(token)}`;
 }
 
 router.post('/register', async (req, res, next) => {
@@ -67,14 +70,19 @@ router.post('/reset-password', async (req, res, next) => {
     const token = String(req.body.token || '');
     const password = String(req.body.password || '');
     if (!validatePassword(password)) return res.status(400).json({ success: false, message: 'Mật khẩu mới cần ít nhất 8 ký tự, gồm chữ hoa, chữ thường và số' });
-    const accountToken = await AccountToken.findOne({ tokenHash: hashToken(token), type: 'password_reset', usedAt: null, expiresAt: { $gt: new Date() } });
+    const now = new Date();
+    const accountToken = await AccountToken.findOneAndUpdate(
+      { tokenHash: hashToken(token), type: 'password_reset', usedAt: null, expiresAt: { $gt: now } },
+      { $set: { usedAt: now } },
+      { new: true }
+    );
     if (!accountToken) return res.status(400).json({ success: false, message: 'Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn' });
     const user = await User.findById(accountToken.user).select('+passwordHash +tokenVersion');
     if (!user || user.status !== 'active') return res.status(400).json({ success: false, message: 'Tài khoản không còn hoạt động' });
     user.passwordHash = await User.hashPassword(password);
     user.tokenVersion += 1;
-    accountToken.usedAt = new Date();
-    await Promise.all([user.save(), accountToken.save(), RefreshSession.updateMany({ user: user._id, revokedAt: null }, { revokedAt: new Date() })]);
+    await Promise.all([user.save(), RefreshSession.updateMany({ user: user._id, revokedAt: null }, { revokedAt: new Date() })]);
+    disconnectUserSockets(user._id, { reason: 'password_reset' });
     res.clearCookie('dk_refresh', cookieBaseOptions());
     res.json({ success: true, message: 'Đã đổi mật khẩu. Vui lòng đăng nhập lại.' });
   } catch (error) { next(error); }
@@ -82,14 +90,18 @@ router.post('/reset-password', async (req, res, next) => {
 
 router.post('/verify-email', async (req, res, next) => {
   try {
-    const accountToken = await AccountToken.findOne({ tokenHash: hashToken(String(req.body.token || '')), type: 'email_verification', usedAt: null, expiresAt: { $gt: new Date() } });
+    const now = new Date();
+    const accountToken = await AccountToken.findOneAndUpdate(
+      { tokenHash: hashToken(String(req.body.token || '')), type: 'email_verification', usedAt: null, expiresAt: { $gt: now } },
+      { $set: { usedAt: now } },
+      { new: true }
+    );
     if (!accountToken) return res.status(400).json({ success: false, message: 'Liên kết xác minh không hợp lệ hoặc đã hết hạn' });
     const user = await User.findById(accountToken.user).select('+emailVerificationVersion');
     if (!user) return res.status(400).json({ success: false, message: 'Tài khoản không tồn tại' });
     if (!matchesCurrentEmailVerificationVersion(accountToken, user)) return res.status(400).json({ success: false, message: 'Liên kết xác minh không còn hiệu lực. Vui lòng sử dụng email xác minh mới nhất.' });
     user.emailVerifiedAt = user.emailVerifiedAt || new Date();
-    accountToken.usedAt = new Date();
-    await Promise.all([user.save(), accountToken.save()]);
+    await user.save();
     res.json({ success: true, message: 'Email đã được xác minh thành công.' });
   } catch (error) { next(error); }
 });
@@ -132,10 +144,15 @@ router.post('/mfa/confirm', authenticate, requireRole('admin'), async (req, res,
     user.mfaRecoveryCodeHashes = recoveryCodes.map(hashRecoveryCode);
     user.mfaPendingSecretEncrypted = undefined;
     user.mfaPendingExpiresAt = undefined;
-    await Promise.all([
-      user.save(),
-      RefreshSession.updateMany({ user: user._id, _id: { $ne: req.auth.sid }, revokedAt: null }, { revokedAt: new Date() })
-    ]);
+    await user.save();
+    const verifiedSession = await RefreshSession.findOneAndUpdate(
+      { _id: req.auth.sid, user: user._id, revokedAt: null, expiresAt: { $gt: new Date() } },
+      { mfaVerifiedAt: new Date() },
+      { new: true }
+    );
+    if (!verifiedSession) return res.status(401).json({ success: false, message: 'Phiên thiết lập MFA không còn hiệu lực' });
+    await RefreshSession.updateMany({ user: user._id, _id: { $ne: req.auth.sid }, revokedAt: null }, { revokedAt: new Date() });
+    disconnectUserSockets(user._id, { exceptSessionId: req.auth.sid, reason: 'mfa_enabled' });
     res.json({ success: true, message: 'Đã bật MFA. Các phiên khác đã bị thu hồi.', data: { recoveryCodes } });
   } catch (error) { next(error); }
 });
@@ -153,8 +170,10 @@ router.post('/mfa/disable', authenticate, requireRole('admin'), async (req, res,
     user.mfaRecoveryCodeHashes = undefined;
     await Promise.all([
       user.save(),
-      RefreshSession.updateMany({ user: user._id, _id: { $ne: req.auth.sid }, revokedAt: null }, { revokedAt: new Date() })
+      RefreshSession.updateMany({ user: user._id, _id: { $ne: req.auth.sid }, revokedAt: null }, { revokedAt: new Date() }),
+      RefreshSession.updateOne({ _id: req.auth.sid, user: user._id }, { $unset: { mfaVerifiedAt: 1 } })
     ]);
+    disconnectUserSockets(user._id, { exceptSessionId: req.auth.sid, reason: 'mfa_disabled' });
     res.json({ success: true, message: 'Đã tắt MFA. Các phiên khác đã bị thu hồi.' });
   } catch (error) { next(error); }
 });
@@ -198,7 +217,7 @@ router.post('/mfa/complete', async (req, res, next) => {
     }
     user.lastLoginAt = new Date();
     await user.save();
-    const tokens = await createSession(user, req);
+    const tokens = await createSession(user, req, { mfaVerified: true });
     res.cookie('dk_refresh', tokens.refreshToken, refreshCookieOptions());
     res.json({ success: true, data: { ...sessionPayload(user, tokens), recoveryCodesRemaining: user.mfaRecoveryCodeHashes?.length ?? 0 } });
   } catch (error) { next(error); }
@@ -215,7 +234,14 @@ router.post('/refresh', async (req, res, next) => {
     });
     if (!session) return res.status(403).json({ success: false, message: 'Mã bảo vệ phiên không hợp lệ' });
     const user = await User.findById(session.user).select('+tokenVersion');
-    if (!user || user.status !== 'active') { session.revokedAt = new Date(); await session.save(); res.clearCookie('dk_refresh', cookieBaseOptions()); return res.status(401).json({ success: false, message: 'Tài khoản không còn hoạt động' }); }
+    if (!user || user.status !== 'active') { session.revokedAt = new Date(); await session.save(); disconnectSessionSockets(session._id, 'account_inactive'); res.clearCookie('dk_refresh', cookieBaseOptions()); return res.status(401).json({ success: false, message: 'Tài khoản không còn hoạt động' }); }
+    if (user.role === 'admin' && user.mfaEnabledAt && !session.mfaVerifiedAt) {
+      session.revokedAt = new Date();
+      await session.save();
+      disconnectSessionSockets(session._id, 'mfa_login_required');
+      res.clearCookie('dk_refresh', cookieBaseOptions());
+      return res.status(401).json({ success: false, code: 'MFA_LOGIN_REQUIRED', message: 'Vui lòng đăng nhập lại và xác minh MFA' });
+    }
 
     const refreshToken = newRefreshToken();
     const nextCsrfToken = newCsrfToken();
@@ -235,7 +261,12 @@ router.post('/logout', async (req, res, next) => {
     if (token) {
       const csrfToken = String(req.get('x-csrf-token') || '');
       if (!csrfToken) return res.status(403).json({ success: false, message: 'Thiếu mã bảo vệ phiên' });
-      await RefreshSession.updateOne({ tokenHash: hashToken(token), csrfTokenHash: hashToken(csrfToken), revokedAt: null }, { revokedAt: new Date() });
+      const session = await RefreshSession.findOneAndUpdate(
+        { tokenHash: hashToken(token), csrfTokenHash: hashToken(csrfToken), revokedAt: null },
+        { revokedAt: new Date() },
+        { new: true }
+      );
+      if (session) disconnectSessionSockets(session._id, 'logout');
     }
     res.clearCookie('dk_refresh', cookieBaseOptions());
     res.json({ success: true, message: 'Đã đăng xuất' });
@@ -271,6 +302,7 @@ router.delete('/sessions/:sessionId', authenticate, async (req, res, next) => {
     );
     if (!session) return res.status(404).json({ success: false, message: 'Không tìm thấy phiên đăng nhập' });
     const current = String(session._id) === String(req.auth.sid);
+    disconnectSessionSockets(session._id, 'session_revoked');
     if (current) res.clearCookie('dk_refresh', cookieBaseOptions());
     res.json({ success: true, message: current ? 'Đã đăng xuất phiên hiện tại' : 'Đã thu hồi phiên đăng nhập', data: { current } });
   } catch (error) { next(error); }
@@ -284,6 +316,7 @@ router.post('/logout-all', authenticate, async (req, res, next) => {
       req.user.save(),
       RefreshSession.updateMany({ user: req.user._id, revokedAt: null }, { revokedAt: now })
     ]);
+    disconnectUserSockets(req.user._id, { reason: 'logout_all' });
     res.clearCookie('dk_refresh', cookieBaseOptions());
     res.json({ success: true, message: 'Đã đăng xuất khỏi tất cả thiết bị' });
   } catch (error) { next(error); }
@@ -303,6 +336,7 @@ router.post('/change-password', authenticate, async (req, res, next) => {
     user.tokenVersion += 1;
     await user.save();
     await RefreshSession.updateMany({ user: user._id, revokedAt: null }, { revokedAt: new Date() });
+    disconnectUserSockets(user._id, { reason: 'password_changed' });
     res.clearCookie('dk_refresh', cookieBaseOptions());
     res.json({ success: true, message: 'Đổi mật khẩu thành công. Vui lòng đăng nhập lại.' });
   } catch (error) { next(error); }

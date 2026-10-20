@@ -7,6 +7,12 @@ services:
     restart: unless-stopped
     expose:
       - "5000"
+    environment:
+      CLAMAV_HOST: clamav
+      CLAMAV_PORT: "3310"
+    depends_on:
+      clamav:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:5000/api/ready"]
       interval: 30s
@@ -14,6 +20,20 @@ services:
       retries: 3
       start_period: 30s
     init: true
+
+  clamav:
+    image: clamav/clamav:1.4
+    restart: unless-stopped
+    expose:
+      - "3310"
+    volumes:
+      - clamav_signatures:/var/lib/clamav
+    healthcheck:
+      test: ["CMD-SHELL", "echo PING | nc -w 2 127.0.0.1 3310 | grep -q PONG"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
 
   web:
     build:
@@ -23,10 +43,15 @@ services:
       api:
         condition: service_healthy
     ports:
-      - "8080:80"
+      # Set explicitly in compose.production.env. Use 127.0.0.1 when a local
+      # reverse proxy terminates TLS; use a private interface for a remote proxy.
+      - "${WEB_BIND_ADDRESS:?Set WEB_BIND_ADDRESS explicitly}:${WEB_PORT:-8080}:80"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
       interval: 30s
       timeout: 5s
       retries: 3
     init: true
+
+volumes:
+  clamav_signatures:

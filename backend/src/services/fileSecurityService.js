@@ -3,6 +3,33 @@ const path = require('path');
 
 const fail = message => { throw Object.assign(new Error(message), { status: 400 }); };
 
+const customerFileTypes = {
+  '.pdf': { mimeType: 'application/pdf', accepted: ['application/pdf', 'application/octet-stream'] },
+  '.png': { mimeType: 'image/png', accepted: ['image/png'] },
+  '.jpg': { mimeType: 'image/jpeg', accepted: ['image/jpeg'] },
+  '.jpeg': { mimeType: 'image/jpeg', accepted: ['image/jpeg'] },
+  '.zip': { mimeType: 'application/zip', accepted: ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'] },
+  '.dxf': { mimeType: 'application/dxf', accepted: ['application/dxf', 'image/vnd.dxf', 'text/plain', 'application/octet-stream'] },
+  '.dwg': { mimeType: 'image/vnd.dwg', accepted: ['image/vnd.dwg', 'application/acad', 'application/x-acad', 'application/octet-stream'] },
+  '.step': { mimeType: 'model/step', accepted: ['model/step', 'application/step', 'text/plain', 'application/octet-stream'] },
+  '.stp': { mimeType: 'model/step', accepted: ['model/step', 'application/step', 'text/plain', 'application/octet-stream'] },
+  '.iges': { mimeType: 'model/iges', accepted: ['model/iges', 'application/iges', 'text/plain', 'application/octet-stream'] },
+  '.igs': { mimeType: 'model/iges', accepted: ['model/iges', 'application/iges', 'text/plain', 'application/octet-stream'] }
+};
+
+function customerFileType(filename) {
+  return customerFileTypes[path.extname(String(filename || '')).toLowerCase()];
+}
+
+function isAllowedCustomerFileMetadata(file) {
+  const type = customerFileType(file?.originalname);
+  return Boolean(type && type.accepted.includes(String(file?.mimetype || '').toLowerCase()));
+}
+
+function canonicalCustomerMimeType(filename) {
+  return customerFileType(filename)?.mimeType || 'application/octet-stream';
+}
+
 function matchesSignature(extension, buffer) {
   const ascii = buffer.toString('latin1');
   const upper = ascii.toUpperCase();
@@ -47,4 +74,4 @@ function validateImageFile(file) {
   return false;
 }
 
-module.exports = { validateImageFile, validateUploadedFiles };
+module.exports = { canonicalCustomerMimeType, isAllowedCustomerFileMetadata, validateImageFile, validateUploadedFiles };

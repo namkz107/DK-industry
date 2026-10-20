@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from "react"
-import { Link, useSearchParams } from "react-router-dom"
+import { useEffect, useState, type FormEvent } from "react"
+import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { usePageMeta } from "@/hooks/use-page-meta"
+import { clearActionTokenFromUrl, readActionToken } from "@/lib/account-action-token"
 import { authClient } from "@/lib/auth-client"
 import { AuthShell, Field } from "@/pages/login-page"
 
@@ -18,8 +19,8 @@ export function ForgotPasswordPage() {
 
 export function ResetPasswordPage() {
   usePageMeta("Đặt lại mật khẩu", "Tạo mật khẩu mới cho tài khoản.")
-  const [params] = useSearchParams()
-  const token = params.get("token") || ""
+  const [token] = useState(readActionToken)
+  useEffect(clearActionTokenFromUrl, [])
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
   const [message, setMessage] = useState("")
@@ -31,8 +32,8 @@ export function ResetPasswordPage() {
 
 export function VerifyEmailPage() {
   usePageMeta("Xác minh email", "Xác minh địa chỉ email tài khoản.")
-  const [params] = useSearchParams()
-  const token = params.get("token") || ""
+  const [token] = useState(readActionToken)
+  useEffect(clearActionTokenFromUrl, [])
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)

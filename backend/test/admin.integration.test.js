@@ -39,11 +39,18 @@ test('Admin quản lý nhân sự, nội dung và nhật ký đúng quyền', { 
   try {
     const passwordHash = await User.hashPassword('StrongPass123');
     const [admin, staff] = await User.create([
-      { name: 'Admin Integration', email: `${token}-admin@example.com`, phone: uniqueVietnamesePhone('094'), passwordHash, role: 'admin' },
+      { name: 'Admin Integration', email: `${token}-admin@example.com`, phone: uniqueVietnamesePhone('094'), passwordHash, role: 'admin', mfaEnabledAt: new Date() },
       { name: 'Staff Integration', email: `${token}-staff@example.com`, phone: uniqueVietnamesePhone('093'), passwordHash, role: 'staff' }
     ]);
     createdIds.users.push(admin._id, staff._id);
-    const adminToken = createAccessToken(admin, new mongoose.Types.ObjectId());
+    const adminSession = await RefreshSession.create({
+      user: admin._id,
+      tokenHash: `admin-token-${token}`,
+      csrfTokenHash: `admin-csrf-${token}`,
+      expiresAt: new Date(Date.now() + 60_000),
+      mfaVerifiedAt: new Date()
+    });
+    const adminToken = createAccessToken(admin, adminSession._id);
     const staffToken = createAccessToken(staff, new mongoose.Types.ObjectId());
 
     assert.equal((await call('/admin/dashboard', staffToken)).status, 403);

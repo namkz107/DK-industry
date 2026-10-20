@@ -44,6 +44,10 @@ const workOrderWithIntegrity = item => ({
 const clean = (value, max = 3000) => String(value || '').trim().slice(0, max);
 const fail = (message, status = 400) => { throw Object.assign(new Error(message), { status }); };
 const pageValues = query => ({ page: Math.max(1, Number(query.page) || 1), limit: Math.min(50, Math.max(1, Number(query.limit) || 20)) });
+const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const searchTerm = value => clean(value, 64);
+const assignmentAccess = user => ({ $in: [user._id, null] });
+const scopedFilter = (user, extra = {}) => ({ ...extra, assignedTo: assignmentAccess(user) });
 
 function assignmentFilter(query, user) {
   if (query.assigned === 'mine') return user._id;
@@ -78,7 +82,7 @@ router.get('/dashboard', async (req, res, next) => {
       ServiceRequest.countDocuments({ assignedTo: null, status: 'submitted' }),
       ServiceRequest.countDocuments({ assignedTo: req.user._id, status: { $nin: ['accepted', 'rejected', 'cancelled'] } }),
       WorkOrder.countDocuments({ assignedTo: req.user._id, status: { $nin: ['completed', 'cancelled'] } }),
-      Order.countDocuments({ status: 'pending' }),
+      Order.countDocuments(scopedFilter(req.user, { status: 'pending' })),
       Order.countDocuments({ assignedTo: req.user._id, status: { $nin: ['delivered', 'cancelled'] } })
     ]);
     res.json({ success: true, data: { newRequests, myRequests, activeProjects, pendingOrders, myOrders } });
@@ -95,13 +99,16 @@ router.get('/members', async (req, res, next) => {
 router.get('/leads', async (req, res, next) => {
   try {
     const { page, limit } = pageValues(req.query);
-    const filter = {};
+    const filter = scopedFilter(req.user);
     if (leadStatuses.has(req.query.status)) filter.status = req.query.status;
     if (priorities.has(req.query.priority)) filter.priority = req.query.priority;
     const assignedTo = assignmentFilter(req.query, req.user);
     if (assignedTo !== undefined) filter.assignedTo = assignedTo;
-    const q = clean(req.query.q, 100);
-    if (q) filter.$or = [{ code: { $regex: q, $options: 'i' } }, { name: { $regex: q, $options: 'i' } }, { phone: { $regex: q, $options: 'i' } }, { email: { $regex: q, $options: 'i' } }];
+    const q = searchTerm(req.query.q);
+    if (q) {
+      const pattern = { $regex: escapeRegex(q), $options: 'i' };
+      filter.$or = [{ code: pattern }, { name: pattern }, { phone: pattern }, { email: pattern }];
+    }
     const [items, total] = await Promise.all([
       Lead.find(filter).populate('assignedTo', 'name email').populate('convertedRequest', 'code title status').sort({ priority: -1, createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
       Lead.countDocuments(filter)
@@ -113,7 +120,7 @@ router.get('/leads', async (req, res, next) => {
 router.get('/leads/:id', async (req, res, next) => {
   try {
     if (!validId(req.params.id)) fail('Lead không hợp lệ', 404);
-    const data = await Lead.findById(req.params.id).populate('assignedTo', 'name email').populate('convertedRequest', 'code title status').populate('notes.author', 'name role').populate('timeline.actor', 'name role').lean();
+    const data = await Lead.findOne(scopedFilter(req.user, { _id: req.params.id })).populate('assignedTo', 'name email').populate('convertedRequest', 'code title status').populate('notes.author', 'name role').populate('timeline.actor', 'name role').lean();
     if (!data) fail('Không tìm thấy Lead', 404);
     res.json({ success: true, data });
   } catch (error) { next(error); }
@@ -122,7 +129,7 @@ router.get('/leads/:id', async (req, res, next) => {
 router.patch('/leads/:id', async (req, res, next) => {
   try {
     if (!validId(req.params.id)) fail('Lead không hợp lệ', 404);
-    const lead = await Lead.findById(req.params.id);
+    const lead = await Lead.findOne(scopedFilter(req.user, { _id: req.params.id }));
     if (!lead) fail('Không tìm thấy Lead', 404);
     ensureOwnership(lead, req.user, 'Lead');
     claimIfUnassigned(lead, req.user);
@@ -158,7 +165,7 @@ router.post('/leads/:id/notes', async (req, res, next) => {
   try {
     const content = clean(req.body.content, 2000);
     if (!content) fail('Vui lòng nhập nội dung ghi chú');
-    const lead = validId(req.params.id) ? await Lead.findById(req.params.id) : null;
+    const lead = validId(req.params.id) ? await Lead.findOne(scopedFilter(req.user, { _id: req.params.id })) : null;
     if (!lead) fail('Không tìm thấy Lead', 404);
     ensureOwnership(lead, req.user, 'Lead');
     claimIfUnassigned(lead, req.user);
@@ -173,7 +180,7 @@ router.post('/leads/:id/convert', async (req, res, next) => {
   try {
     if (!validId(req.params.id)) fail('Lead không hợp lệ', 404);
     const result = await withTransaction(async session => {
-      const leadQuery = Lead.findById(req.params.id);
+      const leadQuery = Lead.findOne(scopedFilter(req.user, { _id: req.params.id }));
       if (session) leadQuery.session(session);
       const lead = await leadQuery;
       if (!lead) fail('Không tìm thấy Lead', 404);
@@ -217,7 +224,7 @@ router.post('/leads/:id/convert', async (req, res, next) => {
 router.get('/requests', async (req, res, next) => {
   try {
     const { page, limit } = pageValues(req.query);
-    const filter = {};
+    const filter = scopedFilter(req.user);
     if (req.query.view === 'new') {
       filter.assignedTo = null;
       filter.status = 'submitted';
@@ -234,8 +241,11 @@ router.get('/requests', async (req, res, next) => {
     if (priorities.has(req.query.priority)) filter.priority = req.query.priority;
     const assignedTo = assignmentFilter(req.query, req.user);
     if (assignedTo !== undefined) filter.assignedTo = assignedTo;
-    const q = clean(req.query.q, 100);
-    if (q) filter.$or = [{ code: { $regex: q, $options: 'i' } }, { title: { $regex: q, $options: 'i' } }, { 'contact.name': { $regex: q, $options: 'i' } }, { 'contact.phone': { $regex: q, $options: 'i' } }];
+    const q = searchTerm(req.query.q);
+    if (q) {
+      const pattern = { $regex: escapeRegex(q), $options: 'i' };
+      filter.$or = [{ code: pattern }, { title: pattern }, { 'contact.name': pattern }, { 'contact.phone': pattern }];
+    }
     const [items, total] = await Promise.all([
       ServiceRequest.find(filter).select('-attachments.storedName -internalSummary').populate('customer', 'name email phone company').populate('assignedTo', 'name email').sort({ priority: -1, createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
       ServiceRequest.countDocuments(filter)
@@ -249,7 +259,7 @@ router.get('/requests', async (req, res, next) => {
 router.get('/requests/:id', async (req, res, next) => {
   try {
     if (!validId(req.params.id)) fail('Yêu cầu không hợp lệ', 404);
-    const request = await ServiceRequest.findById(req.params.id).select('+internalSummary -attachments.storedName').populate('customer', 'name email phone company').populate('assignedTo', 'name email').lean();
+    const request = await ServiceRequest.findOne(scopedFilter(req.user, { _id: req.params.id })).select('+internalSummary -attachments.storedName').populate('customer', 'name email phone company').populate('assignedTo', 'name email').lean();
     if (!request) fail('Không tìm thấy yêu cầu', 404);
     const [messageResult, quotations, workOrder] = await Promise.all([
       messagePage({ request: request._id }, { limit: 50, populateSender: true }),
@@ -258,7 +268,7 @@ router.get('/requests/:id', async (req, res, next) => {
     ]);
     const readAt = new Date();
     const readResult = await RequestMessage.updateMany({ request: request._id, senderRole: 'customer', readByStaffAt: null }, { readByStaffAt: readAt });
-    if (readResult.modifiedCount) emitRequestEvent(request._id, 'message:read', { requestId: String(request._id), readerRole: 'staff', readAt: readAt.toISOString() });
+    if (readResult.modifiedCount) await emitRequestEvent(request._id, 'message:read', { requestId: String(request._id), readerRole: 'staff', readAt: readAt.toISOString() });
     res.json({ success: true, data: { request, messages: messageResult.items, messagePage: { hasMore: messageResult.hasMore, nextCursor: messageResult.nextCursor }, quotations, workOrder } });
   } catch (error) { next(error); }
 });
@@ -266,7 +276,7 @@ router.get('/requests/:id', async (req, res, next) => {
 router.get('/requests/:id/messages', async (req, res, next) => {
   try {
     if (!validId(req.params.id)) fail('Yêu cầu không hợp lệ', 404);
-    const request = await ServiceRequest.exists({ _id: req.params.id });
+    const request = await ServiceRequest.exists(scopedFilter(req.user, { _id: req.params.id }));
     if (!request) fail('Không tìm thấy yêu cầu', 404);
     const data = await messagePage({ request: req.params.id }, { before: req.query.before, limit: req.query.limit, populateSender: true });
     res.json({ success: true, data });
@@ -276,7 +286,7 @@ router.get('/requests/:id/messages', async (req, res, next) => {
 router.post('/requests/:id/claim', async (req, res, next) => {
   try {
     if (!validId(req.params.id)) fail('Yêu cầu không hợp lệ', 404);
-    const existing = await ServiceRequest.findById(req.params.id).select('assignedTo status code customer');
+    const existing = await ServiceRequest.findOne(scopedFilter(req.user, { _id: req.params.id })).select('assignedTo status code customer');
     if (!existing) fail('Không tìm thấy yêu cầu', 404);
     if (existing.assignedTo) {
       if (String(existing.assignedTo) !== String(req.user._id)) fail('Yêu cầu đã được nhân viên khác nhận xử lý', 409);
@@ -299,7 +309,7 @@ router.post('/requests/:id/claim', async (req, res, next) => {
       writeAudit({ actor: req.user._id, action: 'request.claimed', entity: 'request', entityId: request._id, summary: `Nhận xử lý yêu cầu ${request.code}` })
     ]);
     dispatchSoon();
-    emitRequestUpdated(request._id, 'request_claimed', { visibility: 'customer' });
+    await emitRequestUpdated(request._id, 'request_claimed', { visibility: 'customer' });
     res.json({ success: true, message: 'Đã nhận xử lý và thông báo cho khách hàng', data: request });
   } catch (error) { next(error); }
 });
@@ -307,7 +317,7 @@ router.post('/requests/:id/claim', async (req, res, next) => {
 router.patch('/requests/:id', async (req, res, next) => {
   try {
     if (!validId(req.params.id)) fail('Yêu cầu không hợp lệ', 404);
-    const request = await ServiceRequest.findById(req.params.id).select('+internalSummary');
+    const request = await ServiceRequest.findOne(scopedFilter(req.user, { _id: req.params.id })).select('+internalSummary');
     if (!request) fail('Không tìm thấy yêu cầu', 404);
     let customerMessage = '';
     ensureOwnership(request, req.user, 'Hồ sơ');
@@ -337,14 +347,14 @@ router.patch('/requests/:id', async (req, res, next) => {
       await createNotification({ recipient: request.customer, type: 'request.status_updated', title: `Cập nhật yêu cầu ${request.code}`, message: customerMessage.slice(0, 180), link: `/tai-khoan/yeu-cau?requestId=${request._id}`, metadata: { requestId: request._id } });
       dispatchSoon();
     }
-    emitRequestUpdated(request._id, 'staff_update', { visibility: req.body.visibility === 'internal' ? 'internal' : 'customer' });
+    await emitRequestUpdated(request._id, 'staff_update', { visibility: req.body.visibility === 'internal' ? 'internal' : 'customer' });
     res.json({ success: true, message: 'Đã cập nhật yêu cầu', data: request });
   } catch (error) { next(error); }
 });
 
 router.post('/requests/:id/messages', async (req, res, next) => {
   try {
-    const request = validId(req.params.id) ? await ServiceRequest.findById(req.params.id) : null;
+    const request = validId(req.params.id) ? await ServiceRequest.findOne(scopedFilter(req.user, { _id: req.params.id })) : null;
     if (!request) fail('Không tìm thấy yêu cầu', 404);
     ensureOwnership(request, req.user, 'Hồ sơ');
     if (!request.assignedTo) fail('Hãy nhận xử lý yêu cầu trước khi trao đổi với khách hàng', 409);
@@ -364,15 +374,15 @@ router.post('/requests/:id/messages', async (req, res, next) => {
       dispatchSoon();
     }
     await result.message.populate('sender', 'name role');
-    emitMessage(result.message);
-    emitRequestUpdated(request._id, 'staff_message', { visibility });
+    await emitMessage(result.message);
+    await emitRequestUpdated(request._id, 'staff_message', { visibility });
     res.status(201).json({ success: true, message: visibility === 'internal' ? 'Đã lưu ghi chú nội bộ' : 'Đã gửi khách hàng', data: publicMessage(result.message) });
   } catch (error) { next(error); }
 });
 
 router.post('/requests/:id/quotations', async (req, res, next) => {
   try {
-    const request = validId(req.params.id) ? await ServiceRequest.findById(req.params.id) : null;
+    const request = validId(req.params.id) ? await ServiceRequest.findOne(scopedFilter(req.user, { _id: req.params.id })) : null;
     if (!request) fail('Không tìm thấy yêu cầu', 404);
     ensureOwnership(request, req.user, 'Hồ sơ');
     if (!request.assignedTo) fail('Hãy nhận xử lý yêu cầu trước khi lập báo giá', 409);
@@ -411,7 +421,7 @@ router.post('/requests/:id/quotations', async (req, res, next) => {
       await request.save();
       await writeAudit({ actor: req.user._id, action: 'quotation.draft_created', entity: 'quotation', entityId: quotation._id, summary: `Tạo nháp báo giá ${quotation.code}`, metadata: { requestId: request._id, total: quotation.total } });
     }
-    emitRequestUpdated(request._id, status === 'sent' ? 'quotation_sent' : 'quotation_draft', { visibility: status === 'sent' ? 'customer' : 'internal' });
+    await emitRequestUpdated(request._id, status === 'sent' ? 'quotation_sent' : 'quotation_draft', { visibility: status === 'sent' ? 'customer' : 'internal' });
     res.status(201).json({ success: true, message: status === 'sent' ? 'Đã gửi báo giá cho khách hàng' : 'Đã lưu bản nháp báo giá', data: quotation });
   } catch (error) { next(error); }
 });
@@ -419,7 +429,7 @@ router.post('/requests/:id/quotations', async (req, res, next) => {
 router.patch('/requests/:requestId/quotations/:quotationId/send', async (req, res, next) => {
   try {
     if (!validId(req.params.requestId) || !validId(req.params.quotationId)) fail('Báo giá không hợp lệ', 404);
-    const [request, quotation] = await Promise.all([ServiceRequest.findById(req.params.requestId), Quotation.findOne({ _id: req.params.quotationId, request: req.params.requestId })]);
+    const [request, quotation] = await Promise.all([ServiceRequest.findOne(scopedFilter(req.user, { _id: req.params.requestId })), Quotation.findOne({ _id: req.params.quotationId, request: req.params.requestId })]);
     if (!request || !quotation) fail('Không tìm thấy báo giá', 404);
     ensureOwnership(request, req.user, 'Hồ sơ');
     if (!request.assignedTo) fail('Hãy nhận xử lý yêu cầu trước khi gửi báo giá', 409);
@@ -433,7 +443,7 @@ router.patch('/requests/:requestId/quotations/:quotationId/send', async (req, re
     await createNotification({ recipient: request.customer, type: 'quotation.sent', title: `Bạn có báo giá mới ${quotation.code}`, message: `Báo giá có tổng giá trị ${quotation.total.toLocaleString('vi-VN')}đ và hiệu lực đến ${quotation.validUntil.toLocaleDateString('vi-VN')}.`, link: `/tai-khoan/yeu-cau?requestId=${request._id}`, metadata: { requestId: request._id, quotationId: quotation._id } });
     await writeAudit({ actor: req.user._id, action: 'quotation.sent', entity: 'quotation', entityId: quotation._id, summary: `Gửi báo giá ${quotation.code}`, metadata: { requestId: request._id, total: quotation.total } });
     dispatchSoon();
-    emitRequestUpdated(request._id, 'quotation_sent');
+    await emitRequestUpdated(request._id, 'quotation_sent');
     res.json({ success: true, message: 'Đã gửi báo giá cho khách hàng', data: quotation });
   } catch (error) { next(error); }
 });
@@ -441,7 +451,7 @@ router.patch('/requests/:requestId/quotations/:quotationId/send', async (req, re
 router.get('/requests/:requestId/attachments/:attachmentId', async (req, res, next) => {
   try {
     if (!validId(req.params.requestId) || !validId(req.params.attachmentId)) fail('Tệp không hợp lệ', 404);
-    const request = await ServiceRequest.findById(req.params.requestId);
+    const request = await ServiceRequest.findOne(scopedFilter(req.user, { _id: req.params.requestId }));
     const attachment = request?.attachments.id(req.params.attachmentId);
     if (!attachment) fail('Không tìm thấy tệp', 404);
     return await sendStoredFile(res, attachment);
@@ -451,6 +461,8 @@ router.get('/requests/:requestId/attachments/:attachmentId', async (req, res, ne
 router.get('/requests/:requestId/messages/:messageId/attachments/:attachmentId', async (req, res, next) => {
   try {
     if (![req.params.requestId, req.params.messageId, req.params.attachmentId].every(validId)) fail('Tệp không hợp lệ', 404);
+    const request = await ServiceRequest.exists(scopedFilter(req.user, { _id: req.params.requestId }));
+    if (!request) fail('Không tìm thấy tệp', 404);
     const message = await RequestMessage.findOne({ _id: req.params.messageId, request: req.params.requestId }).select('+attachments.storedName');
     const attachment = message?.attachments.id(req.params.attachmentId);
     if (!attachment) fail('Không tìm thấy tệp', 404);
@@ -461,14 +473,17 @@ router.get('/requests/:requestId/messages/:messageId/attachments/:attachmentId',
 router.get('/work-orders', async (req, res, next) => {
   try {
     const { page, limit } = pageValues(req.query);
-    const filter = {};
+    const filter = scopedFilter(req.user);
     if (req.query.view === 'active') filter.status = { $nin: ['completed', 'cancelled'] };
     if (req.query.view === 'completed') filter.status = 'completed';
     if (workOrderStatuses.has(req.query.status)) filter.status = req.query.status;
     const assignedTo = assignmentFilter(req.query, req.user);
     if (assignedTo !== undefined) filter.assignedTo = assignedTo;
-    const q = clean(req.query.q, 100);
-    if (q) filter.$or = [{ code: { $regex: q, $options: 'i' } }, { contractReference: { $regex: q, $options: 'i' } }, { purchaseOrderReference: { $regex: q, $options: 'i' } }];
+    const q = searchTerm(req.query.q);
+    if (q) {
+      const pattern = { $regex: escapeRegex(q), $options: 'i' };
+      filter.$or = [{ code: pattern }, { contractReference: pattern }, { purchaseOrderReference: pattern }];
+    }
     const [items, total] = await Promise.all([
       WorkOrder.find(filter).populate('customer', 'name email phone company').populate('assignedTo', 'name email').populate('request', 'code title').populate('quotation', 'code total leadTime paymentTerms notes').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
       WorkOrder.countDocuments(filter)
@@ -480,7 +495,7 @@ router.get('/work-orders', async (req, res, next) => {
 router.get('/work-orders/:id', async (req, res, next) => {
   try {
     if (!validId(req.params.id)) fail('Dự án không hợp lệ', 404);
-    const data = await WorkOrder.findById(req.params.id).populate('customer', 'name email phone company').populate('assignedTo', 'name email').populate('request', 'code title description').populate('quotation').populate('timeline.actor', 'name role').lean();
+    const data = await WorkOrder.findOne(scopedFilter(req.user, { _id: req.params.id })).populate('customer', 'name email phone company').populate('assignedTo', 'name email').populate('request', 'code title description').populate('quotation').populate('timeline.actor', 'name role').lean();
     if (!data) fail('Không tìm thấy dự án', 404);
     res.json({ success: true, data: workOrderWithIntegrity(data) });
   } catch (error) { next(error); }
@@ -490,7 +505,7 @@ router.patch('/work-orders/:id', async (req, res, next) => {
   try {
     if (!validId(req.params.id)) fail('Dự án không hợp lệ', 404);
     const workOrder = await withTransaction(async session => {
-      const query = WorkOrder.findById(req.params.id);
+      const query = WorkOrder.findOne(scopedFilter(req.user, { _id: req.params.id }));
       if (session) query.session(session);
       const current = await query;
       if (!current) fail('Không tìm thấy dự án', 404);
@@ -542,13 +557,16 @@ router.patch('/work-orders/:id', async (req, res, next) => {
 router.get('/orders', async (req, res, next) => {
   try {
     const { page, limit } = pageValues(req.query);
-    const filter = {};
+    const filter = scopedFilter(req.user);
     if (orderStatuses.has(req.query.status)) filter.status = req.query.status === 'confirmed' ? { $in: ['confirmed', 'preparing'] } : req.query.status;
     if (paymentStatuses.has(req.query.paymentStatus)) filter.paymentStatus = req.query.paymentStatus;
     const assignedTo = assignmentFilter(req.query, req.user);
     if (assignedTo !== undefined) filter.assignedTo = assignedTo;
-    const q = clean(req.query.q, 100);
-    if (q) filter.$or = [{ code: { $regex: q, $options: 'i' } }, { 'shippingAddress.recipientName': { $regex: q, $options: 'i' } }, { 'shippingAddress.phone': { $regex: q, $options: 'i' } }];
+    const q = searchTerm(req.query.q);
+    if (q) {
+      const pattern = { $regex: escapeRegex(q), $options: 'i' };
+      filter.$or = [{ code: pattern }, { 'shippingAddress.recipientName': pattern }, { 'shippingAddress.phone': pattern }];
+    }
     const [items, total] = await Promise.all([
       Order.find(filter).populate('customer', 'name email phone company').populate('assignedTo', 'name email').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
       Order.countDocuments(filter)
@@ -560,7 +578,7 @@ router.get('/orders', async (req, res, next) => {
 router.get('/orders/:id', async (req, res, next) => {
   try {
     if (!validId(req.params.id)) fail('Đơn hàng không hợp lệ', 404);
-    const data = await Order.findById(req.params.id).select('+internalNote').populate('customer', 'name email phone company').populate('assignedTo', 'name email').populate('timeline.actor', 'name role').populate('paymentTimeline.actor', 'name role').lean();
+    const data = await Order.findOne(scopedFilter(req.user, { _id: req.params.id })).select('+internalNote').populate('customer', 'name email phone company').populate('assignedTo', 'name email').populate('timeline.actor', 'name role').populate('paymentTimeline.actor', 'name role').lean();
     if (!data) fail('Không tìm thấy đơn hàng', 404);
     res.json({ success: true, data });
   } catch (error) { next(error); }
@@ -570,7 +588,7 @@ router.patch('/orders/:id', async (req, res, next) => {
   try {
     if (!validId(req.params.id)) fail('Đơn hàng không hợp lệ', 404);
     const order = await withTransaction(async session => {
-      const query = Order.findById(req.params.id).select('+internalNote');
+      const query = Order.findOne(scopedFilter(req.user, { _id: req.params.id })).select('+internalNote');
       if (session) query.session(session);
       const current = await query;
       if (!current) fail('Không tìm thấy đơn hàng', 404);
@@ -663,7 +681,7 @@ router.patch('/orders/:id', async (req, res, next) => {
 router.patch('/orders/:orderId/after-sales/:requestId', async (req, res, next) => {
   try {
     if (!validId(req.params.orderId) || !validId(req.params.requestId)) fail('Yêu cầu hậu mãi không hợp lệ', 404);
-    const order = await Order.findById(req.params.orderId);
+    const order = await Order.findOne(scopedFilter(req.user, { _id: req.params.orderId }));
     if (!order) fail('Không tìm thấy đơn hàng', 404);
     ensureOwnership(order, req.user, 'Đơn hàng');
     const item = order.afterSalesRequests.id(req.params.requestId);

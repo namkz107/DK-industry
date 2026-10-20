@@ -69,6 +69,10 @@ function validateProduction(backend, frontend) {
   if (backend.ALLOW_NON_TRANSACTIONAL_WRITES === 'true') warnings.push('Đang cho phép ghi không transaction; không khuyến nghị cho production');
 
   if (backend.FILE_STORAGE_DRIVER !== 'cloudinary') errors.push('backend.FILE_STORAGE_DRIVER phải là cloudinary');
+  const clamavHost = requireValue('backend', backend, 'CLAMAV_HOST');
+  if (clamavHost && !/^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$/.test(clamavHost)) errors.push('backend.CLAMAV_HOST không hợp lệ');
+  const backupRecipient = requireValue('backend', backend, 'BACKUP_AGE_RECIPIENT');
+  if (backupRecipient && !/^age1[0-9a-z]{50,}$/.test(backupRecipient)) errors.push('backend.BACKUP_AGE_RECIPIENT phải là age public recipient hợp lệ');
   const cloudinaryUrl = String(backend.CLOUDINARY_URL || '').trim();
   if (isPlaceholder(cloudinaryUrl)) {
     for (const key of ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET']) requireValue('backend', backend, key);

@@ -35,14 +35,16 @@ test('Support Chat lưu lịch sử Customer, phân quyền Staff, realtime và 
   const origin = `http://127.0.0.1:${server.address().port}`;
   const suffix = uniqueToken('support');
   const passwordHash = await User.hashPassword('StrongPass123');
-  const [staff, customer] = await User.create([
+  const [staff, otherStaff, customer] = await User.create([
     { name: 'Nhân viên Support Test', email: `${suffix}-staff@example.com`, phone: uniqueVietnamesePhone('094'), passwordHash, role: 'staff' },
+    { name: 'Nhân viên Support Khác', email: `${suffix}-other-staff@example.com`, phone: uniqueVietnamesePhone('093'), passwordHash, role: 'staff' },
     { name: 'Khách không liên quan', email: `${suffix}-customer@example.com`, phone: uniqueVietnamesePhone('095'), passwordHash, role: 'customer' }
   ]);
   const accessToken = user => createAccessToken(user, new mongoose.Types.ObjectId());
   let conversationId;
   let customerSocket;
   let staffSocket;
+  let otherStaffSocket;
 
   try {
     const firstClientMessageId = `guest_${suffix}`;
@@ -71,12 +73,16 @@ test('Support Chat lưu lịch sử Customer, phân quyền Staff, realtime và 
 
     customerSocket = createClient(`${origin}/support`, { transports: ['websocket'], auth: { token: accessToken(customer) } });
     staffSocket = createClient(`${origin}/support`, { transports: ['websocket'], auth: { token: accessToken(staff) } });
-    await Promise.all([waitFor(customerSocket, 'connect'), waitFor(staffSocket, 'connect')]);
+    otherStaffSocket = createClient(`${origin}/support`, { transports: ['websocket'], auth: { token: accessToken(otherStaff) } });
+    await Promise.all([waitFor(customerSocket, 'connect'), waitFor(staffSocket, 'connect'), waitFor(otherStaffSocket, 'connect')]);
     assert.deepEqual(await join(customerSocket, conversationId), { ok: true });
     assert.deepEqual(await join(staffSocket, conversationId), { ok: true });
+    assert.deepEqual(await join(otherStaffSocket, conversationId), { ok: true });
     assert.equal((await join(customerSocket, new mongoose.Types.ObjectId())).ok, false);
 
     const realtime = waitFor(customerSocket, 'support:message');
+    let staleStaffLeaked = false;
+    otherStaffSocket.once('support:message', () => { staleStaffLeaked = true; });
     const staffClientMessageId = `staff_${suffix}`;
     const reply = await fetch(`${origin}/api/support/conversations/${conversationId}/messages`, {
       method: 'POST', headers: { Authorization: `Bearer ${accessToken(staff)}`, 'Content-Type': 'application/json' },
@@ -84,6 +90,10 @@ test('Support Chat lưu lịch sử Customer, phân quyền Staff, realtime và 
     });
     assert.equal(reply.status, 201);
     assert.equal((await realtime).message.clientMessageId, staffClientMessageId);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    assert.equal(staleStaffLeaked, false);
+    assert.equal((await fetch(`${origin}/api/support/conversations/${conversationId}`, { headers: { Authorization: `Bearer ${accessToken(otherStaff)}` } })).status, 404);
+    assert.equal((await join(otherStaffSocket, conversationId)).ok, false);
 
     const duplicateReply = await fetch(`${origin}/api/support/conversations/${conversationId}/messages`, {
       method: 'POST', headers: { Authorization: `Bearer ${accessToken(staff)}`, 'Content-Type': 'application/json' },
@@ -92,13 +102,13 @@ test('Support Chat lưu lịch sử Customer, phân quyền Staff, realtime và 
     assert.equal(duplicateReply.status, 200);
     assert.equal(await SupportMessage.countDocuments({ conversation: conversationId, clientMessageId: staffClientMessageId }), 1);
   } finally {
-    customerSocket?.disconnect(); staffSocket?.disconnect();
+    customerSocket?.disconnect(); staffSocket?.disconnect(); otherStaffSocket?.disconnect();
     if (conversationId) {
       await SupportMessage.deleteMany({ conversation: conversationId });
       await SupportConversation.deleteOne({ _id: conversationId });
     }
-    await Notification.deleteMany({ recipient: { $in: [staff._id, customer._id] } });
-    await User.deleteMany({ _id: { $in: [staff._id, customer._id] } });
+    await Notification.deleteMany({ recipient: { $in: [staff._id, otherStaff._id, customer._id] } });
+    await User.deleteMany({ _id: { $in: [staff._id, otherStaff._id, customer._id] } });
     await new Promise(resolve => io.close(resolve));
     await mongoose.disconnect();
   }

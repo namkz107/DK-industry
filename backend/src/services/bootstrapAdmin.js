@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const RefreshSession = require('../models/RefreshSession');
+const { disconnectUserSockets } = require('./socketSessionService');
 
 const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,72}$/;
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -33,10 +34,11 @@ async function bootstrapAdmin({ required = false } = {}) {
     existing.tokenVersion = (existing.tokenVersion || 0) + 1;
     await existing.save();
     await RefreshSession.updateMany({ user: existing._id, revokedAt: null }, { revokedAt: new Date() });
+    disconnectUserSockets(existing._id, { reason: 'admin_bootstrap_reset' });
   } else {
     await User.create(values);
   }
-  return `ready (${email})`;
+  return 'ready';
 }
 
 module.exports = bootstrapAdmin;

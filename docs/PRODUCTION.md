@@ -7,15 +7,26 @@ Tài liệu này phân biệt phần hệ thống đã kiểm soát trong mã ng
 - Dùng MongoDB replica set hoặc MongoDB Atlas. Các thao tác đơn hàng, tồn kho, giỏ hàng, báo giá và lệnh sản xuất dùng transaction; production sẽ từ chối khởi động nếu MongoDB không hỗ trợ transaction, trừ khi chủ động đặt `ALLOW_NON_TRANSACTIONAL_WRITES=true` (không khuyến nghị).
 - Đặt `NODE_ENV=production`, `JWT_SECRET` đủ mạnh, `CLIENT_URL` đúng origin HTTPS và `TRUST_PROXY` phù hợp với reverse proxy thực tế.
 - Không dùng tài khoản seed hoặc mật khẩu mẫu. Sau khi bootstrap Admin, xóa `ADMIN_SEED_PASSWORD` khỏi môi trường chạy.
-- Bật HTTPS, backup MongoDB định kỳ, kiểm thử phục hồi backup, log tập trung, cảnh báo lỗi và giám sát endpoint `/api/health`. Script backup tạo tệp `.sha256`; script restore kiểm tra hash trước khi khôi phục.
+- Bật HTTPS, backup MongoDB định kỳ, kiểm thử phục hồi backup, log tập trung, cảnh báo lỗi và giám sát endpoint `/api/health`. Backup phải được mã hóa bằng `age` theo [`BACKUP-ENCRYPTION.md`](BACKUP-ENCRYPTION.md); script restore kiểm tra hash ciphertext trước khi giải mã và khôi phục.
 - Reverse proxy phải cho phép WebSocket upgrade tại đường dẫn `/socket.io`; cấu hình `VITE_SOCKET_URL` trỏ tới public origin của API realtime.
+- Không publish origin trên `0.0.0.0` theo mặc định. Chọn `WEB_BIND_ADDRESS`
+  trong `compose.production.env`: loopback cho proxy cùng máy hoặc private
+  interface cho proxy từ xa. Firewall/VPS security group phải chỉ cho proxy
+  được phép truy cập origin.
+- Trên Cloudflare, bật proxy cho DNS record, dùng TLS Full (strict) với
+  certificate hợp lệ tại origin, chặn truy cập origin ngoài dải IP được duyệt
+  và kiểm thử HTTP/HTTPS/WebSocket từ bên ngoài. Đây là cấu hình hạ tầng, không
+  được coi là hoàn tất chỉ vì repository có mẫu Compose.
+- Đặt `TRUST_PROXY` theo số hop thực tế và xác minh `req.ip` bằng request qua
+  chuỗi proxy. Cấu hình sai có thể làm rate limit gom mọi người dùng vào một IP
+  hoặc tin địa chỉ giả mạo.
 - Nếu chạy nhiều instance API, thêm Socket.IO Redis Streams Adapter, chuyển rate limit sang kho dùng chung và chỉ chạy tác vụ định kỳ trên một worker để tránh sự kiện hoặc giới hạn bị lệch giữa các node.
 
 ## Email, tệp và bản đồ
 
 - Cấu hình SMTP để xác minh email, khôi phục mật khẩu và gửi thông báo nghiệp vụ. Nếu không có SMTP, thông báo trong ứng dụng vẫn hoạt động nhưng email sẽ không được gửi. Thông báo email lỗi tạm thời được thử gửi lại tối đa `EMAIL_MAX_ATTEMPTS` lần (mặc định 5); khi đã hết lượt cần xử lý thủ công.
 - Bản đồ Google, điểm ghim và chỉ đường không cần API key. Tìm kiếm/đổi GPS thành địa chỉ dùng Nominatim công cộng; cấu hình `COMPANY_EMAIL` thật, giữ attribution OpenStreetMap và kiểm tra luồng nhập địa chỉ thủ công khi dịch vụ bên ngoài tạm lỗi.
-- Môi trường nhiều instance cần object storage riêng (S3-compatible hoặc nhà cung cấp tương đương), antivirus/quarantine và URL ký thời hạn ngắn. Kiểm tra chữ ký tệp hiện tại chỉ là lớp phòng vệ đầu vào, không thay thế quét malware.
+- Compose mẫu có ClamAV private, quarantine logic và download gate theo `scanStatus`. Phải chạy EICAR/failure drill trên staging trước production. Môi trường nhiều API instance còn cần object storage chung, Socket.IO adapter/pub-sub cho thu hồi session và quy trình quarantine dùng chung; unit test scanner mock không thay thế integration test ClamAV thật.
 
 ## Thông tin doanh nghiệp và pháp lý
 

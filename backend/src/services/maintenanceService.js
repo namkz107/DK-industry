@@ -1,9 +1,11 @@
 const Lead = require('../models/Lead');
 const Notification = require('../models/Notification');
 const Quotation = require('../models/Quotation');
+const QuarantinedUpload = require('../models/QuarantinedUpload');
 const RequestMessage = require('../models/RequestMessage');
 const ServiceRequest = require('../models/ServiceRequest');
 const { createNotification, dispatchPendingEmails } = require('./notificationService');
+const { removeStoredFiles } = require('./fileStorageService');
 
 async function expireQuotations() {
   const expired = await Quotation.find({ status: 'sent', validUntil: { $lte: new Date() } }).select('_id code request customer').lean();
@@ -39,10 +41,18 @@ async function remindOverdueLeads() {
   return created;
 }
 
-async function runMaintenance() {
-  const [expiredQuotations, leadReminders] = await Promise.all([expireQuotations(), remindOverdueLeads()]);
-  const email = await dispatchPendingEmails();
-  return { expiredQuotations, leadReminders, email };
+async function purgeExpiredQuarantine() {
+  const items = await QuarantinedUpload.find({ purgeAfter: { $lte: new Date() } }).select('+storedName').limit(100);
+  if (!items.length) return 0;
+  await removeStoredFiles(items);
+  await QuarantinedUpload.deleteMany({ _id: { $in: items.map(item => item._id) } });
+  return items.length;
 }
 
-module.exports = { expireQuotations, remindOverdueLeads, runMaintenance };
+async function runMaintenance() {
+  const [expiredQuotations, leadReminders, purgedQuarantine] = await Promise.all([expireQuotations(), remindOverdueLeads(), purgeExpiredQuarantine()]);
+  const email = await dispatchPendingEmails();
+  return { expiredQuotations, leadReminders, purgedQuarantine, email };
+}
+
+module.exports = { expireQuotations, purgeExpiredQuarantine, remindOverdueLeads, runMaintenance };

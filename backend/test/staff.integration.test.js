@@ -17,7 +17,9 @@ const Quotation = require('../src/models/Quotation');
 const RequestMessage = require('../src/models/RequestMessage');
 const ServiceRequest = require('../src/models/ServiceRequest');
 const User = require('../src/models/User');
+const WorkOrder = require('../src/models/WorkOrder');
 const { createAccessToken } = require('../src/services/authService');
+const { removeStoredFiles, storeCustomerFiles } = require('../src/services/fileStorageService');
 
 const runIntegration = process.env.RUN_STAFF_INTEGRATION === '1';
 
@@ -33,6 +35,9 @@ test('Staff xử lý Lead, Service Request, trao đổi và báo giá đúng quy
   let product;
   let order;
   let deliveryOrder;
+  let workOrder;
+  let attachmentMessage;
+  let storedFiles = [];
 
   const call = (url, token, options = {}) => fetch(`${baseUrl}${url}`, {
     ...options,
@@ -51,22 +56,40 @@ test('Staff xử lý Lead, Service Request, trao đổi và báo giá đúng quy
     const staffToken = createAccessToken(staff, new mongoose.Types.ObjectId());
     const otherStaffToken = createAccessToken(otherStaff, new mongoose.Types.ObjectId());
 
-    lead = await Lead.create({ name: 'Lead Staff Test', phone: '0901234567', email: customer.email, serviceType: 'Gia công CNC', message: 'Cần tư vấn gia công.', consent: true });
+    lead = await Lead.create({ name: 'Lead [Scope]+ Staff Test', phone: '0901234567', email: customer.email, serviceType: 'Gia công CNC', message: 'Cần tư vấn gia công.', consent: true });
+    storedFiles = await storeCustomerFiles([
+      { originalname: 'staff-scope-request.pdf', mimetype: 'application/pdf', size: 24, buffer: Buffer.from('%PDF-1.4 request scope') },
+      { originalname: 'staff-scope-message.pdf', mimetype: 'application/pdf', size: 24, buffer: Buffer.from('%PDF-1.4 message scope') }
+    ]);
+    storedFiles = storedFiles.map(file => ({ ...file, scanStatus: 'clean', scannedAt: new Date() }));
     serviceRequest = await ServiceRequest.create({
-      code: `YC-STAFF-${suffix}`, customer: customer._id, requestType: 'machining', title: 'Gia công chi tiết Staff test',
+      code: `YC-STAFF-${suffix}`, customer: customer._id, requestType: 'machining', title: 'Gia công (Scope)+ Staff test',
       description: 'Hồ sơ dùng để kiểm thử quy trình nhân viên.', contact: { name: customer.name, phone: customer.phone, email: customer.email },
+      attachments: [storedFiles[0]],
       timeline: [{ status: 'submitted', message: 'Khách đã gửi yêu cầu.', actorType: 'customer', actor: customer._id }]
+    });
+    attachmentMessage = await RequestMessage.create({
+      request: serviceRequest._id, sender: customer._id, senderRole: 'customer', visibility: 'customer',
+      content: 'Tệp bổ sung kiểm thử phạm vi Staff.', attachments: [storedFiles[1]]
     });
     product = await Product.create({ name: 'Sản phẩm Staff Test', slug: `staff-test-${suffix}`, sku: `ST-${suffix}`, category: 'Kiểm thử', price: 250000, unit: 'chiếc', stock: 5, active: true });
     order = await Order.create({
       code: `DH-STAFF-${suffix}`, customer: customer._id, items: [{ product: product._id, name: product.name, sku: product.sku, unit: product.unit, price: product.price, quantity: 2, lineTotal: 500000 }],
-      shippingAddress: { recipientName: customer.name, phone: customer.phone, addressLine: 'Cụm 3, Duyên Trường', district: 'Thường Tín', province: 'Hà Nội' },
+      shippingAddress: { recipientName: 'Khách (Scope)+', phone: customer.phone, addressLine: 'Cụm 3, Duyên Trường', district: 'Thường Tín', province: 'Hà Nội' },
       subtotal: 500000, total: 500000, paymentMethod: 'bank_transfer', termsAcceptedAt: new Date(), termsVersion: 'test', timeline: [{ status: 'pending', message: 'Đơn mới.' }]
     });
 
     const customerForbidden = await call('/staff/dashboard', customerToken);
     assert.equal(customerForbidden.status, 403);
     assert.equal((await call('/staff/dashboard', staffToken)).status, 200);
+    const literalLeadSearch = await (await call(`/staff/leads?q=${encodeURIComponent('[Scope]+')}`, staffToken)).json();
+    assert.ok(literalLeadSearch.data.items.some(item => item._id === String(lead._id)));
+    const literalRequestSearch = await (await call(`/staff/requests?q=${encodeURIComponent('(Scope)+')}`, staffToken)).json();
+    assert.ok(literalRequestSearch.data.items.some(item => item._id === String(serviceRequest._id)));
+    const literalOrderSearch = await (await call(`/staff/orders?q=${encodeURIComponent('(Scope)+')}`, staffToken)).json();
+    assert.ok(literalOrderSearch.data.items.some(item => item._id === String(order._id)));
+    const hostileSearch = await call(`/staff/leads?q=${encodeURIComponent('(a+)+$'.repeat(20))}`, staffToken);
+    assert.equal(hostileSearch.status, 200);
 
     const claimLead = await call(`/staff/leads/${lead._id}`, staffToken, { method: 'PATCH', body: JSON.stringify({ assignedTo: 'me', priority: 'high', status: 'qualified', message: 'Đã xác minh nhu cầu.' }) });
     assert.equal(claimLead.status, 200);
@@ -78,7 +101,8 @@ test('Staff xử lý Lead, Service Request, trao đổi và báo giá đúng quy
     const assignOther = await call(`/staff/leads/${lead._id}`, staffToken, { method: 'PATCH', body: JSON.stringify({ assignedTo: otherStaff._id }) });
     assert.equal(assignOther.status, 403);
     const otherCannotEditOwnedLead = await call(`/staff/leads/${lead._id}`, otherStaffToken, { method: 'PATCH', body: JSON.stringify({ priority: 'urgent' }) });
-    assert.equal(otherCannotEditOwnedLead.status, 409);
+    assert.equal(otherCannotEditOwnedLead.status, 404);
+    assert.equal((await call(`/staff/leads/${lead._id}`, otherStaffToken)).status, 404);
 
     const converted = await call(`/staff/leads/${lead._id}/convert`, staffToken, { method: 'POST' });
     const convertedBody = await converted.json();
@@ -91,7 +115,13 @@ test('Staff xử lý Lead, Service Request, trao đổi và báo giá đúng quy
     assert.equal((await ServiceRequest.findById(serviceRequest._id)).status, 'reviewing');
     assert.ok(await Notification.exists({ recipient: customer._id, type: 'request.claimed', 'metadata.requestId': serviceRequest._id }));
     const otherCannotClaim = await call(`/staff/requests/${serviceRequest._id}/claim`, otherStaffToken, { method: 'POST', body: '{}' });
-    assert.equal(otherCannotClaim.status, 409);
+    assert.equal(otherCannotClaim.status, 404);
+    assert.equal((await call(`/staff/requests/${serviceRequest._id}`, otherStaffToken)).status, 404);
+    assert.equal((await call(`/staff/requests/${serviceRequest._id}/messages`, otherStaffToken)).status, 404);
+    assert.equal((await call(`/staff/requests/${serviceRequest._id}/attachments/${serviceRequest.attachments[0]._id}`, otherStaffToken)).status, 404);
+    assert.equal((await call(`/staff/requests/${serviceRequest._id}/messages/${attachmentMessage._id}/attachments/${attachmentMessage.attachments[0]._id}`, otherStaffToken)).status, 404);
+    const ownerDownload = await call(`/staff/requests/${serviceRequest._id}/attachments/${serviceRequest.attachments[0]._id}`, staffToken);
+    assert.equal(ownerDownload.status, 200);
     const review = await call(`/staff/requests/${serviceRequest._id}`, staffToken, { method: 'PATCH', body: JSON.stringify({ priority: 'urgent', status: 'reviewing', message: 'Kỹ thuật bắt đầu kiểm tra bản vẽ.' }) });
     assert.equal(review.status, 200);
     const needMoreInfo = await call(`/staff/requests/${serviceRequest._id}`, staffToken, { method: 'PATCH', body: JSON.stringify({ status: 'need_more_info', message: 'Vui lòng bổ sung dung sai của chi tiết.', visibility: 'customer' }) });
@@ -109,6 +139,14 @@ test('Staff xử lý Lead, Service Request, trao đổi và báo giá đúng quy
     assert.equal(quoteBody.data.total, 1100000);
     assert.equal(quoteBody.data.leadTime, '10 ngày');
     assert.equal(quoteBody.data.paymentTerms, 'Đặt cọc 50%');
+    workOrder = await WorkOrder.create({
+      request: serviceRequest._id, quotation: quoteBody.data._id, customer: customer._id,
+      assignedTo: staff._id, agreedTotal: quoteBody.data.total, contractReference: 'WO.[Scope]+'
+    });
+    const literalWorkOrderSearch = await (await call(`/staff/work-orders?q=${encodeURIComponent('.[Scope]+')}`, staffToken)).json();
+    assert.ok(literalWorkOrderSearch.data.items.some(item => item._id === String(workOrder._id)));
+    assert.equal((await call(`/staff/work-orders/${workOrder._id}`, otherStaffToken)).status, 404);
+    assert.equal((await call(`/staff/work-orders/${workOrder._id}`, staffToken)).status, 200);
 
     const customerDetail = await call(`/customer/requests/${serviceRequest._id}`, customerToken);
     const customerBody = await customerDetail.json();
@@ -119,6 +157,7 @@ test('Staff xử lý Lead, Service Request, trao đổi và báo giá đúng quy
 
     const confirmOrder = await call(`/staff/orders/${order._id}`, staffToken, { method: 'PATCH', body: JSON.stringify({ assignedTo: 'me', status: 'confirmed', paymentStatus: 'paid', amountPaid: 500000, paymentReference: 'FT-ORDER-TEST', message: 'Đã kiểm tra tồn kho.' }) });
     assert.equal(confirmOrder.status, 200);
+    assert.equal((await call(`/staff/orders/${order._id}`, otherStaffToken)).status, 404);
     assert.equal((await Product.findById(product._id)).stock, 3);
     const lockedTotal = await call(`/staff/orders/${order._id}`, staffToken, { method: 'PATCH', body: JSON.stringify({ shippingFee: 30000 }) });
     assert.equal(lockedTotal.status, 409);
@@ -166,6 +205,7 @@ test('Staff xử lý Lead, Service Request, trao đổi và báo giá đúng quy
     const reviewAfterSales = await call(`/staff/orders/${deliveryOrder._id}/after-sales/${afterSalesId}`, staffToken, { method: 'PATCH', body: JSON.stringify({ status: 'reviewing' }) });
     assert.equal(reviewAfterSales.status, 200);
   } finally {
+    if (workOrder) await WorkOrder.deleteOne({ _id: workOrder._id });
     if (serviceRequest) {
       await Promise.all([Quotation.deleteMany({ request: serviceRequest._id }), RequestMessage.deleteMany({ request: serviceRequest._id })]);
       await Notification.deleteMany({ 'metadata.requestId': serviceRequest._id });
@@ -178,6 +218,7 @@ test('Staff xử lý Lead, Service Request, trao đổi và báo giá đúng quy
     if (order) await Order.deleteOne({ _id: order._id });
     if (deliveryOrder) await Order.deleteOne({ _id: deliveryOrder._id });
     if (product) await Product.deleteOne({ _id: product._id });
+    await removeStoredFiles(storedFiles);
     await User.deleteMany({ _id: { $in: users } });
     await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
     await mongoose.disconnect();

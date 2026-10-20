@@ -92,6 +92,7 @@ function validateRuntimeConfig() {
   if (production && (!process.env.MFA_ENCRYPTION_KEY || process.env.MFA_ENCRYPTION_KEY.length < 32 || /replace_with_|your_/i.test(process.env.MFA_ENCRYPTION_KEY))) {
     errors.push('Production requires a random MFA_ENCRYPTION_KEY of at least 32 characters');
   }
+  if (production && !process.env.CLAMAV_HOST) errors.push('Production requires CLAMAV_HOST so customer uploads can fail closed');
   if (!smtpConfigured()) warnings.push('SMTP is incomplete; SMTP_HOST, SMTP_USER, SMTP_PASS and EMAIL_FROM/SMTP_FROM are required');
   if (!process.env.MFA_ENCRYPTION_KEY) warnings.push('MFA_ENCRYPTION_KEY is missing; Admin MFA setup is unavailable');
 

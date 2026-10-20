@@ -26,6 +26,8 @@ backups/
 *.key
 *.p12
 *.pfx
+*.agekey
+compose.production.env
 
 # misc
 .DS_Store

@@ -198,7 +198,7 @@ async function saveReply(conversation, triggerMessage, result, fallback = false)
   latestConversation.aiEscalationReason = result.needsHuman ? result.reason : undefined;
   latestConversation.lastAiReplyAt = message.createdAt;
   await latestConversation.save();
-  emitSupportMessage(conversation._id, message);
+  await emitSupportMessage(conversation._id, message);
   return message;
 }
 
@@ -210,7 +210,7 @@ async function generateSupportAiReply(conversationId, triggerMessageId) {
     return null;
   }
   inFlight.add(key);
-  emitSupportAiStatus(conversationId, 'thinking');
+  await emitSupportAiStatus(conversationId, 'thinking');
   try {
     const [conversation, triggerMessage] = await Promise.all([
       SupportConversation.findById(conversationId),
@@ -230,7 +230,7 @@ async function generateSupportAiReply(conversationId, triggerMessageId) {
     }));
     const result = await askGroq(history, await businessKnowledge());
     const message = await saveReply(conversation, triggerMessage, result);
-    emitSupportAiStatus(conversationId, result.needsHuman ? 'handoff' : 'idle');
+    await emitSupportAiStatus(conversationId, result.needsHuman ? 'handoff' : 'idle');
     return message;
   } catch (error) {
     console.error('Support AI failed:', error.name === 'AbortError' ? 'request timed out' : error.message);
@@ -243,7 +243,7 @@ async function generateSupportAiReply(conversationId, triggerMessageId) {
       reason: 'AI tạm thời không khả dụng'
     };
     const message = await saveReply(conversation, triggerMessage, fallback, true);
-    emitSupportAiStatus(conversationId, 'handoff');
+    await emitSupportAiStatus(conversationId, 'handoff');
     return message;
   } finally {
     inFlight.delete(key);

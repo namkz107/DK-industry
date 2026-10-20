@@ -6,6 +6,7 @@ param(
   [string]$SourceDatabase,
   [Parameter(Mandatory = $true)]
   [string]$TargetDatabase,
+  [string]$AgeIdentityFile = $env:BACKUP_AGE_IDENTITY_FILE,
   [switch]$DropExisting,
   [switch]$SkipIntegrityCheck,
   [switch]$AllowNonTestTarget,
@@ -14,6 +15,12 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $resolvedArchive = (Resolve-Path -LiteralPath $Archive).Path
+if ([System.IO.Path]::GetExtension($resolvedArchive) -ne '.age') { throw 'Chi chap nhan backup da ma hoa co duoi .age.' }
+if (-not $AgeIdentityFile) { throw 'Thieu BACKUP_AGE_IDENTITY_FILE. Private key phai nam ngoai repository va ngoai thu muc backup.' }
+$resolvedIdentity = (Resolve-Path -LiteralPath $AgeIdentityFile).Path
+$ageCommand = Get-Command age -ErrorAction SilentlyContinue
+if (-not $ageCommand) { throw 'Khong tim thay age. Hay cai age CLI va them vao PATH.' }
+$ageExecutable = if ($ageCommand.Source) { $ageCommand.Source } else { $ageCommand.Path }
 
 if (-not $SkipIntegrityCheck) {
   $hashFile = "$resolvedArchive.sha256"
@@ -49,6 +56,7 @@ if (-not $restoreCommand -and $env:USERPROFILE) {
 }
 if (-not $restoreCommand) { throw 'Khong tim thay mongorestore. Hay them MongoDB Database Tools\bin vao PATH.' }
 $restoreExecutable = if ($restoreCommand.Source) { $restoreCommand.Source } else { $restoreCommand.FullName }
+$decryptedArchive = Join-Path ([System.IO.Path]::GetTempPath()) "dk-industry-restore-$([guid]::NewGuid().ToString('N')).archive.gz"
 
 Write-Warning 'Khoi phuc co the ghi de du lieu. Hay kiem tra URI va tep backup truoc khi tiep tuc.'
 if (-not $ConfirmRestore) {
@@ -56,15 +64,23 @@ if (-not $ConfirmRestore) {
   if ($confirmation -cne 'RESTORE') { throw 'Da huy khoi phuc.' }
 }
 
-$arguments = @(
-  "--uri=$Uri",
-  "--archive=$resolvedArchive",
-  '--gzip',
-  "--nsInclude=$SourceDatabase.*",
-  "--nsFrom=$SourceDatabase.*",
-  "--nsTo=$TargetDatabase.*"
-)
-if ($DropExisting) { $arguments += '--drop' }
-& $restoreExecutable @arguments
-if ($LASTEXITCODE -ne 0) { throw "mongorestore that bai voi ma $LASTEXITCODE" }
-Write-Host 'Khoi phuc hoan tat. Hay chay smoke test va doi chieu so luong ban ghi.'
+try {
+  & $ageExecutable --decrypt --identity $resolvedIdentity --output $decryptedArchive $resolvedArchive
+  if ($LASTEXITCODE -ne 0) { throw "age giai ma that bai voi ma $LASTEXITCODE" }
+  if (-not (Test-Path -LiteralPath $decryptedArchive)) { throw 'age khong tao tep tam da giai ma.' }
+
+  $arguments = @(
+    "--uri=$Uri",
+    "--archive=$decryptedArchive",
+    '--gzip',
+    "--nsInclude=$SourceDatabase.*",
+    "--nsFrom=$SourceDatabase.*",
+    "--nsTo=$TargetDatabase.*"
+  )
+  if ($DropExisting) { $arguments += '--drop' }
+  & $restoreExecutable @arguments
+  if ($LASTEXITCODE -ne 0) { throw "mongorestore that bai voi ma $LASTEXITCODE" }
+  Write-Host 'Khoi phuc hoan tat. Hay chay smoke test va doi chieu so luong ban ghi.'
+} finally {
+  Remove-Item -LiteralPath $decryptedArchive -Force -ErrorAction SilentlyContinue
+}

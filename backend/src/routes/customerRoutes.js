@@ -1,5 +1,4 @@
 const crypto = require('crypto');
-const path = require('path');
 const express = require('express');
 const mongoose = require('mongoose');
 const multer = require('multer');
@@ -18,8 +17,9 @@ const { transitionOrder, transitionPayment, transitionServiceRequest } = require
 const { withTransaction } = require('../services/transactionService');
 const { writeAudit } = require('../services/auditService');
 const { createNotification, notifyAdmins, notifyOperations, dispatchSoon } = require('../services/notificationService');
-const { validateUploadedFiles } = require('../services/fileSecurityService');
-const { removeStoredFiles, sendStoredFile, storeCustomerFiles } = require('../services/fileStorageService');
+const { isAllowedCustomerFileMetadata, validateUploadedFiles } = require('../services/fileSecurityService');
+const { removeStoredFiles, sendStoredFile } = require('../services/fileStorageService');
+const { scanAndStoreCustomerFiles } = require('../services/secureUploadService');
 const { reverseLocation, searchLocations } = require('../services/locationService');
 const { requireVerifiedEmail } = require('../middleware/authenticate');
 const { createIdempotentMessage, messagePage, publicMessage } = require('../services/chatMessageService');
@@ -29,17 +29,14 @@ const router = express.Router();
 const phonePattern = /^(?:\+84|0)[0-9]{9,10}$/;
 const requestTypes = new Set(['machining', 'product_quote', 'consulting']);
 const paymentMethods = new Set(['cod', 'bank_transfer']);
-const allowedExtensions = new Set(['.pdf', '.dxf', '.dwg', '.step', '.stp', '.iges', '.igs', '.png', '.jpg', '.jpeg', '.zip']);
 const termsVersion = String(process.env.TERMS_VERSION || '2026-10-14').trim().slice(0, 30);
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { files: 5, fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, callback) => {
-    const extension = path.extname(file.originalname).toLowerCase();
-    if (!allowedExtensions.has(extension)) return callback(Object.assign(new Error('Chỉ nhận PDF, ảnh, DXF, DWG, STEP, IGES hoặc ZIP'), { status: 400 }));
-    callback(null, true);
-  }
+  fileFilter: (_req, file, callback) => isAllowedCustomerFileMetadata(file)
+    ? callback(null, true)
+    : callback(Object.assign(new Error('Loại tệp hoặc MIME type không được chấp nhận'), { status: 400 }))
 });
 
 const clean = value => String(value || '').trim();
@@ -55,7 +52,7 @@ const finiteCoordinate = (value, min, max) => {
 
 const safeAttachment = attachment => ({
   id: attachment._id, originalName: attachment.originalName,
-  mimeType: attachment.mimeType, size: attachment.size
+  mimeType: attachment.mimeType, size: attachment.size, scanStatus: attachment.scanStatus
 });
 
 router.get('/privacy/export', requireVerifiedEmail, async (req, res, next) => {
@@ -516,7 +513,7 @@ router.get('/requests/:id', async (req, res, next) => {
     const workOrder = await WorkOrder.findOne({ request: request._id, customer: req.user._id }).lean();
     const readAt = new Date();
     const readResult = await RequestMessage.updateMany({ request: request._id, visibility: 'customer', senderRole: { $in: ['staff', 'admin', 'system'] }, readByCustomerAt: null }, { readByCustomerAt: readAt });
-    if (readResult.modifiedCount) emitRequestEvent(request._id, 'message:read', { requestId: String(request._id), readerRole: 'customer', readAt: readAt.toISOString() });
+    if (readResult.modifiedCount) await emitRequestEvent(request._id, 'message:read', { requestId: String(request._id), readerRole: 'customer', readAt: readAt.toISOString() });
     res.json({ success: true, data: { request, messages: messageResult.items, messagePage: { hasMore: messageResult.hasMore, nextCursor: messageResult.nextCursor }, quotations, workOrder } });
   } catch (error) { next(error); }
 });
@@ -552,7 +549,7 @@ router.post('/requests', requireVerifiedEmail, upload.array('attachments', 5), a
     if (desiredDate && Number.isNaN(desiredDate.getTime())) fail('Ngày mong muốn không hợp lệ');
     const quantity = req.body.quantity ? Number(req.body.quantity) : undefined;
     if (quantity !== undefined && (!Number.isFinite(quantity) || quantity < 1 || quantity > 1000000)) fail('Số lượng không hợp lệ');
-    storedFiles = await storeCustomerFiles(req.files);
+    storedFiles = await scanAndStoreCustomerFiles(req.files, { actor: req.user._id, source: 'request' });
     const request = await ServiceRequest.create({
       code: code('YC'), customer: req.user._id, requestType, title, description,
       material: clean(req.body.material), quantity, dimensions: clean(req.body.dimensions), desiredDate, budget: clean(req.body.budget),
@@ -583,7 +580,7 @@ router.post('/requests/:id/messages', upload.array('attachments', 3), async (req
     const content = clean(req.body.content);
     if (!content && !req.files?.length) fail('Vui lòng nhập nội dung hoặc đính kèm tệp');
     if (content.length > 3000) fail('Nội dung trao đổi tối đa 3.000 ký tự');
-    storedFiles = await storeCustomerFiles(req.files);
+    storedFiles = await scanAndStoreCustomerFiles(req.files, { actor: req.user._id, source: 'message' });
     const result = await createIdempotentMessage({
       request: request._id, sender: req.user._id, senderRole: 'customer', visibility: 'customer',
       clientMessageId: req.body.clientMessageId,
@@ -603,8 +600,8 @@ router.post('/requests/:id/messages', upload.array('attachments', 3), async (req
     await request.save();
     await notifyOperations({ type: 'request.customer_message', title: `Khách bổ sung yêu cầu ${request.code}`, message: content || 'Khách hàng đã gửi thêm tệp đính kèm.', link: `/staff/requests?requestId=${request._id}&view=mine`, metadata: { requestId: request._id } });
     dispatchSoon();
-    emitMessage(result.message);
-    emitRequestUpdated(request._id, 'customer_message');
+    await emitMessage(result.message);
+    await emitRequestUpdated(request._id, 'customer_message');
     res.status(201).json({ success: true, message: 'Đã gửi trao đổi', data: publicMessage(result.message) });
   } catch (error) { if (!filesCommitted) await removeStoredFiles(storedFiles); next(error); }
 });
@@ -676,7 +673,7 @@ router.patch('/requests/:requestId/quotations/:quotationId/respond', async (req,
       : `/staff/requests?requestId=${req.params.requestId}&q=${encodeURIComponent(requestCode)}`;
     await notifyOperations({ type: `quotation.${decision}`, title: `Báo giá ${quotation.code} đã được phản hồi`, message: decision === 'accepted' ? `Khách hàng đã đồng ý. Dự án ${workOrder?.code || ''} đã được khởi tạo.` : `Khách hàng yêu cầu điều chỉnh báo giá.${responseNote ? ` ${responseNote}` : ''}`, link: staffLink, metadata: { requestId: req.params.requestId, quotationId: quotation._id, workOrderId: workOrder?._id } });
     dispatchSoon();
-    emitRequestUpdated(req.params.requestId, `quotation_${decision}`);
+    await emitRequestUpdated(req.params.requestId, `quotation_${decision}`);
     res.json({
       success: true,
       message: decision === 'accepted'
@@ -717,7 +714,7 @@ router.patch('/requests/:id/cancel', async (req, res, next) => {
     });
     await notifyOperations({ type: 'request.cancelled', title: `Yêu cầu ${request.code} đã bị hủy`, message: `${req.user.name} đã hủy yêu cầu.`, link: `/staff/requests?requestId=${request._id}&view=closed`, metadata: { requestId: request._id } });
     dispatchSoon();
-    emitRequestUpdated(request._id, 'cancelled');
+    await emitRequestUpdated(request._id, 'cancelled');
     res.json({ success: true, message: 'Đã hủy yêu cầu', data: request });
   } catch (error) { next(error); }
 });

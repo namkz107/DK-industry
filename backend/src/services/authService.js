@@ -66,7 +66,7 @@ function refreshExpiry() {
   return new Date(Date.now() + REFRESH_DAYS * 24 * 60 * 60 * 1000);
 }
 
-async function createSession(user, req) {
+async function createSession(user, req, { mfaVerified = false } = {}) {
   const refreshToken = newRefreshToken();
   const csrfToken = newCsrfToken();
   const session = await RefreshSession.create({
@@ -74,6 +74,7 @@ async function createSession(user, req) {
     tokenHash: hashToken(refreshToken),
     csrfTokenHash: hashToken(csrfToken),
     expiresAt: refreshExpiry(),
+    mfaVerifiedAt: mfaVerified ? new Date() : undefined,
     userAgent: req.get('user-agent') || '',
     ip: req.ip
   });

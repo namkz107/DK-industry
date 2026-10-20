@@ -24,11 +24,12 @@ export function LoginPage() {
   const [mfaCode, setMfaCode] = useState("")
   const [mfaBusy, setMfaBusy] = useState(false)
   const form = useForm<LoginData>({ resolver: zodResolver(schema), defaultValues: { identifier: "", password: "" } })
-  const homeForRole = (role: "customer" | "staff" | "admin") => role === "admin" ? "/admin" : role === "staff" ? "/staff" : "/tai-khoan"
-  if (ready && user) return <Navigate to={homeForRole(user.role)} replace/>
+  const homeForUser = (nextUser: { role: "customer" | "staff" | "admin"; mfaEnabled?: boolean }) =>
+    nextUser.role === "admin" ? (nextUser.mfaEnabled ? "/admin" : "/tai-khoan") : nextUser.role === "staff" ? "/staff" : "/tai-khoan"
+  if (ready && user) return <Navigate to={homeForUser(user)} replace/>
   const submit = form.handleSubmit(async data => {
     setServerError("")
-    try { const nextUser = await login(data); navigate((location.state as { from?: string } | null)?.from || homeForRole(nextUser.role), { replace: true }) }
+    try { const nextUser = await login(data); navigate((location.state as { from?: string } | null)?.from || homeForUser(nextUser), { replace: true }) }
     catch (error) {
       if (error instanceof MfaRequiredError) { setMfaChallenge(error.challengeToken); setServerError(""); return }
       setServerError(error instanceof Error ? error.message : "Không thể đăng nhập")
@@ -37,7 +38,7 @@ export function LoginPage() {
 
   const submitMfa = async (event: React.FormEvent) => {
     event.preventDefault(); setServerError(""); setMfaBusy(true)
-    try { const nextUser = await completeMfa(mfaChallenge, mfaCode); navigate((location.state as { from?: string } | null)?.from || homeForRole(nextUser.role), { replace: true }) }
+    try { const nextUser = await completeMfa(mfaChallenge, mfaCode); navigate((location.state as { from?: string } | null)?.from || homeForUser(nextUser), { replace: true }) }
     catch (error) { setServerError(error instanceof Error ? error.message : "Không thể xác thực MFA") }
     finally { setMfaBusy(false) }
   }

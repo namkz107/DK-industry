@@ -4,7 +4,8 @@ const RequestMessage = require('../models/RequestMessage');
 const ServiceRequest = require('../models/ServiceRequest');
 const User = require('../models/User');
 const { verifyAccessToken } = require('../services/authService');
-const { customerRoom, staffRoom, setChatNamespace, emitRequestEvent } = require('../services/realtimeService');
+const { customerRoom, staffRoom, setChatNamespace, emitRequestEvent, emitTyping } = require('../services/realtimeService');
+const { isSocketSessionActive, registerSocketSession } = require('../services/socketSessionService');
 const { initializeSupportGateway } = require('./supportGateway');
 const { clientOrigins } = require('../config/runtime');
 
@@ -14,17 +15,20 @@ async function authenticatedUser(token) {
   const payload = verifyAccessToken(token);
   const user = await User.findById(payload.sub).select('+tokenVersion');
   if (!user || user.status !== 'active' || user.tokenVersion !== payload.tv) throw new Error('Phiên đăng nhập không còn hiệu lực');
-  if ((process.env.NODE_ENV === 'production' || process.env.ENFORCE_SESSION_CHECK === 'true') && payload.sid) {
+  if (process.env.NODE_ENV === 'production' || process.env.ENFORCE_SESSION_CHECK === 'true') {
+    if (!payload.sid) throw new Error('Phiên đăng nhập không còn hiệu lực');
     const active = await RefreshSession.exists({ _id: payload.sid, user: user._id, revokedAt: null, expiresAt: { $gt: new Date() } });
     if (!active) throw new Error('Phiên đăng nhập đã bị thu hồi');
   }
-  return { user, expiresAt: payload.exp * 1000 };
+  return { user, expiresAt: payload.exp * 1000, sessionId: payload.sid };
 }
 
 async function authorizedRequest(requestId, user) {
   if (!validRequestId(requestId)) return null;
   if (!['customer', 'staff'].includes(user.role)) return null;
-  const filter = user.role === 'customer' ? { _id: requestId, customer: user._id } : { _id: requestId };
+  const filter = user.role === 'customer'
+    ? { _id: requestId, customer: user._id }
+    : { _id: requestId, assignedTo: { $in: [user._id, null] } };
   return ServiceRequest.findOne(filter).select('_id customer assignedTo').lean();
 }
 
@@ -45,6 +49,7 @@ function initializeChatGateway(httpServer) {
       const authenticated = await authenticatedUser(token);
       socket.data.user = authenticated.user;
       socket.data.expiresAt = authenticated.expiresAt;
+      socket.data.sessionId = authenticated.sessionId;
       next();
     } catch (error) {
       next(new Error(error.name === 'TokenExpiredError' ? 'Phiên đăng nhập đã hết hạn' : error.message || 'Không thể xác thực'));
@@ -52,6 +57,7 @@ function initializeChatGateway(httpServer) {
   });
 
   chat.on('connection', socket => {
+    registerSocketSession(socket, { sessionId: socket.data.sessionId, userId: socket.data.user._id });
     const expiryTimer = setTimeout(() => {
       socket.emit('auth:expired');
       socket.disconnect(true);
@@ -62,10 +68,18 @@ function initializeChatGateway(httpServer) {
 
     socket.on('request:join', async (requestId, acknowledge = () => {}) => {
       try {
+        if (!await isSocketSessionActive(socket)) {
+          socket.disconnect(true);
+          return acknowledge({ ok: false, message: 'Phiên đăng nhập không còn hiệu lực' });
+        }
         const request = await authorizedRequest(requestId, socket.data.user);
         if (!request) return acknowledge({ ok: false, message: 'Bạn không có quyền truy cập hội thoại này' });
         const room = socket.data.user.role === 'customer' ? customerRoom(requestId) : staffRoom(requestId);
         await socket.join(room);
+        if (!await authorizedRequest(requestId, socket.data.user)) {
+          await socket.leave(room);
+          return acknowledge({ ok: false, message: 'Bạn không có quyền truy cập hội thoại này' });
+        }
         acknowledge({ ok: true });
       } catch {
         acknowledge({ ok: false, message: 'Không thể mở hội thoại' });
@@ -81,8 +95,16 @@ function initializeChatGateway(httpServer) {
     socket.on('message:read', async (requestId, acknowledge = () => {}) => {
       try {
         const user = socket.data.user;
+        if (!await isSocketSessionActive(socket)) {
+          socket.disconnect(true);
+          return acknowledge({ ok: false });
+        }
         const request = await authorizedRequest(requestId, user);
-        if (!request) return acknowledge({ ok: false });
+        if (!request) {
+          socket.leave(customerRoom(requestId));
+          socket.leave(staffRoom(requestId));
+          return acknowledge({ ok: false });
+        }
         const now = new Date();
         const isCustomer = user.role === 'customer';
         const filter = isCustomer
@@ -91,7 +113,7 @@ function initializeChatGateway(httpServer) {
         const update = isCustomer ? { readByCustomerAt: now } : { readByStaffAt: now };
         const result = await RequestMessage.updateMany(filter, update);
         if (result.modifiedCount) {
-          emitRequestEvent(requestId, 'message:read', { requestId: String(requestId), readerRole: isCustomer ? 'customer' : 'staff', readAt: now.toISOString() });
+          await emitRequestEvent(requestId, 'message:read', { requestId: String(requestId), readerRole: isCustomer ? 'customer' : 'staff', readAt: now.toISOString() });
         }
         acknowledge({ ok: true, readAt: now.toISOString() });
       } catch {
@@ -100,13 +122,20 @@ function initializeChatGateway(httpServer) {
     });
 
     for (const event of ['typing:start', 'typing:stop']) {
-      socket.on(event, requestId => {
+      socket.on(event, async requestId => {
         if (!validRequestId(requestId)) return;
-        const user = socket.data.user;
-        const ownRoom = user.role === 'customer' ? customerRoom(requestId) : staffRoom(requestId);
-        if (!socket.rooms.has(ownRoom)) return;
-        const targetRoom = user.role === 'customer' ? staffRoom(requestId) : customerRoom(requestId);
-        socket.to(targetRoom).emit(event, { requestId: String(requestId), role: user.role, name: user.name });
+        try {
+          if (!await isSocketSessionActive(socket)) return socket.disconnect(true);
+          const user = socket.data.user;
+          const ownRoom = user.role === 'customer' ? customerRoom(requestId) : staffRoom(requestId);
+          if (!socket.rooms.has(ownRoom) || !await authorizedRequest(requestId, user)) {
+            await socket.leave(ownRoom);
+            return;
+          }
+          await emitTyping(requestId, event, { requestId: String(requestId), role: user.role, name: user.name }, socket.id);
+        } catch {
+          // Typing indicators are best effort and fail closed.
+        }
       });
     }
   });

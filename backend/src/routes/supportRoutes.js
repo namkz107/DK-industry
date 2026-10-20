@@ -23,7 +23,8 @@ async function optionalUser(req) {
   const payload = verifyAccessToken(token);
   const user = await User.findById(payload.sub).select('+tokenVersion');
   if (!user || user.status !== 'active' || user.tokenVersion !== payload.tv) throw Object.assign(new Error('Phiên đăng nhập không còn hiệu lực'), { status: 401 });
-  if ((process.env.NODE_ENV === 'production' || process.env.ENFORCE_SESSION_CHECK === 'true') && payload.sid) {
+  if (process.env.NODE_ENV === 'production' || process.env.ENFORCE_SESSION_CHECK === 'true') {
+    if (!payload.sid) throw Object.assign(new Error('Phiên đăng nhập không còn hiệu lực'), { status: 401 });
     const active = await RefreshSession.exists({ _id: payload.sid, user: user._id, revokedAt: null, expiresAt: { $gt: new Date() } });
     if (!active) throw Object.assign(new Error('Phiên đăng nhập đã bị thu hồi'), { status: 401 });
   }
@@ -42,6 +43,8 @@ async function context(req) {
 function requireStaff(user) {
   if (!user || user.role !== 'staff') throw Object.assign(new Error('Bạn không có quyền truy cập hộp thư hỗ trợ'), { status: 403 });
 }
+
+const staffConversationFilter = (user, extra = {}) => ({ ...extra, assignedTo: { $in: [user._id, null] } });
 
 function publicConversation(value) {
   const item = typeof value.toObject === 'function' ? value.toObject() : { ...value };
@@ -177,7 +180,7 @@ router.post('/messages', async (req, res, next) => {
       await auth.conversation.save();
       await notifyOperations({ type: 'support.customer_message', title: `Tin hỗ trợ từ ${auth.conversation.contact.name || auth.user?.name || 'khách hàng'}`, message: content.slice(0, 180), link: '/staff/support', metadata: { conversationId: auth.conversation._id } });
       dispatchSoon();
-      emitSupportMessage(auth.conversation._id, message);
+      await emitSupportMessage(auth.conversation._id, message);
       queueSupportAiReply(auth.conversation._id, message._id);
     }
     res.status(duplicate ? 200 : 201).json({ success: true, data: { conversation: publicConversation(auth.conversation), message, socketToken: socketToken(auth) } });
@@ -187,7 +190,7 @@ router.post('/messages', async (req, res, next) => {
 router.get('/conversations', async (req, res, next) => {
   try {
     const { user } = await context(req); requireStaff(user);
-    const items = await SupportConversation.find({ customer: { $exists: true } }).populate('customer', 'name email phone company').populate('assignedTo', 'name email').sort({ lastMessageAt: -1 }).limit(100).lean();
+    const items = await SupportConversation.find(staffConversationFilter(user, { customer: { $exists: true } })).populate('customer', 'name email phone company').populate('assignedTo', 'name email').sort({ lastMessageAt: -1 }).limit(100).lean();
     res.json({ success: true, data: items.map(publicConversation) });
   } catch (error) { next(error); }
 });
@@ -196,7 +199,7 @@ router.get('/conversations/:id', async (req, res, next) => {
   try {
     const { user } = await context(req); requireStaff(user);
     if (!validId(req.params.id)) throw Object.assign(new Error('Hội thoại không hợp lệ'), { status: 404 });
-    const conversation = await SupportConversation.findById(req.params.id).populate('customer', 'name email phone company').populate('assignedTo', 'name email');
+    const conversation = await SupportConversation.findOne(staffConversationFilter(user, { _id: req.params.id })).populate('customer', 'name email phone company').populate('assignedTo', 'name email');
     if (!conversation) throw Object.assign(new Error('Không tìm thấy hội thoại'), { status: 404 });
     const messages = await latestMessages(conversation._id);
     res.json({ success: true, data: { conversation: publicConversation(conversation), messages: messages.items, page: { hasMore: messages.hasMore, nextCursor: messages.nextCursor } } });
@@ -206,7 +209,7 @@ router.get('/conversations/:id', async (req, res, next) => {
 router.get('/conversations/:id/messages', async (req, res, next) => {
   try {
     const { user } = await context(req); requireStaff(user);
-    if (!validId(req.params.id) || !await SupportConversation.exists({ _id: req.params.id })) throw Object.assign(new Error('Không tìm thấy hội thoại'), { status: 404 });
+    if (!validId(req.params.id) || !await SupportConversation.exists(staffConversationFilter(user, { _id: req.params.id }))) throw Object.assign(new Error('Không tìm thấy hội thoại'), { status: 404 });
     res.json({ success: true, data: await latestMessages(req.params.id, req.query.before, req.query.limit) });
   } catch (error) { next(error); }
 });
@@ -214,7 +217,7 @@ router.get('/conversations/:id/messages', async (req, res, next) => {
 router.post('/conversations/:id/messages', async (req, res, next) => {
   try {
     const { user } = await context(req); requireStaff(user);
-    const conversation = validId(req.params.id) ? await SupportConversation.findById(req.params.id) : null;
+    const conversation = validId(req.params.id) ? await SupportConversation.findOne(staffConversationFilter(user, { _id: req.params.id })) : null;
     if (!conversation) throw Object.assign(new Error('Không tìm thấy hội thoại'), { status: 404 });
     if (conversation.status !== 'open') throw Object.assign(new Error('Hội thoại đã đóng'), { status: 409 });
     const content = clean(req.body.content);
@@ -238,7 +241,7 @@ router.post('/conversations/:id/messages', async (req, res, next) => {
       conversation.lastMessageAt = new Date(); conversation.lastMessagePreview = content.slice(0, 200); conversation.unreadByCustomer += 1;
       await conversation.save();
       if (conversation.customer) await createNotification({ recipient: conversation.customer, type: 'support.staff_message', title: 'DK Industry đã phản hồi hỗ trợ', message: content.slice(0, 180), link: '/', metadata: { conversationId: conversation._id } });
-      dispatchSoon(); emitSupportMessage(conversation._id, message);
+      dispatchSoon(); await emitSupportMessage(conversation._id, message);
     }
     res.status(duplicate ? 200 : 201).json({ success: true, data: message });
   } catch (error) { next(error); }
@@ -247,12 +250,12 @@ router.post('/conversations/:id/messages', async (req, res, next) => {
 router.patch('/conversations/:id', async (req, res, next) => {
   try {
     const { user } = await context(req); requireStaff(user);
-    const conversation = validId(req.params.id) ? await SupportConversation.findById(req.params.id) : null;
+    const conversation = validId(req.params.id) ? await SupportConversation.findOne(staffConversationFilter(user, { _id: req.params.id })) : null;
     if (!conversation) throw Object.assign(new Error('Không tìm thấy hội thoại'), { status: 404 });
     if (req.body.assignedTo === 'me') conversation.assignedTo = user._id;
     if (req.body.status === 'closed') { conversation.status = 'closed'; conversation.closedAt = new Date(); }
     if (req.body.status === 'open') { conversation.status = 'open'; conversation.closedAt = undefined; }
-    await conversation.save(); emitSupportUpdated(conversation._id);
+    await conversation.save(); await emitSupportUpdated(conversation._id);
     res.json({ success: true, data: publicConversation(conversation) });
   } catch (error) { next(error); }
 });

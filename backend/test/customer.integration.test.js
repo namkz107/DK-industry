@@ -9,11 +9,13 @@ process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET ||= 'local_customer_integration_secret_longer_than_32_characters';
 
 const app = require('../src/app');
+const AuditLog = require('../src/models/AuditLog');
 const Cart = require('../src/models/Cart');
 const DataPrivacyRequest = require('../src/models/DataPrivacyRequest');
 const Order = require('../src/models/Order');
 const Product = require('../src/models/Product');
 const Quotation = require('../src/models/Quotation');
+const QuarantinedUpload = require('../src/models/QuarantinedUpload');
 const RefreshSession = require('../src/models/RefreshSession');
 const RequestMessage = require('../src/models/RequestMessage');
 const ServiceRequest = require('../src/models/ServiceRequest');
@@ -21,11 +23,13 @@ const User = require('../src/models/User');
 const WorkOrder = require('../src/models/WorkOrder');
 const Notification = require('../src/models/Notification');
 const { removeStoredFiles } = require('../src/services/fileStorageService');
+const { setMalwareScannerForTests } = require('../src/services/secureUploadService');
 const { uniqueToken, uniqueVietnamesePhone } = require('../test-utils/uniqueTestData');
 
 const runIntegration = process.env.RUN_CUSTOMER_INTEGRATION === '1';
 
 test('Customer quản lý hồ sơ, giỏ hàng, đơn hàng và yêu cầu riêng', { skip: !runIntegration }, async () => {
+  setMalwareScannerForTests(async () => ({ status: 'clean' }));
   await mongoose.connect(process.env.MONGODB_URI);
   const server = app.listen(0, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));
@@ -57,6 +61,9 @@ test('Customer quản lý hồ sơ, giỏ hàng, đơn hàng và yêu cầu riê
 
     const profile = await request('/customer/profile', customer.accessToken, { method: 'PATCH', body: JSON.stringify({ name: 'Khách hàng kiểm thử', phone: ownerPhone, company: 'Công ty Kiểm thử', taxCode: '0101234567' }) });
     assert.equal(profile.status, 200);
+    const unsafeProfileUpdate = await request('/customer/profile', customer.accessToken, { method: 'PATCH', body: JSON.stringify({ $set: { role: 'admin' } }) });
+    assert.equal(unsafeProfileUpdate.status, 400);
+    assert.equal((await User.findById(customer.user.id)).role, 'customer');
 
     const addressResponse = await request('/customer/addresses', customer.accessToken, { method: 'POST', body: JSON.stringify({ label: 'Nhà máy', recipientName: 'Nguyễn Kiểm Thử', phone: ownerPhone, addressLine: 'Cụm 3, thôn Duyên Trường', ward: 'Duyên Thái', district: 'Thường Tín', province: 'Hà Nội', isDefault: true }) });
     const addressBody = await addressResponse.json();
@@ -85,6 +92,11 @@ test('Customer quản lý hồ sơ, giỏ hàng, đơn hàng và yêu cầu riê
     assert.equal(cancelOrder.status, 200);
     assert.equal((await cancelOrder.json()).data.paymentStatus, 'refund_pending');
 
+    const mismatchedMimeForm = new FormData();
+    mismatchedMimeForm.append('requestType', 'machining'); mismatchedMimeForm.append('title', 'Tệp sai MIME kiểm thử'); mismatchedMimeForm.append('description', 'Nội dung đủ dài để kiểm tra MIME không khớp.');
+    mismatchedMimeForm.append('attachments', new Blob(['%PDF-1.4 mismatched MIME'], { type: 'image/png' }), 'gia-mao.pdf');
+    assert.equal((await request('/customer/requests', customer.accessToken, { method: 'POST', body: mismatchedMimeForm })).status, 400);
+
     const form = new FormData();
     form.append('requestType', 'machining'); form.append('title', 'Gia công chi tiết kiểm thử'); form.append('description', 'Cần gia công chi tiết theo đúng bản vẽ PDF đính kèm.'); form.append('material', 'Inox 304'); form.append('quantity', '10');
     form.append('attachments', new Blob(['%PDF-1.4 customer integration test'], { type: 'application/pdf' }), 'ban-ve-test.pdf');
@@ -97,12 +109,22 @@ test('Customer quản lý hồ sơ, giỏ hàng, đơn hàng và yêu cầu riê
     const serviceRequest = listBody.data.find(item => item._id === createRequestBody.data.id);
     assert.equal(serviceRequest.attachments.length, 1);
     assert.equal(Object.hasOwn(serviceRequest.attachments[0], 'storedName'), false);
+    assert.equal(serviceRequest.attachments[0].scanStatus, 'clean');
 
     const otherCannotDownload = await request(`/customer/requests/${serviceRequest._id}/attachments/${serviceRequest.attachments[0]._id}`, other.accessToken);
     assert.equal(otherCannotDownload.status, 404);
     const download = await request(`/customer/requests/${serviceRequest._id}/attachments/${serviceRequest.attachments[0]._id}`, customer.accessToken);
     assert.equal(download.status, 200);
     assert.match(await download.text(), /customer integration test/);
+    await ServiceRequest.updateOne(
+      { _id: serviceRequest._id, 'attachments._id': serviceRequest.attachments[0]._id },
+      { $set: { 'attachments.$.scanStatus': 'pending' } }
+    );
+    assert.equal((await request(`/customer/requests/${serviceRequest._id}/attachments/${serviceRequest.attachments[0]._id}`, customer.accessToken)).status, 423);
+    await ServiceRequest.updateOne(
+      { _id: serviceRequest._id, 'attachments._id': serviceRequest.attachments[0]._id },
+      { $set: { 'attachments.$.scanStatus': 'clean' } }
+    );
 
     const messageForm = new FormData(); messageForm.append('content', 'Tôi bổ sung thêm dung sai ±0.05mm.'); messageForm.append('attachments', new Blob(['%PDF-1.4 supplement'], { type: 'application/pdf' }), 'bo-sung.pdf');
     const sendMessage = await request(`/customer/requests/${serviceRequest._id}/messages`, customer.accessToken, { method: 'POST', body: messageForm });
@@ -117,6 +139,21 @@ test('Customer quản lý hồ sơ, giỏ hàng, đơn hàng và yêu cầu riê
     const downloadMessage = await request(`/customer/requests/${serviceRequest._id}/messages/${customerMessage._id}/attachments/${customerMessage.attachments[0]._id}`, customer.accessToken);
     assert.equal(downloadMessage.status, 200);
     assert.match(await downloadMessage.text(), /supplement/);
+
+    setMalwareScannerForTests(async () => ({ status: 'infected' }));
+    const infectedForm = new FormData();
+    infectedForm.append('requestType', 'machining');
+    infectedForm.append('title', 'Tệp EICAR kiểm thử');
+    infectedForm.append('description', 'Nội dung kiểm thử tệp bị scanner từ chối và cách ly.');
+    infectedForm.append('scanStatus', 'clean');
+    infectedForm.append('attachments', new Blob(['%PDF-1.4 EICAR test payload'], { type: 'application/pdf' }), 'eicar-test.pdf');
+    const infectedResponse = await request('/customer/requests', customer.accessToken, { method: 'POST', body: infectedForm });
+    assert.equal(infectedResponse.status, 422);
+    const quarantined = await QuarantinedUpload.findOne({ owner: customer.user.id, scanStatus: 'infected' }).select('+storedName');
+    assert.ok(quarantined?.storedName);
+    assert.ok(await AuditLog.exists({ actor: customer.user.id, action: 'upload.quarantined', entityId: quarantined._id }));
+    assert.equal(await ServiceRequest.countDocuments({ customer: customer.user.id, title: 'Tệp EICAR kiểm thử' }), 0);
+    setMalwareScannerForTests(async () => ({ status: 'clean' }));
 
     const firstQuote = await Quotation.create({ request: serviceRequest._id, customer: customer.user.id, version: 1, items: [{ description: 'Gia công chi tiết inox', quantity: 10, unit: 'chiếc', unitPrice: 100000 }], taxRate: 10, validUntil: new Date(Date.now() + 7 * 86400000), status: 'sent', sentAt: new Date(), leadTime: '7 ngày làm việc' });
     await ServiceRequest.updateOne({ _id: serviceRequest._id }, { status: 'quoted', $push: { timeline: { status: 'quoted', message: `Đã gửi báo giá ${firstQuote.code}.`, actorType: 'system' } } });
@@ -181,16 +218,20 @@ test('Customer quản lý hồ sơ, giỏ hàng, đơn hàng và yêu cầu riê
   } finally {
     const storedRequests = await ServiceRequest.find({ customer: { $in: users } });
     const storedMessages = await RequestMessage.find({ request: { $in: storedRequests.map(item => item._id) } }).select('+attachments.storedName');
+    const quarantinedFiles = await QuarantinedUpload.find({ owner: { $in: users } }).select('+storedName');
     await removeStoredFiles([
       ...storedRequests.flatMap(item => item.attachments || []),
-      ...storedMessages.flatMap(item => item.attachments || [])
+      ...storedMessages.flatMap(item => item.attachments || []),
+      ...quarantinedFiles
     ]);
     await Promise.all([
       Cart.deleteMany({ customer: { $in: users } }), Order.deleteMany({ customer: { $in: users } }), WorkOrder.deleteMany({ customer: { $in: users } }), Notification.deleteMany({ recipient: { $in: users } }), DataPrivacyRequest.deleteMany({ customer: { $in: users } }),
       Quotation.deleteMany({ customer: { $in: users } }), RequestMessage.deleteMany({ request: { $in: storedRequests.map(item => item._id) } }), ServiceRequest.deleteMany({ customer: { $in: users } }), RefreshSession.deleteMany({ user: { $in: users } }),
+      AuditLog.deleteMany({ actor: { $in: users }, action: 'upload.quarantined' }), QuarantinedUpload.deleteMany({ owner: { $in: users } }),
       User.deleteMany({ _id: { $in: users } }), product ? Product.deleteOne({ _id: product._id }) : Promise.resolve()
     ]);
     await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
     await mongoose.disconnect();
+    setMalwareScannerForTests();
   }
 });

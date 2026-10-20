@@ -4,10 +4,13 @@ const path = require('path');
 const { Readable } = require('stream');
 const { v2: cloudinary } = require('cloudinary');
 const { storageDriver } = require('../config/runtime');
+const { canonicalCustomerMimeType } = require('./fileSecurityService');
 
 const descriptorPrefix = 'cloudinary:';
+const quarantinePrefix = 'quarantine:';
 const storageRoot = () => path.resolve(process.env.FILE_STORAGE_ROOT || path.join(__dirname, '..', '..', 'storage'));
 const customerDirectory = () => path.join(storageRoot(), 'customer-requests');
+const quarantineDirectory = () => path.join(storageRoot(), 'customer-quarantine');
 const contentDirectory = () => path.join(storageRoot(), 'content-images');
 const contentStorageDirectory = () => contentDirectory();
 
@@ -34,16 +37,19 @@ function uploadBuffer(buffer, options) {
   });
 }
 
-async function storeCustomerFile(file) {
+async function storeCustomerFile(file, { quarantine = false } = {}) {
   const extension = path.extname(file.originalname).toLowerCase();
+  const mimeType = canonicalCustomerMimeType(file.originalname);
   if (storageDriver() === 'cloudinary') {
-    const result = await uploadBuffer(file.buffer, { public_id: `dk-industry/customer-requests/${crypto.randomUUID()}${extension}`, resource_type: 'raw', type: 'authenticated', overwrite: false });
-    return { originalName: file.originalname, storedName: encodeDescriptor({ publicId: result.public_id, format: result.format || extension.slice(1) || 'bin' }), mimeType: file.mimetype, size: file.size };
+    const folder = quarantine ? 'quarantine' : 'customer-requests';
+    const result = await uploadBuffer(file.buffer, { public_id: `dk-industry/${folder}/${crypto.randomUUID()}${extension}`, resource_type: 'raw', type: 'authenticated', overwrite: false });
+    return { originalName: file.originalname, storedName: encodeDescriptor({ publicId: result.public_id, format: result.format || extension.slice(1) || 'bin' }), mimeType, size: file.size };
   }
-  await fs.promises.mkdir(customerDirectory(), { recursive: true });
+  const directory = quarantine ? quarantineDirectory() : customerDirectory();
+  await fs.promises.mkdir(directory, { recursive: true });
   const storedName = `${crypto.randomUUID()}${extension}`;
-  await fs.promises.writeFile(path.join(customerDirectory(), storedName), file.buffer, { flag: 'wx' });
-  return { originalName: file.originalname, storedName, mimeType: file.mimetype, size: file.size };
+  await fs.promises.writeFile(path.join(directory, storedName), file.buffer, { flag: 'wx' });
+  return { originalName: file.originalname, storedName: quarantine ? `${quarantinePrefix}${storedName}` : storedName, mimeType, size: file.size };
 }
 
 async function storeCustomerFiles(files = []) {
@@ -65,8 +71,11 @@ async function removeStoredFiles(files = []) {
       await cloudinary.uploader.destroy(descriptor.publicId, { resource_type: 'raw', type: 'authenticated', invalidate: true }).catch(() => {});
       return;
     }
-    const safeName = path.basename(String(file.storedName || ''));
-    if (safeName && safeName === file.storedName) await fs.promises.unlink(path.join(customerDirectory(), safeName)).catch(() => {});
+    const value = String(file.storedName || '');
+    const quarantined = value.startsWith(quarantinePrefix);
+    const rawName = quarantined ? value.slice(quarantinePrefix.length) : value;
+    const safeName = path.basename(rawName);
+    if (safeName && safeName === rawName) await fs.promises.unlink(path.join(quarantined ? quarantineDirectory() : customerDirectory(), safeName)).catch(() => {});
   }));
 }
 
@@ -78,6 +87,9 @@ function downloadFilename(value) {
 }
 
 async function sendStoredFile(res, attachment) {
+  if (attachment.scanStatus !== 'clean') {
+    throw Object.assign(new Error('Tệp chưa vượt qua kiểm tra an toàn và không thể tải xuống'), { status: 423 });
+  }
   const descriptor = decodeDescriptor(attachment.storedName);
   if (descriptor) {
     configureCloudinary();
@@ -106,7 +118,7 @@ async function sendStoredFile(res, attachment) {
     return;
   }
   const safeName = path.basename(String(attachment.storedName || ''));
-  if (!safeName || safeName !== attachment.storedName) throw Object.assign(new Error('Tệp đính kèm không hợp lệ'), { status: 404 });
+  if (!safeName || safeName !== attachment.storedName || safeName.startsWith(quarantinePrefix)) throw Object.assign(new Error('Tệp đính kèm không hợp lệ'), { status: 404 });
   return res.download(path.join(customerDirectory(), safeName), attachment.originalName);
 }
 
@@ -136,4 +148,4 @@ async function removeContentImage(filename) {
   if (safeName && safeName === value) await fs.promises.unlink(path.join(contentDirectory(), safeName)).catch(() => {});
 }
 
-module.exports = { contentStorageDirectory, decodeDescriptor, removeContentImage, removeStoredFiles, sendStoredFile, storeContentImage, storeCustomerFiles };
+module.exports = { contentStorageDirectory, decodeDescriptor, removeContentImage, removeStoredFiles, sendStoredFile, storeContentImage, storeCustomerFile, storeCustomerFiles };

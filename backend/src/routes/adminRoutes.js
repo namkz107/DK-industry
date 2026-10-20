@@ -16,6 +16,7 @@ const WorkOrder = require('../models/WorkOrder');
 const { validateImageFile } = require('../services/fileSecurityService');
 const { storeContentImage } = require('../services/fileStorageService');
 const { createNotification, dispatchSoon } = require('../services/notificationService');
+const { disconnectUserSockets } = require('../services/socketSessionService');
 
 const router = express.Router();
 const phonePattern = /^(?:\+84|0)[0-9]{9,10}$/;
@@ -243,7 +244,10 @@ router.patch('/users/:id', async (req, res, next) => {
     const securityChanged = before.role !== user.role || before.status !== user.status;
     if (securityChanged) user.tokenVersion += 1;
     await user.save();
-    if (securityChanged) await RefreshSession.deleteMany({ user: user._id });
+    if (securityChanged) {
+      await RefreshSession.deleteMany({ user: user._id });
+      disconnectUserSockets(user._id, { reason: 'account_security_changed' });
+    }
     await audit(req, 'user.updated', 'user', user._id, `Đã cập nhật tài khoản ${user.name}`, { before, after: { role: user.role, status: user.status } });
     res.json({ success: true, message: 'Đã cập nhật tài khoản', data: publicUser(user) });
   } catch (error) { next(error); }
@@ -258,6 +262,7 @@ router.post('/users/:id/reset-password', async (req, res, next) => {
     if (!user) fail('Không tìm thấy tài khoản', 404);
     user.passwordHash = await User.hashPassword(password); user.tokenVersion += 1; await user.save();
     await RefreshSession.deleteMany({ user: user._id });
+    disconnectUserSockets(user._id, { reason: 'admin_password_reset' });
     await audit(req, 'user.password_reset', 'user', user._id, `Đã đặt lại mật khẩu cho ${user.name}`);
     res.json({ success: true, message: 'Đã đặt lại mật khẩu và đăng xuất các phiên cũ' });
   } catch (error) { next(error); }

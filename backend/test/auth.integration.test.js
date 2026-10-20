@@ -13,7 +13,9 @@ const app = require('../src/app');
 const User = require('../src/models/User');
 const RefreshSession = require('../src/models/RefreshSession');
 const { uniqueToken, uniqueVietnamesePhone } = require('../test-utils/uniqueTestData');
-const { encryptSecret, totp } = require('../src/services/mfaService');
+const { totp } = require('../src/services/mfaService');
+const { issueAccountToken } = require('../src/services/accountTokenService');
+const { hashToken } = require('../src/services/authService');
 
 const runIntegration = process.env.RUN_AUTH_INTEGRATION === '1';
 
@@ -97,27 +99,101 @@ test('luồng register → me → refresh → RBAC → logout', { skip: !runInte
     assert.equal(adminBody.data.user.role, 'admin');
     cookie = adminRefresh.headers.get('set-cookie').split(';')[0];
 
+    const blockedAdminDashboard = await fetch(`${baseUrl}/admin/dashboard`, { headers: { Authorization: `Bearer ${adminBody.data.accessToken}` } });
+    assert.equal(blockedAdminDashboard.status, 403);
+    assert.equal((await blockedAdminDashboard.json()).code, 'MFA_ENROLLMENT_REQUIRED');
+
+    const setupMfa = await fetch(`${baseUrl}/auth/mfa/setup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminBody.data.accessToken}` },
+      body: JSON.stringify({ password: 'StrongPass123' })
+    });
+    const setupMfaBody = await setupMfa.json();
+    assert.equal(setupMfa.status, 200);
+    const mfaSecret = setupMfaBody.data.manualKey;
+    const badConfirm = await fetch(`${baseUrl}/auth/mfa/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminBody.data.accessToken}` },
+      body: JSON.stringify({ code: '000000' })
+    });
+    assert.equal(badConfirm.status, 400);
+    const confirmMfa = await fetch(`${baseUrl}/auth/mfa/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminBody.data.accessToken}` },
+      body: JSON.stringify({ code: totp(mfaSecret) })
+    });
+    assert.equal(confirmMfa.status, 200);
     const adminDashboard = await fetch(`${baseUrl}/admin/dashboard`, { headers: { Authorization: `Bearer ${adminBody.data.accessToken}` } });
     assert.equal(adminDashboard.status, 200);
 
-    const mfaSecret = 'JBSWY3DPEHPK3PXP';
-    await User.updateOne({ _id: userId }, { mfaEnabledAt: new Date(), mfaSecretEncrypted: encryptSecret(mfaSecret), mfaRecoveryCodeHashes: [] });
+    const staleRefreshToken = `stale-refresh-${uniqueToken('mfa')}`;
+    const staleCsrfToken = `stale-csrf-${uniqueToken('mfa')}`;
+    await RefreshSession.create({
+      user: userId,
+      tokenHash: hashToken(staleRefreshToken),
+      csrfTokenHash: hashToken(staleCsrfToken),
+      expiresAt: new Date(Date.now() + 60_000)
+    });
+    const staleRefresh = await fetch(`${baseUrl}/auth/refresh`, {
+      method: 'POST',
+      headers: { Cookie: `dk_refresh=${staleRefreshToken}`, 'X-CSRF-Token': staleCsrfToken }
+    });
+    assert.equal(staleRefresh.status, 401);
+    assert.equal((await staleRefresh.json()).code, 'MFA_LOGIN_REQUIRED');
+
     const mfaLogin = await fetch(`${baseUrl}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: email, password: 'StrongPass123' }) });
     const mfaLoginBody = await mfaLogin.json();
     assert.equal(mfaLogin.status, 202);
     assert.equal(mfaLoginBody.data.mfaRequired, true);
     assert.ok(mfaLoginBody.data.challengeToken);
+    const invalidMfaComplete = await fetch(`${baseUrl}/auth/mfa/complete`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ challengeToken: mfaLoginBody.data.challengeToken, code: '000000' }) });
+    assert.equal(invalidMfaComplete.status, 401);
     const mfaComplete = await fetch(`${baseUrl}/auth/mfa/complete`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ challengeToken: mfaLoginBody.data.challengeToken, code: totp(mfaSecret) }) });
     const mfaCompleteBody = await mfaComplete.json();
     assert.equal(mfaComplete.status, 200);
     assert.equal(mfaCompleteBody.data.user.mfaEnabled, true);
     assert.ok(mfaComplete.headers.get('set-cookie'));
+    assert.equal((await fetch(`${baseUrl}/admin/dashboard`, { headers: { Authorization: `Bearer ${mfaCompleteBody.data.accessToken}` } })).status, 200);
 
     const logout = await fetch(`${baseUrl}/auth/logout`, { method: 'POST', headers: { Cookie: cookie, 'X-CSRF-Token': adminBody.data.csrfToken } });
     assert.equal(logout.status, 200);
 
     const afterLogout = await fetch(`${baseUrl}/auth/refresh`, { method: 'POST', headers: { Cookie: cookie, 'X-CSRF-Token': adminBody.data.csrfToken } });
     assert.equal(afterLogout.status, 403);
+
+    const invalidReset = await fetch(`${baseUrl}/auth/reset-password`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: 'invalid-token', password: 'ChangedPass123' })
+    });
+    assert.equal(invalidReset.status, 400);
+    const account = await User.findById(userId);
+    const expiredResetToken = await issueAccountToken(account, 'password_reset', -1);
+    assert.equal((await fetch(`${baseUrl}/auth/reset-password`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: expiredResetToken, password: 'ChangedPass123' })
+    })).status, 400);
+    const resetToken = await issueAccountToken(account, 'password_reset', 30);
+    const resetRequest = () => fetch(`${baseUrl}/auth/reset-password`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: resetToken, password: 'ChangedPass123' })
+    });
+    const resetStatuses = (await Promise.all([resetRequest(), resetRequest()])).map(response => response.status).sort();
+    assert.deepEqual(resetStatuses, [200, 400]);
+    assert.equal((await resetRequest()).status, 400);
+
+    const expiredVerificationToken = await issueAccountToken(account, 'email_verification', -1);
+    assert.equal((await fetch(`${baseUrl}/auth/verify-email`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: expiredVerificationToken })
+    })).status, 400);
+    const verificationToken = await issueAccountToken(account, 'email_verification', 30);
+    const verifyRequest = () => fetch(`${baseUrl}/auth/verify-email`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: verificationToken })
+    });
+    const verifyStatuses = (await Promise.all([verifyRequest(), verifyRequest()])).map(response => response.status).sort();
+    assert.deepEqual(verifyStatuses, [200, 400]);
+    assert.equal((await verifyRequest()).status, 400);
   } finally {
     const user = userId ? await User.findById(userId) : await User.findOne({ email });
     if (user) {

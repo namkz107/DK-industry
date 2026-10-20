@@ -20,7 +20,7 @@ interface Handlers {
   onRequestUpdated: () => void
   onRead: (readerRole: "customer" | "staff", readAt: string) => void
   onSync: () => void
-  onInboxUpdated?: (requestId: string) => void
+  onInboxUpdated?: (requestId?: string) => void
 }
 
 export function useRequestRealtime(requestId: string, enabled: boolean, handlers: Handlers) {
@@ -55,7 +55,7 @@ export function useRequestRealtime(requestId: string, enabled: boolean, handlers
     const onRead = (payload: { requestId: string; readerRole: "customer" | "staff"; readAt: string }) => {
       if (payload.requestId === requestId) handlersRef.current.onRead(payload.readerRole, payload.readAt)
     }
-    const onInboxUpdated = (payload: { requestId: string }) => handlersRef.current.onInboxUpdated?.(payload.requestId)
+    const onInboxUpdated = (payload: { requestId?: string }) => handlersRef.current.onInboxUpdated?.(payload.requestId)
     const onTyping = (payload: { requestId: string; name: string }) => {
       if (payload.requestId !== requestId) return
       setTypingName(payload.name)

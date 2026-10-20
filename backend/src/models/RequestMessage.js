@@ -4,7 +4,9 @@ const attachmentSchema = new mongoose.Schema({
   originalName: { type: String, required: true },
   storedName: { type: String, required: true, select: false },
   mimeType: String,
-  size: Number
+  size: Number,
+  scanStatus: { type: String, enum: ['pending', 'clean', 'infected', 'error'], default: 'pending' },
+  scannedAt: Date
 }, { _id: true });
 
 const requestMessageSchema = new mongoose.Schema({

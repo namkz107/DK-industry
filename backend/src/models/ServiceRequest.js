@@ -23,7 +23,9 @@ const serviceRequestSchema = new mongoose.Schema({
     originalName: { type: String, required: true },
     storedName: { type: String, required: true },
     mimeType: String,
-    size: Number
+    size: Number,
+    scanStatus: { type: String, enum: ['pending', 'clean', 'infected', 'error'], default: 'pending' },
+    scannedAt: Date
   }],
   status: { type: String, enum: ['submitted', 'reviewing', 'need_more_info', 'quoted', 'accepted', 'rejected', 'cancelled'], default: 'submitted', index: true },
   timeline: [{ status: String, message: String, actorType: { type: String, enum: ['customer', 'staff', 'system'], default: 'system' }, actor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, at: { type: Date, default: Date.now } }],

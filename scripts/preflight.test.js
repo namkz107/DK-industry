@@ -6,7 +6,7 @@ const backend = {
   NODE_ENV: 'production', APP_VERSION: '1.0.0', RELEASE_SHA: '529bb92', MONGODB_URI: 'mongodb+srv://user:secret@cluster.mongodb.net/dk_industry',
   CLIENT_URL: 'https://dk.example', JWT_SECRET: 'j'.repeat(64), MFA_ENCRYPTION_KEY: 'm'.repeat(64),
   COOKIE_SECURE: 'true', COOKIE_SAME_SITE: 'lax', TRUST_PROXY: '1', ENFORCE_SESSION_CHECK: 'true',
-  FILE_STORAGE_DRIVER: 'cloudinary', CLOUDINARY_URL: 'cloudinary://key:secret@cloud',
+  FILE_STORAGE_DRIVER: 'cloudinary', CLOUDINARY_URL: 'cloudinary://key:secret@cloud', CLAMAV_HOST: 'clamav', BACKUP_AGE_RECIPIENT: `age1${'q'.repeat(58)}`,
   SMTP_HOST: 'smtp.example.vn', SMTP_PORT: '587', SMTP_SECURE: 'false', SMTP_USER: 'mail@example.vn', SMTP_PASS: 'secret-app-password', EMAIL_FROM: 'DK <mail@example.vn>',
   COMPANY_NAME: 'DK Industry', COMPANY_PHONE: '0900000000', COMPANY_EMAIL: 'hello@example.vn', COMPANY_ADDRESS: 'Ha Noi',
   SUPPORT_AI_ENABLED: 'false', TERMS_VERSION: '2026-10-14'
