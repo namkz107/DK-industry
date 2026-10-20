@@ -1,11 +1,15 @@
 import { useQuery } from "@tanstack/react-query"
 import { ArrowRight, ArrowUpRight, BadgeCheck, CheckCircle2, ClipboardCheck, Cog, DraftingCompass, Factory, ShieldCheck, Sparkles } from "lucide-react"
+import { useState } from "react"
 import { Link, useOutletContext } from "react-router-dom"
 import type { LayoutContext } from "@/components/app-layout"
+import { Pagination } from "@/components/pagination"
 import { Button } from "@/components/ui/button"
 import { usePageMeta } from "@/hooks/use-page-meta"
 import { api } from "@/lib/api"
 import type { Service } from "@/types"
+
+const servicesPerPage = 6
 
 const process = [
   { icon: ClipboardCheck, number: "01", title: "Khảo sát", text: "Hiểu hiện trạng và yêu cầu vận hành." },
@@ -17,8 +21,12 @@ const process = [
 export function ServicesPage() {
   usePageMeta("Dịch vụ cơ khí", "Cắt laser, chấn gấp, phay tiện CNC, chế tạo Jig và hệ thống công nghiệp theo yêu cầu.")
   const { openQuote, canRequestQuote } = useOutletContext<LayoutContext>()
+  const [page, setPage] = useState(1)
   const query = useQuery({ queryKey: ["services"], queryFn: api.services, staleTime: 10 * 60_000, retry: 1 })
   const services = query.data?.data || []
+  const pages = Math.max(1, Math.ceil(services.length / servicesPerPage))
+  const activePage = Math.min(page, pages)
+  const visibleServices = services.slice((activePage - 1) * servicesPerPage, activePage * servicesPerPage)
   return <>
     <section className="relative isolate overflow-hidden bg-[#071d18] text-white">
       <div className="absolute inset-0 opacity-60 [background:radial-gradient(circle_at_18%_22%,rgba(249,115,22,.18),transparent_25%),radial-gradient(circle_at_86%_76%,rgba(16,185,129,.14),transparent_28%)]"/>
@@ -31,7 +39,7 @@ export function ServicesPage() {
     <section className="border-b border-slate-200 bg-white py-10 sm:py-12"><div className="container-page"><p className="text-center text-xs font-black uppercase tracking-[.2em] text-slate-400">Quy trình triển khai thống nhất</p><div className="mt-7 grid gap-px overflow-hidden rounded-3xl border border-slate-200 bg-slate-200 sm:grid-cols-2 lg:grid-cols-4">{process.map(({ icon: Icon, number, title, text }) => <div className="bg-white p-6" key={title}><div className="flex items-center justify-between"><span className="grid size-10 place-items-center rounded-xl bg-emerald-50 text-emerald-800"><Icon className="size-5"/></span><span className="font-display text-sm font-black text-orange-600">{number}</span></div><h2 className="mt-5 font-display text-xl font-bold text-emerald-950">{title}</h2><p className="mt-2 text-sm leading-6 text-slate-500">{text}</p></div>)}</div></div></section>
 
     <section id="danh-sach-dich-vu" className="scroll-mt-24 bg-[#f6f7f5] py-16 sm:py-20 lg:py-24"><div className="container-page"><div className="grid gap-6 lg:grid-cols-[.7fr_1.3fr] lg:items-end"><div><p className="text-xs font-black uppercase tracking-[.2em] text-orange-600">Danh mục năng lực</p><h2 className="mt-3 font-display text-4xl font-bold tracking-tight text-emerald-950 sm:text-5xl">Dịch vụ được tổ chức theo nhu cầu thực tế.</h2></div><p className="max-w-2xl text-lg leading-8 text-slate-600 lg:justify-self-end">Từ một chi tiết mẫu đến một hệ thống hoàn chỉnh, mỗi dịch vụ đều có phạm vi, vật liệu và ứng dụng rõ ràng để bạn dễ lựa chọn.</p></div>
-      {query.isLoading ? <ServicesSkeleton/> : query.error ? <div role="alert" className="mt-12 rounded-3xl border border-red-100 bg-red-50 p-8 text-center"><p className="font-bold text-red-700">Không thể tải danh sách dịch vụ.</p><button className="mt-3 text-sm font-bold text-red-700 underline underline-offset-4" onClick={() => void query.refetch()}>Thử tải lại</button></div> : services.length ? <div className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-3">{services.map((service, index) => <ServiceCard service={service} index={index} canRequestQuote={canRequestQuote} onQuote={() => openQuote(service.name)} key={service._id}/>)}</div> : <div className="mt-12 rounded-3xl border border-dashed bg-white p-12 text-center text-slate-500">Chưa có dịch vụ được công bố.</div>}
+      {query.isLoading ? <ServicesSkeleton/> : query.error ? <div role="alert" className="mt-12 rounded-3xl border border-red-100 bg-red-50 p-8 text-center"><p className="font-bold text-red-700">Không thể tải danh sách dịch vụ.</p><button className="mt-3 text-sm font-bold text-red-700 underline underline-offset-4" onClick={() => void query.refetch()}>Thử tải lại</button></div> : services.length ? <div className="mt-12"><div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">{visibleServices.map((service, index) => <ServiceCard service={service} index={(activePage - 1) * servicesPerPage + index} canRequestQuote={canRequestQuote} onQuote={() => openQuote(service.name)} key={service._id}/>)}</div><Pagination page={activePage} pages={pages} onChange={nextPage => { setPage(nextPage); document.getElementById("danh-sach-dich-vu")?.scrollIntoView({ behavior: "smooth", block: "start" }) }}/></div> : <div className="mt-12 rounded-3xl border border-dashed bg-white p-12 text-center text-slate-500">Chưa có dịch vụ được công bố.</div>}
       <div className="mt-16 grid overflow-hidden rounded-[2rem] bg-emerald-950 text-white lg:grid-cols-[1fr_auto] lg:items-center"><div className="p-8 sm:p-10 lg:p-12"><p className="text-xs font-black uppercase tracking-[.18em] text-orange-400">Chưa chắc nên chọn dịch vụ nào?</p><h2 className="mt-3 max-w-2xl font-display text-3xl font-bold sm:text-4xl">Gửi bài toán, đội kỹ thuật sẽ cùng bạn chọn phương án.</h2><p className="mt-4 max-w-xl leading-7 text-emerald-50/65">Không cần biết trước tên công nghệ. Chỉ cần cho chúng tôi biết sản phẩm, mục tiêu và điều kiện vận hành.</p></div><div className="border-t border-white/10 p-8 sm:p-10 lg:border-l lg:border-t-0 lg:p-12">{canRequestQuote ? <Button size="lg" onClick={() => openQuote("Tư vấn giải pháp")}>Nhận tư vấn<ArrowRight className="size-5"/></Button> : <Button asChild size="lg"><Link to="/lien-he">Liên hệ kỹ thuật<ArrowRight className="size-5"/></Link></Button>}</div></div>
     </div></section>
   </>
