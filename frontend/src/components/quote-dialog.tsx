@@ -2,6 +2,7 @@ import * as Dialog from "@radix-ui/react-dialog"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation } from "@tanstack/react-query"
 import { CheckCircle2, LoaderCircle, Send, X } from "lucide-react"
+import { useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { api } from "@/lib/api"
@@ -22,9 +23,12 @@ const quoteSchema = z.object({
 })
 type QuoteData = z.infer<typeof quoteSchema>
 
+const emptyQuote = (product?: string): QuoteData => ({ name: "", phone: "", email: "", serviceType: product ? "Cung ứng thiết bị" : "", budget: "Chưa xác định", message: product ? `Tôi cần báo giá: ${product}` : "", consent: false })
+
 export function QuoteDialog({ open, onOpenChange, product }: { open: boolean; onOpenChange: (value: boolean) => void; product?: string }) {
   const toast = useToast()
-  const form = useForm<QuoteData>({ resolver: zodResolver(quoteSchema), defaultValues: { name: "", phone: "", email: "", serviceType: product ? "Cung ứng thiết bị" : "", budget: "Chưa xác định", message: product ? `Tôi cần báo giá: ${product}` : "", consent: false } })
+  const form = useForm<QuoteData>({ resolver: zodResolver(quoteSchema), defaultValues: emptyQuote(product) })
+  useEffect(() => { if (open) form.reset(emptyQuote(product)) }, [open, product, form])
   const mutation = useMutation({ mutationFn: api.createLead, onSuccess: result => { form.reset(); onOpenChange(false); toast.success(`${result.message}. Mã tiếp nhận: ${result.data.code}. Chúng tôi sẽ phản hồi qua email hoặc số điện thoại bạn đã cung cấp.`, { title: "Đã tiếp nhận yêu cầu" }) }, onError: error => toast.error(error.message, { title: "Không thể gửi yêu cầu" }) })
   const submit = form.handleSubmit(data => {
     const params = new URLSearchParams(window.location.search)

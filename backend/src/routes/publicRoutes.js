@@ -5,7 +5,8 @@ const Service = require('../models/Service');
 const SiteSetting = require('../models/SiteSetting');
 const mongoose = require('mongoose');
 const { createPublicLead } = require('../services/leadService');
-const { notifyOperations, dispatchSoon } = require('../services/notificationService');
+const { leadAcknowledgementEmail, leadOperationsEmail } = require('../services/emailTemplateService');
+const { notifyOperations, dispatchSoon, sendDirectEmail } = require('../services/notificationService');
 const packageInfo = require('../../package.json');
 
 const router = express.Router();
@@ -89,11 +90,29 @@ router.post('/leads', async (req, res, next) => {
   try {
     const { lead, duplicate } = await createPublicLead(req.body, req.body.sourceDetails || {});
     if (!duplicate) {
-      await notifyOperations({ type: 'lead.created', title: `Lead mới ${lead.code}`, message: `${lead.name} cần tư vấn ${lead.serviceType}.`, link: '/staff/leads', metadata: { leadId: lead._id } });
-      dispatchSoon();
+      try { await deliverLeadNotice(lead); }
+      catch (error) { console.error('Lead notice failed:', error.message); }
     }
     res.status(duplicate ? 200 : 201).json({ success: true, message: duplicate ? 'Yêu cầu này đã được tiếp nhận trước đó' : 'Yêu cầu đã được tiếp nhận', data: { id: lead._id, code: lead.code, status: lead.status, duplicate } });
   } catch (error) { next(error); }
 });
+
+async function deliverLeadNotice(lead) {
+  const summary = `${lead.name} · ${lead.phone} · ${lead.email}. ${lead.serviceType || 'Tư vấn'}. ${lead.message || ''}`.slice(0, 1000);
+  await notifyOperations({
+    type: 'lead.created',
+    title: `Yêu cầu báo giá mới ${lead.code}`,
+    message: summary,
+    link: `/staff/leads?leadId=${lead._id}`,
+    metadata: { leadId: lead._id }
+  });
+  const acknowledgement = leadAcknowledgementEmail(lead);
+  const operations = leadOperationsEmail(lead);
+  const company = String(process.env.COMPANY_EMAIL || '').trim();
+  const deliveries = [sendDirectEmail({ to: lead.email, subject: acknowledgement.subject, text: acknowledgement.text, html: acknowledgement.html })];
+  if (company) deliveries.push(sendDirectEmail({ to: company, subject: operations.subject, text: operations.text, html: operations.html }));
+  await Promise.all(deliveries);
+  dispatchSoon();
+}
 
 module.exports = router;

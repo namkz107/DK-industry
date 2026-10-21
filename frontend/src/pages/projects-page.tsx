@@ -1,6 +1,6 @@
-import { useQuery } from "@tanstack/react-query"
+import { keepPreviousData, useQuery } from "@tanstack/react-query"
 import { ArrowRight, Building2, CalendarDays, ChevronRight, FolderKanban, MapPin, MoveUpRight, Sparkles, Timer } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import { Pagination } from "@/components/pagination"
 import { ProjectDetailsDialog } from "@/components/project-details-dialog"
@@ -17,12 +17,28 @@ export function ProjectsPage() {
   const [selected, setSelected] = useState<Project | null>(null)
   const [category, setCategory] = useState(allCategory)
   const [page, setPage] = useState(1)
-  const query = useQuery({ queryKey: ["projects", { category, page }], queryFn: () => api.projects({ page, limit: 9, category: category === allCategory ? undefined : category }), staleTime: 5 * 60_000, retry: 1 })
+  const query = useQuery({ queryKey: ["projects", { category, page }], queryFn: () => api.projects({ page, limit: 9, category: category === allCategory ? undefined : category }), placeholderData: keepPreviousData, staleTime: 5 * 60_000, retry: 1 })
+  const categoryRow = useRef<HTMLDivElement>(null)
   const projects = query.data?.data || []
   const categories = [allCategory, ...(query.data?.categories || [])]
   const featured = projects[0]
   const remaining = projects.slice(1)
   const latestYear = projects.map(project => Number(project.year)).filter(Number.isFinite).sort((a, b) => b - a)[0]
+  useEffect(() => {
+    const row = categoryRow.current
+    if (!row) return
+    const onWheel = (event: WheelEvent) => {
+      if (row.scrollWidth <= row.clientWidth + 1 || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return
+      const max = row.scrollWidth - row.clientWidth
+      const atStart = row.scrollLeft <= 0 && event.deltaY < 0
+      const atEnd = row.scrollLeft >= max - 1 && event.deltaY > 0
+      if (atStart || atEnd) return
+      event.preventDefault()
+      row.scrollLeft += event.deltaY
+    }
+    row.addEventListener("wheel", onWheel, { passive: false })
+    return () => row.removeEventListener("wheel", onWheel)
+  }, [categories.length])
 
   return <>
     <section className="relative isolate overflow-hidden bg-[#061d17] text-white">
@@ -44,7 +60,20 @@ export function ProjectsPage() {
     </section>
 
     <section className="bg-[#f6f7f5] py-16 sm:py-20 lg:py-24"><div className="container-page">
-      <div className="grid items-end gap-7 lg:grid-cols-[1fr_auto]"><div><p className="text-xs font-black uppercase tracking-[.2em] text-orange-600">Công trình đã thực hiện</p><h2 className="mt-3 max-w-2xl font-display text-3xl font-bold tracking-tight text-emerald-950 sm:text-5xl">Mỗi dự án là một câu chuyện về giải pháp.</h2><p className="mt-4 max-w-2xl leading-7 text-slate-600">Chọn một nhóm năng lực hoặc mở từng hồ sơ để xem quy trình, yêu cầu kỹ thuật và hình ảnh theo từng giai đoạn.</p></div><div className="flex max-w-full gap-2 overflow-x-auto pb-1 lg:max-w-[520px] lg:justify-end">{categories.map(item => <button type="button" key={item} onClick={() => { setCategory(item); setPage(1) }} className={cn("min-h-11 shrink-0 rounded-full border px-5 text-sm font-bold transition", category === item ? "border-emerald-950 bg-emerald-950 text-white shadow-lg shadow-emerald-950/10" : "border-slate-200 bg-white text-slate-600 hover:border-orange-400 hover:text-orange-700")}>{item}</button>)}</div></div>
+      <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+        <div className="max-w-2xl">
+          <p className="text-xs font-black uppercase tracking-[.2em] text-orange-600">Công trình đã thực hiện</p>
+          <h2 className="mt-3 font-display text-3xl font-bold tracking-tight text-emerald-950 sm:text-5xl">Mỗi dự án là một câu chuyện về giải pháp.</h2>
+          <p className="mt-4 leading-7 text-slate-600">Chọn một nhóm năng lực hoặc mở từng hồ sơ để xem quy trình, yêu cầu kỹ thuật và hình ảnh theo từng giai đoạn.</p>
+        </div>
+        <p className="text-sm font-semibold text-slate-500 lg:max-w-xs lg:text-right">{category === allCategory ? "Đang xem toàn bộ công trình." : <>Đang lọc <span className="text-emerald-950">{category}.</span> Bấm lại mục đó để xem tất cả.</>}</p>
+      </div>
+      <div className="mt-8 min-w-0 rounded-[1.75rem] border border-white bg-white/80 p-2 shadow-[0_18px_50px_-36px_rgba(2,44,34,.45)] ring-1 ring-slate-200/80 backdrop-blur sm:p-2.5" role="group" aria-label="Lọc dự án theo nhóm năng lực">
+        <div ref={categoryRow} className="flex gap-2 overflow-x-auto overscroll-x-contain scroll-smooth [scrollbar-width:thin]">{categories.map(item => {
+          const active = category === item
+          return <button type="button" key={item} aria-pressed={active} onClick={() => { setCategory(current => current === item && item !== allCategory ? allCategory : item); setPage(1) }} className={cn("inline-flex min-h-11 shrink-0 items-center gap-2.5 whitespace-nowrap rounded-2xl px-3.5 text-sm font-bold transition", active ? "bg-emerald-950 text-white shadow-lg shadow-emerald-950/15" : "bg-slate-100/80 text-slate-600 hover:bg-orange-50 hover:text-orange-800")}><span className={cn("size-2 shrink-0 rounded-full", active ? "bg-orange-400" : "bg-slate-300")} aria-hidden="true"/>{item}</button>
+        })}</div>
+      </div>
       {query.isLoading ? <ProjectsSkeleton/> : query.error ? <div role="alert" className="mt-12 rounded-3xl border border-red-100 bg-red-50 p-8 text-center"><p className="font-bold text-red-700">Không thể tải danh sách dự án.</p><button className="mt-3 text-sm font-bold text-red-700 underline underline-offset-4" onClick={() => void query.refetch()}>Thử tải lại</button></div> : featured ? <div className="mt-12"><div className="grid items-stretch gap-6 md:grid-cols-2 xl:grid-cols-3"><FeaturedProject project={featured} onView={() => setSelected(featured)}/>{remaining.map((project, index) => <ProjectCard project={project} index={(page - 1) * 9 + index + 2} onView={() => setSelected(project)} key={project._id}/>)}</div><Pagination page={query.data?.page || page} pages={query.data?.pages || 1} onChange={nextPage => { setPage(nextPage); window.scrollTo({ top: 560, behavior: "smooth" }) }}/></div> : <div className="mt-12 rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center"><FolderKanban className="mx-auto size-10 text-slate-300"/><p className="mt-4 font-bold text-slate-600">Chưa có dự án trong nhóm này.</p></div>}
       <div className="mt-16 overflow-hidden rounded-[2rem] bg-emerald-950 text-white lg:grid lg:grid-cols-[1fr_auto] lg:items-center"><div className="p-7 sm:p-10 lg:p-12"><p className="text-xs font-black uppercase tracking-[.18em] text-orange-400">Có một bài toán tương tự?</p><h2 className="mt-3 max-w-2xl font-display text-3xl font-bold tracking-tight sm:text-4xl">Hãy bắt đầu bằng một buổi trao đổi kỹ thuật.</h2><p className="mt-4 max-w-xl leading-7 text-emerald-50/65">Chúng tôi sẽ cùng bạn làm rõ yêu cầu, khảo sát hiện trạng và đề xuất phương án phù hợp trước khi triển khai.</p></div><div className="border-t border-white/10 p-7 sm:p-10 lg:border-l lg:border-t-0 lg:p-12"><Button asChild size="lg"><Link to="/lien-he">Trao đổi dự án<ArrowRight className="size-5"/></Link></Button></div></div>
     </div></section>

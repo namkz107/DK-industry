@@ -21,7 +21,7 @@ export function StaffLeadsWorkspacePage() {
   usePageMeta("Quản lý Lead", "Danh sách gọn, xử lý khách hàng tiềm năng trong cửa sổ riêng.")
   const [params] = useSearchParams(); const client = useQueryClient(); const navigate = useNavigate(); const toast = useToast()
   const [filters, setFilters] = useState({ q: "", status: "", priority: params.get("priority") || "", assigned: params.get("assigned") || "" })
-  const [page, setPage] = useState(1); const [selected, setSelected] = useState("")
+  const [page, setPage] = useState(1); const [selected, setSelected] = useState(params.get("leadId") || "")
   const list = useQuery({ queryKey: ["staff", "leads", filters, page], queryFn: () => staffClient.leads({ ...filters, page }) })
   const detail = useQuery({ queryKey: ["staff", "lead", selected], queryFn: () => staffClient.lead(selected), enabled: Boolean(selected) })
   useEffect(() => setPage(1), [filters])

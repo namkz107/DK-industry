@@ -1,4 +1,4 @@
-import { googleMapsDirectionsUrl, googleMapsEmbedPlaceUrl } from "@/lib/google-maps"
+import { googleMapsEmbedPlaceUrl, googleMapsViewPlaceUrl } from "@/lib/google-maps"
 
 const mapDestination = import.meta.env.VITE_COMPANY_MAP_DESTINATION || "20.895803,105.862915"
 const [mapLatitude = "20.895803", mapLongitude = "105.862915"] = mapDestination.split(",").map((value: string) => value.trim())
@@ -16,5 +16,5 @@ export const company = {
   zaloUrl: import.meta.env.VITE_COMPANY_ZALO_URL || `https://zalo.me/${(import.meta.env.VITE_COMPANY_PHONE || "0965243386").replace(/\D/g, "")}`,
 }
 
-export const companyMapUrl = googleMapsDirectionsUrl(mapLatitude, mapLongitude)
+export const companyMapUrl = googleMapsViewPlaceUrl(mapLatitude, mapLongitude)
 export const companyMapEmbedUrl = googleMapsEmbedPlaceUrl(mapLatitude, mapLongitude)

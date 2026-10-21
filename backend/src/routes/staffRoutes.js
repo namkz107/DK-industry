@@ -78,14 +78,15 @@ function claimIfUnassigned(document, actor) {
 
 router.get('/dashboard', async (req, res, next) => {
   try {
-    const [newRequests, myRequests, activeProjects, pendingOrders, myOrders] = await Promise.all([
+    const [portalRequests, websiteLeads, myRequests, activeProjects, pendingOrders, myOrders] = await Promise.all([
       ServiceRequest.countDocuments({ assignedTo: null, status: 'submitted' }),
+      Lead.countDocuments({ assignedTo: null, status: 'new', convertedRequest: null }),
       ServiceRequest.countDocuments({ assignedTo: req.user._id, status: { $nin: ['accepted', 'rejected', 'cancelled'] } }),
       WorkOrder.countDocuments({ assignedTo: req.user._id, status: { $nin: ['completed', 'cancelled'] } }),
       Order.countDocuments(scopedFilter(req.user, { status: 'pending' })),
       Order.countDocuments({ assignedTo: req.user._id, status: { $nin: ['delivered', 'cancelled'] } })
     ]);
-    res.json({ success: true, data: { newRequests, myRequests, activeProjects, pendingOrders, myOrders } });
+    res.json({ success: true, data: { newRequests: portalRequests + websiteLeads, myRequests, activeProjects, pendingOrders, myOrders } });
   } catch (error) { next(error); }
 });
 

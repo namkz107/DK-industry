@@ -1,6 +1,18 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { notificationEmail, passwordResetEmail, quotationEmail, verificationEmail } = require('../src/services/emailTemplateService');
+const { leadAcknowledgementEmail, leadOperationsEmail, notificationEmail, passwordResetEmail, quotationEmail, verificationEmail } = require('../src/services/emailTemplateService');
+
+test('lead emails include the request code and submitted contact details', () => {
+  const lead = { _id: '507f1f77bcf86cd799439011', code: 'LD-261021-ABC123', name: 'Nguyễn Văn A', phone: '0912345678', email: 'email@congty.vn', serviceType: 'Gia công cơ khí', budget: 'Chưa xác định', message: 'Cần gia công 20 chi tiết.' };
+  const acknowledgement = leadAcknowledgementEmail(lead);
+  const operations = leadOperationsEmail(lead);
+  assert.match(acknowledgement.subject, /LD-261021-ABC123/);
+  assert.match(acknowledgement.text, /0912345678/);
+  assert.match(acknowledgement.html, /Gia công cơ khí/);
+  assert.match(operations.text, /email@congty\.vn/);
+  assert.match(operations.text, /Cần gia công 20 chi tiết/);
+  assert.match(operations.html, /staff\/leads\?leadId=507f1f77bcf86cd799439011/);
+});
 
 test('verification email renders branded HTML and a plain-text fallback', () => {
   const email = verificationEmail({ name: 'Nguyễn Văn A', actionUrl: 'https://example.com/xac-minh#token=abc' });

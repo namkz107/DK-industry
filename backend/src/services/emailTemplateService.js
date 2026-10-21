@@ -97,6 +97,54 @@ function renderBrandedEmail({ preheader = '', eyebrow = 'THÔNG BÁO TỪ CÔNG 
   return { html, text: plainText({ eyebrow, title, greeting, paragraphs, details, cta: safeCtaUrl ? { ...cta, url: safeCtaUrl } : undefined, notice }) };
 }
 
+function leadAcknowledgementEmail(lead) {
+  const company = brand();
+  const content = renderBrandedEmail({
+    preheader: `Mã tiếp nhận ${lead.code}. Chúng tôi sẽ phản hồi trong giờ làm việc.`,
+    eyebrow: 'XÁC NHẬN YÊU CẦU',
+    title: `Đã tiếp nhận yêu cầu ${lead.code}`,
+    greeting: `Xin chào ${lead.name || 'Quý khách'},`,
+    paragraphs: [
+      'Cảm ơn bạn đã gửi yêu cầu tư vấn. Đội ngũ kỹ thuật đã nhận đủ thông tin và sẽ phản hồi qua email hoặc số điện thoại bạn cung cấp trong giờ làm việc.',
+      lead.serviceType ? `Nhu cầu đã ghi nhận: ${lead.serviceType}.` : '',
+      lead.message ? `Nội dung bạn đã gửi: ${lead.message}` : ''
+    ].filter(Boolean),
+    details: [
+      { label: 'Mã tiếp nhận', value: lead.code, highlight: true },
+      lead.phone && { label: 'Số điện thoại', value: lead.phone },
+      lead.serviceType && { label: 'Nhu cầu', value: lead.serviceType },
+      lead.budget && { label: 'Ngân sách', value: lead.budget }
+    ].filter(Boolean),
+    cta: { label: 'Xem thông tin liên hệ', url: `${company.website}/lien-he` },
+    notice: 'Nếu bạn không gửi yêu cầu này, hãy bỏ qua email.'
+  });
+  return { subject: `Đã tiếp nhận yêu cầu ${lead.code} - ${company.displayName}`, ...content };
+}
+
+function leadOperationsEmail(lead) {
+  const company = brand();
+  const content = renderBrandedEmail({
+    preheader: `${lead.name} vừa gửi yêu cầu ${lead.code}.`,
+    eyebrow: 'YÊU CẦU TỪ WEBSITE',
+    title: `Yêu cầu báo giá mới ${lead.code}`,
+    greeting: 'Xin chào đội ngũ vận hành,',
+    paragraphs: [
+      `${lead.name} vừa gửi yêu cầu tư vấn khi chưa đăng nhập.`,
+      lead.message || 'Khách chưa mô tả thêm nội dung.'
+    ],
+    details: [
+      { label: 'Mã tiếp nhận', value: lead.code, highlight: true },
+      { label: 'Họ tên', value: lead.name },
+      { label: 'Số điện thoại', value: lead.phone },
+      { label: 'Email', value: lead.email },
+      { label: 'Nhu cầu', value: lead.serviceType || 'Chưa chọn' },
+      { label: 'Ngân sách', value: lead.budget || 'Chưa xác định' }
+    ],
+    cta: { label: 'Mở hồ sơ yêu cầu', url: `${company.website}/staff/leads?leadId=${lead._id}` }
+  });
+  return { subject: `Yêu cầu báo giá mới ${lead.code} - ${lead.name}`, ...content };
+}
+
 function verificationEmail({ name, actionUrl }) {
   const title = 'Chào mừng bạn đến với Cơ khí Đăng Khoa';
   return {
@@ -218,4 +266,4 @@ function quotationEmail({ quotation, request, customer, actionUrl }) {
   return rendered;
 }
 
-module.exports = { escapeHtml, notificationEmail, passwordResetEmail, quotationEmail, renderBrandedEmail, verificationEmail };
+module.exports = { escapeHtml, leadAcknowledgementEmail, leadOperationsEmail, notificationEmail, passwordResetEmail, quotationEmail, renderBrandedEmail, verificationEmail };
