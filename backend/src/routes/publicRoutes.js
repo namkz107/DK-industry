@@ -6,7 +6,7 @@ const SiteSetting = require('../models/SiteSetting');
 const mongoose = require('mongoose');
 const { createPublicLead } = require('../services/leadService');
 const { leadAcknowledgementEmail, leadOperationsEmail } = require('../services/emailTemplateService');
-const { notifyOperations, dispatchSoon, sendDirectEmail } = require('../services/notificationService');
+const { notifyQuoteWatchers, quoteAdminEmail, dispatchSoon, sendDirectEmail } = require('../services/notificationService');
 const packageInfo = require('../../package.json');
 
 const router = express.Router();
@@ -99,7 +99,7 @@ router.post('/leads', async (req, res, next) => {
 
 async function deliverLeadNotice(lead) {
   const summary = `${lead.name} · ${lead.phone} · ${lead.email}. ${lead.serviceType || 'Tư vấn'}. ${lead.message || ''}`.slice(0, 1000);
-  await notifyOperations({
+  await notifyQuoteWatchers({
     type: 'lead.created',
     title: `Yêu cầu báo giá mới ${lead.code}`,
     message: summary,
@@ -110,7 +110,7 @@ async function deliverLeadNotice(lead) {
   const operations = leadOperationsEmail(lead);
   const company = String(process.env.COMPANY_EMAIL || '').trim();
   const deliveries = [sendDirectEmail({ to: lead.email, subject: acknowledgement.subject, text: acknowledgement.text, html: acknowledgement.html })];
-  if (company) deliveries.push(sendDirectEmail({ to: company, subject: operations.subject, text: operations.text, html: operations.html }));
+  if (company && company.toLowerCase() !== quoteAdminEmail()) deliveries.push(sendDirectEmail({ to: company, subject: operations.subject, text: operations.text, html: operations.html }));
   await Promise.all(deliveries);
   dispatchSoon();
 }

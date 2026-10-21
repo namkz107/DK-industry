@@ -27,9 +27,9 @@ const schema = z.object({
 type RequestData = z.infer<typeof schema>
 
 const statuses: Record<string, { label: string; className: string }> = {
-  submitted: { label: "Đang chờ tiếp nhận", className: "bg-blue-50 text-blue-800" }, reviewing: { label: "Đang xử lý", className: "bg-violet-50 text-violet-800" },
-  need_more_info: { label: "Cần bạn bổ sung", className: "bg-amber-50 text-amber-800" }, quoted: { label: "Chờ bạn xác nhận", className: "bg-orange-50 text-orange-800" },
-  accepted: { label: "Đã chuyển thành dự án", className: "bg-emerald-50 text-emerald-800" }, rejected: { label: "Không thực hiện", className: "bg-red-50 text-red-700" }, cancelled: { label: "Đã hủy", className: "bg-slate-100 text-slate-700" }
+  submitted: { label: "Đã nhận", className: "bg-orange-50 text-orange-800" }, reviewing: { label: "Đang báo giá", className: "bg-blue-50 text-blue-800" },
+  need_more_info: { label: "Đang báo giá", className: "bg-blue-50 text-blue-800" }, quoted: { label: "Chờ xác nhận", className: "bg-violet-50 text-violet-800" },
+  accepted: { label: "Đã chốt", className: "bg-emerald-50 text-emerald-800" }, rejected: { label: "Không thực hiện", className: "bg-slate-100 text-slate-600" }, cancelled: { label: "Không thực hiện", className: "bg-slate-100 text-slate-600" }
 }
 const typeNames = { machining: "Gia công theo yêu cầu", product_quote: "Báo giá sản phẩm", consulting: "Tư vấn kỹ thuật" }
 

@@ -16,7 +16,7 @@ const SupportMessage = require('../models/SupportMessage');
 const { transitionOrder, transitionPayment, transitionServiceRequest } = require('../services/workflowService');
 const { withTransaction } = require('../services/transactionService');
 const { writeAudit } = require('../services/auditService');
-const { createNotification, notifyAdmins, notifyOperations, dispatchSoon } = require('../services/notificationService');
+const { createNotification, notifyAdmins, notifyOperations, notifyQuoteWatchers, dispatchSoon } = require('../services/notificationService');
 const { isAllowedCustomerFileMetadata, validateUploadedFiles } = require('../services/fileSecurityService');
 const { removeStoredFiles, sendStoredFile } = require('../services/fileStorageService');
 const { scanAndStoreCustomerFiles } = require('../services/secureUploadService');
@@ -501,6 +501,45 @@ router.get('/projects', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+router.patch('/projects/:id/receive', async (req, res, next) => {
+  try {
+    if (!validId(req.params.id)) fail('Dự án không hợp lệ', 404);
+    const workOrder = await WorkOrder.findOne({ _id: req.params.id, customer: req.user._id });
+    if (!workOrder) fail('Không tìm thấy dự án', 404);
+    if (['completed', 'cancelled'].includes(workOrder.status)) fail('Dự án không còn chờ nhận hàng', 409);
+    workOrder.status = 'completed';
+    workOrder.customerConfirmedAt = new Date();
+    workOrder.timeline.push({ status: 'completed', message: 'Khách hàng xác nhận đã nhận hàng.', actor: req.user._id, actorType: 'customer' });
+    await workOrder.save();
+    await Promise.all([
+      createNotification({ recipient: req.user._id, type: 'work_order.completed', title: `Dự án ${workOrder.code} đã hoàn thành`, message: 'Bạn đã xác nhận nhận hàng thành công.', link: `/tai-khoan/du-an?projectId=${workOrder._id}`, metadata: { workOrderId: workOrder._id } }),
+      notifyOperations({ type: 'work_order.completed', title: `Khách đã nhận hàng ${workOrder.code}`, message: `${req.user.name} xác nhận đã nhận hàng.`, link: `/staff/work-orders?workOrderId=${workOrder._id}`, metadata: { workOrderId: workOrder._id } })
+    ]);
+    dispatchSoon();
+    res.json({ success: true, message: 'Đã xác nhận nhận hàng. Dự án hoàn thành.', data: workOrder });
+  } catch (error) { next(error); }
+});
+
+router.patch('/projects/:id/repair', async (req, res, next) => {
+  try {
+    if (!validId(req.params.id)) fail('Dự án không hợp lệ', 404);
+    const action = clean(req.body.action);
+    const reason = clean(req.body.reason).slice(0, 2000);
+    if (!['request', 'requote'].includes(action)) fail('Yêu cầu sửa không hợp lệ');
+    if (reason.length < 5) fail('Vui lòng mô tả lỗi hoặc việc cần sửa');
+    const workOrder = await WorkOrder.findOne({ _id: req.params.id, customer: req.user._id });
+    if (!workOrder) fail('Không tìm thấy dự án', 404);
+    if (workOrder.status !== 'completed') fail('Chỉ yêu cầu sửa sau khi đã nhận hàng', 409);
+    if (action === 'requote' && workOrder.repair?.status !== 'rejected') fail('Chỉ xin báo giá sửa khi xưởng xác nhận lỗi không thuộc về công ty', 409);
+    workOrder.repair = { status: action === 'request' ? 'requested' : 'requote', reason, at: new Date() };
+    workOrder.timeline.push({ status: workOrder.status, message: action === 'request' ? `Khách yêu cầu sửa: ${reason}` : `Khách muốn sửa tính phí: ${reason}`, actor: req.user._id, actorType: 'customer' });
+    await workOrder.save();
+    await notifyOperations({ type: 'work_order.repair', title: action === 'request' ? `Yêu cầu sửa ${workOrder.code}` : `Khách muốn sửa tính phí ${workOrder.code}`, message: reason, link: `/staff/work-orders?workOrderId=${workOrder._id}`, metadata: { workOrderId: workOrder._id } });
+    dispatchSoon();
+    res.json({ success: true, message: action === 'request' ? 'Đã gửi yêu cầu sửa' : 'Đã gửi yêu cầu báo giá sửa', data: workOrder });
+  } catch (error) { next(error); }
+});
+
 router.get('/requests/:id', async (req, res, next) => {
   try {
     if (!validId(req.params.id)) fail('Yêu cầu không hợp lệ', 404);
@@ -562,7 +601,7 @@ router.post('/requests', requireVerifiedEmail, upload.array('attachments', 5), a
     });
     filesCommitted = true;
     await RequestMessage.create({ request: request._id, sender: req.user._id, senderRole: 'customer', visibility: 'customer', content: description, readByCustomerAt: new Date() });
-    await notifyOperations({ type: 'request.created', title: `Yêu cầu mới ${request.code}`, message: `${req.user.name}: ${request.title}`, link: `/staff/requests?requestId=${request._id}&view=new`, metadata: { requestId: request._id } });
+    await notifyQuoteWatchers({ type: 'request.created', title: `Yêu cầu mới ${request.code}`, message: `${req.user.name}: ${request.title}`, link: `/staff/requests?requestId=${request._id}&view=new`, metadata: { requestId: request._id } });
     dispatchSoon();
     res.status(201).json({ success: true, message: 'Đã gửi yêu cầu, kỹ thuật sẽ phản hồi trong giờ làm việc', data: { id: request._id, code: request.code, status: request.status } });
   } catch (error) { if (!filesCommitted) await removeStoredFiles(storedFiles); next(error); }
@@ -652,9 +691,13 @@ router.patch('/requests/:requestId/quotations/:quotationId/respond', async (req,
         if (session) workQuery.session(session);
         workOrder = await workQuery;
         if (!workOrder) {
+          const explicitDays = Number.isInteger(updated.leadTimeDays) && updated.leadTimeDays > 0 ? updated.leadTimeDays : 0;
+          const labeledDays = /^\d+\s*ngày/i.test(updated.leadTime || '') ? Number(String(updated.leadTime).match(/^\d+/)?.[0]) : 0;
+          const leadDays = explicitDays || labeledDays;
           const created = await WorkOrder.create([{
             request: request._id, quotation: updated._id, customer: req.user._id, assignedTo: request.assignedTo,
             agreedTotal: updated.total, status: 'scheduled',
+            plannedDeliveryAt: leadDays ? new Date(Date.now() + leadDays * 86400000) : undefined,
             timeline: [{ status: 'scheduled', message: `Dự án được khởi tạo từ báo giá ${updated.code} đã được hai bên thống nhất.`, actorType: 'customer', actor: req.user._id }]
           }], session ? { session } : undefined);
           workOrder = created[0];
@@ -670,8 +713,19 @@ router.patch('/requests/:requestId/quotations/:quotationId/respond', async (req,
     });
     const staffLink = decision === 'accepted' && workOrder
       ? `/staff/work-orders?workOrderId=${workOrder._id}&q=${encodeURIComponent(workOrder.code)}`
-      : `/staff/requests?requestId=${req.params.requestId}&q=${encodeURIComponent(requestCode)}`;
-    await notifyOperations({ type: `quotation.${decision}`, title: `Báo giá ${quotation.code} đã được phản hồi`, message: decision === 'accepted' ? `Khách hàng đã đồng ý. Dự án ${workOrder?.code || ''} đã được khởi tạo.` : `Khách hàng yêu cầu điều chỉnh báo giá.${responseNote ? ` ${responseNote}` : ''}`, link: staffLink, metadata: { requestId: req.params.requestId, quotationId: quotation._id, workOrderId: workOrder?._id } });
+      : `/staff/requests?view=new&requestId=${req.params.requestId}`;
+    if (decision === 'rejected') {
+      const revisionNotice = {
+        type: 'quotation.revision_requested',
+        title: `Khách yêu cầu báo giá lại ${requestCode}`,
+        message: `${req.user.name} chưa chấp thuận báo giá ${quotation.code}.${responseNote ? ` Lý do: ${responseNote}` : ''} Hãy chỉnh đơn giá trên đúng vật tư cũ rồi gửi lại.`,
+        link: staffLink,
+        metadata: { requestId: req.params.requestId, quotationId: quotation._id }
+      };
+      await notifyQuoteWatchers(revisionNotice);
+    } else {
+      await notifyQuoteWatchers({ type: `quotation.${decision}`, title: `Báo giá ${quotation.code} đã được phản hồi`, message: `Khách hàng đã đồng ý. Dự án ${workOrder?.code || ''} đã được khởi tạo.`, link: staffLink, metadata: { requestId: req.params.requestId, quotationId: quotation._id, workOrderId: workOrder?._id } });
+    }
     dispatchSoon();
     await emitRequestUpdated(req.params.requestId, `quotation_${decision}`);
     res.json({

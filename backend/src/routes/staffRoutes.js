@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const mongoose = require('mongoose');
 const Lead = require('../models/Lead');
 const Order = require('../models/Order');
@@ -11,13 +12,22 @@ const { transitionLead, transitionOrder, transitionPayment, transitionServiceReq
 const { commitOrderStock, releaseOrderStock } = require('../services/orderService');
 const { withTransaction } = require('../services/transactionService');
 const { writeAudit } = require('../services/auditService');
-const { createNotification, dispatchSoon } = require('../services/notificationService');
+const { createNotification, dispatchSoon, sendDirectEmail } = require('../services/notificationService');
+const { notificationEmail, passwordResetEmail } = require('../services/emailTemplateService');
+const { issueAccountToken } = require('../services/accountTokenService');
 const { createIdempotentMessage, messagePage, publicMessage } = require('../services/chatMessageService');
 const { emitMessage, emitRequestEvent, emitRequestUpdated } = require('../services/realtimeService');
 const { sendStoredFile } = require('../services/fileStorageService');
 
 const router = express.Router();
 const leadStatuses = new Set(['new', 'qualified', 'contacted', 'needs_analysis', 'quoted', 'won', 'lost', 'spam']);
+const leadStageStatuses = {
+  received: ['new', 'qualified'],
+  quoting: ['contacted', 'needs_analysis'],
+  waiting: ['quoted'],
+  done: ['won'],
+  stopped: ['lost', 'spam'],
+};
 const requestStatuses = new Set(['submitted', 'reviewing', 'need_more_info', 'quoted', 'accepted', 'rejected', 'cancelled']);
 const orderStatuses = new Set(['pending', 'confirmed', 'preparing', 'shipping', 'delivered', 'cancelled']);
 const paymentStatuses = new Set(['unpaid', 'pending', 'paid', 'refund_pending', 'refunded']);
@@ -43,6 +53,59 @@ const workOrderWithIntegrity = item => ({
 });
 const clean = (value, max = 3000) => String(value || '').trim().slice(0, max);
 const fail = (message, status = 400) => { throw Object.assign(new Error(message), { status }); };
+const optionalInteger = (value, label, min, max) => {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < min || number > max) fail(label);
+  return number;
+};
+
+async function lockRevisionItems(request, quote) {
+  if (request.status !== 'reviewing') return quote;
+  const previous = await Quotation.findOne({ request: request._id }).sort({ version: -1 });
+  if (!previous || previous.status !== 'rejected') return quote;
+  const sameLine = (left, right) => left.description === right.description && (left.spec || '') === (right.spec || '') && Number(left.quantity) === Number(right.quantity) && left.unit === right.unit;
+  if (quote.items.length !== previous.items.length || previous.items.some((item, index) => !sameLine(item, quote.items[index]))) {
+    fail('Báo giá lại phải giữ đúng vật tư, quy cách, số lượng và đơn vị của báo giá trước. Chỉ được đổi đơn giá.');
+  }
+  quote.items = previous.items.map((item, index) => ({ description: item.description, spec: item.spec || '', quantity: item.quantity, unit: item.unit, unitPrice: quote.items[index].unitPrice, lineTotal: 0 }));
+  return quote;
+}
+
+function quotationInput(req) {
+  if (!Array.isArray(req.body.items) || !req.body.items.length || req.body.items.length > 50) fail('Báo giá cần từ 1 đến 50 hạng mục');
+  const items = req.body.items.map(item => ({ description: clean(item.description, 500), spec: clean(item.spec, 200), quantity: Number(item.quantity), unit: clean(item.unit, 50), unitPrice: Number(item.unitPrice), lineTotal: 0 }));
+  if (items.some(item => !item.description || !item.unit || !Number.isInteger(item.quantity) || item.quantity <= 0 || !Number.isInteger(item.unitPrice) || item.unitPrice < 0)) fail('Số lượng phải là số nguyên dương và đơn giá phải là số nguyên không âm');
+  const taxRate = req.body.taxRate === undefined || req.body.taxRate === '' ? 0 : Number(req.body.taxRate);
+  if (!Number.isInteger(taxRate) || taxRate < 0 || taxRate > 100) fail('Thuế VAT phải là số nguyên từ 0 đến 100');
+  const validityDays = optionalInteger(req.body.validityDays, 'Hiệu lực báo giá phải là số ngày từ 1 đến 365', 1, 365);
+  let validUntil;
+  if (validityDays) {
+    validUntil = new Date();
+    validUntil.setDate(validUntil.getDate() + validityDays);
+  } else {
+    validUntil = new Date(req.body.validUntil);
+    if (Number.isNaN(validUntil.getTime()) || validUntil <= new Date()) fail('Ngày hiệu lực báo giá phải ở tương lai');
+  }
+  const leadTimeDays = optionalInteger(req.body.leadTimeDays, 'Thời gian thực hiện phải là số ngày nguyên dương', 1, 3650);
+  const depositPercent = optionalInteger(req.body.depositPercent, 'Tỷ lệ đặt cọc phải là số nguyên từ 0 đến 100', 0, 100);
+  return {
+    items, subtotal: 0, total: 0, taxRate, validUntil, validityDays: validityDays || undefined,
+    workTitle: clean(req.body.workTitle, 300),
+    leadTime: leadTimeDays === null ? clean(req.body.leadTime, 300) : `${leadTimeDays} ngày`,
+    leadTimeDays: leadTimeDays || undefined,
+    paymentTerms: depositPercent === null ? clean(req.body.paymentTerms, 1000) : `Đặt cọc ${depositPercent}%`,
+    incoterm: clean(req.body.incoterm, 300),
+    notes: clean(req.body.notes, 2000),
+    senderName: clean(req.body.senderName, 120) || req.user.name,
+    senderPhone: clean(req.body.senderPhone, 30) || req.user.phone || '',
+    senderFax: clean(req.body.senderFax, 30),
+    recipientCompany: clean(req.body.recipientCompany, 200),
+    recipientName: clean(req.body.recipientName, 120),
+    recipientPhone: clean(req.body.recipientPhone, 30),
+    recipientFax: clean(req.body.recipientFax, 30)
+  };
+}
 const pageValues = query => ({ page: Math.max(1, Number(query.page) || 1), limit: Math.min(50, Math.max(1, Number(query.limit) || 20)) });
 const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const searchTerm = value => clean(value, 64);
@@ -78,15 +141,15 @@ function claimIfUnassigned(document, actor) {
 
 router.get('/dashboard', async (req, res, next) => {
   try {
-    const [portalRequests, websiteLeads, myRequests, activeProjects, pendingOrders, myOrders] = await Promise.all([
-      ServiceRequest.countDocuments({ assignedTo: null, status: 'submitted' }),
-      Lead.countDocuments({ assignedTo: null, status: 'new', convertedRequest: null }),
-      ServiceRequest.countDocuments({ assignedTo: req.user._id, status: { $nin: ['accepted', 'rejected', 'cancelled'] } }),
-      WorkOrder.countDocuments({ assignedTo: req.user._id, status: { $nin: ['completed', 'cancelled'] } }),
+    const [portalRequests, websiteLeads, waitingQuotes, activeProjects, pendingOrders, myOrders] = await Promise.all([
+      ServiceRequest.countDocuments({ status: { $in: ['submitted', 'reviewing', 'need_more_info'] } }),
+      Lead.countDocuments({ convertedRequest: null, status: { $nin: ['lost', 'spam', 'won'] } }),
+      ServiceRequest.countDocuments({ status: 'quoted' }),
+      WorkOrder.countDocuments({ status: { $nin: ['completed', 'cancelled'] } }),
       Order.countDocuments(scopedFilter(req.user, { status: 'pending' })),
       Order.countDocuments({ assignedTo: req.user._id, status: { $nin: ['delivered', 'cancelled'] } })
     ]);
-    res.json({ success: true, data: { newRequests: portalRequests + websiteLeads, myRequests, activeProjects, pendingOrders, myOrders } });
+    res.json({ success: true, data: { newRequests: portalRequests + websiteLeads, waitingQuotes, myRequests: waitingQuotes, activeProjects, pendingOrders, myOrders } });
   } catch (error) { next(error); }
 });
 
@@ -101,7 +164,13 @@ router.get('/leads', async (req, res, next) => {
   try {
     const { page, limit } = pageValues(req.query);
     const filter = scopedFilter(req.user);
-    if (leadStatuses.has(req.query.status)) filter.status = req.query.status;
+    if (req.query.queue === 'new') {
+      filter.convertedRequest = null;
+      filter.status = { $nin: ['lost', 'spam', 'won'] };
+    } else if (req.query.queue === 'done') {
+      filter.status = { $in: ['lost', 'spam'] };
+    } else if (leadStageStatuses[req.query.stage]) filter.status = { $in: leadStageStatuses[req.query.stage] };
+    else if (leadStatuses.has(req.query.status)) filter.status = req.query.status;
     if (priorities.has(req.query.priority)) filter.priority = req.query.priority;
     const assignedTo = assignmentFilter(req.query, req.user);
     if (assignedTo !== undefined) filter.assignedTo = assignedTo;
@@ -158,6 +227,10 @@ router.patch('/leads/:id', async (req, res, next) => {
       lead.lostReason = reason;
     }
     await lead.save();
+    if (req.body.status === 'lost' && lead.email) {
+      const mail = notificationEmail({ notification: { type: 'lead.rejected', title: `Yêu cầu ${lead.code} chưa thể thực hiện`, message: lead.lostReason || 'Xưởng chưa nhận yêu cầu này.' }, recipientName: lead.name, actionUrl: '' });
+      sendDirectEmail({ to: lead.email, subject: `Yêu cầu ${lead.code} chưa thể thực hiện`, text: mail.text, html: mail.html }).catch(error => console.error('Lead rejection email failed:', error.message));
+    }
     res.json({ success: true, message: 'Đã cập nhật Lead', data: lead });
   } catch (error) { next(error); }
 });
@@ -222,13 +295,86 @@ router.post('/leads/:id/convert', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+async function customerForLead(lead) {
+  const email = String(lead.email || '').trim().toLowerCase();
+  const phone = String(lead.phone || '').trim();
+  let customer = email ? await User.findOne({ role: 'customer', status: 'active', email }) : null;
+  if (!customer && phone) customer = await User.findOne({ role: 'customer', status: 'active', phone });
+  if (customer) return { customer, created: false };
+  if (!email) fail('Khách chưa có email để nhận báo giá');
+  const passwordHash = await User.hashPassword(crypto.randomBytes(18).toString('hex'));
+  try {
+    customer = await User.create({ name: lead.name, email, phone: phone || undefined, passwordHash, role: 'customer', status: 'active', emailVerifiedAt: new Date() });
+  } catch (error) {
+    if (error.code !== 11000) throw error;
+    customer = await User.findOne({ role: 'customer', status: 'active', $or: [{ email }, ...(phone ? [{ phone }] : [])] });
+    if (!customer) throw error;
+    return { customer, created: false };
+  }
+  return { customer, created: true };
+}
+
+router.post('/leads/:id/quotation', async (req, res, next) => {
+  try {
+    if (!validId(req.params.id)) fail('Lead không hợp lệ', 404);
+    const quote = quotationInput(req);
+    const lead = validId(req.params.id) ? await Lead.findOne(scopedFilter(req.user, { _id: req.params.id })) : null;
+    if (!lead) fail('Không tìm thấy Lead', 404);
+    if (lead.convertedRequest) fail('Yêu cầu này đã có báo giá. Hãy mở hồ sơ đang chờ khách.', 409);
+    if (lead.status === 'spam') fail('Không gửi báo giá cho yêu cầu spam', 409);
+    const { customer, created } = await customerForLead(lead);
+    claimIfUnassigned(lead, req.user);
+    const requestCode = `YC-${new Date().toISOString().slice(2, 10).replaceAll('-', '')}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+    const createdRequest = await ServiceRequest.create({
+      code: requestCode, customer: customer._id, requestType: lead.products?.length ? 'product_quote' : 'consulting',
+      title: clean(lead.serviceType || `Tư vấn từ ${lead.code}`, 200),
+      description: clean(lead.message || `Yêu cầu được chuyển từ ${lead.code}.`, 5000), budget: lead.budget,
+      contact: { name: customer.name, phone: customer.phone, email: customer.email, company: customer.company },
+      source: 'lead_conversion', sourceLead: lead._id, assignedTo: req.user._id, status: 'submitted',
+      timeline: [{ status: 'submitted', message: `Hồ sơ được mở từ yêu cầu ${lead.code}.`, actorType: 'staff', actor: req.user._id }]
+    });
+    const sequenced = await ServiceRequest.findByIdAndUpdate(createdRequest._id, { $inc: { quotationSequence: 1 } }, { new: true }).select('quotationSequence');
+    const quotation = await Quotation.create({
+      request: createdRequest._id, customer: customer._id, version: sequenced.quotationSequence, ...quote,
+      status: 'sent', sentAt: new Date(), createdBy: req.user._id
+    });
+    transitionServiceRequest(createdRequest, 'quoted', { actor: req.user._id, actorType: 'staff', message: `Đã gửi báo giá ${quotation.code}.` });
+    createdRequest.lastStaffMessageAt = new Date();
+    lead.convertedCustomer = customer._id;
+    lead.convertedRequest = createdRequest._id;
+    if (lead.status !== 'won') transitionLead(lead, 'won', { actor: req.user._id, message: `Đã gửi báo giá ${quotation.code}.` });
+    await Promise.all([
+      createdRequest.save(), lead.save(),
+      RequestMessage.create({ request: createdRequest._id, sender: req.user._id, senderRole: req.user.role, visibility: 'customer', content: `Cơ khí Đăng Khoa đã gửi báo giá ${quotation.code}.`, readByStaffAt: new Date() })
+    ]);
+    await createNotification({ recipient: customer._id, type: 'quotation.sent', title: `Bạn có báo giá mới ${quotation.code}`, message: `Báo giá có tổng giá trị ${quotation.total.toLocaleString('vi-VN')}đ và hiệu lực đến ${quotation.validUntil.toLocaleDateString('vi-VN')}.`, link: `/tai-khoan/yeu-cau?requestId=${createdRequest._id}`, metadata: { requestId: createdRequest._id, quotationId: quotation._id } });
+    if (created) {
+      const token = await issueAccountToken(customer, 'password_reset', 30);
+      const base = (process.env.CLIENT_URL || 'http://localhost:3000').split(',')[0].replace(/\/$/, '');
+      const mail = passwordResetEmail({ name: customer.name, actionUrl: `${base}/dat-lai-mat-khau#token=${encodeURIComponent(token)}` });
+      sendDirectEmail({ to: customer.email, subject: mail.subject, text: mail.text, html: mail.html }).catch(error => console.error('Quote account email failed:', error.message));
+    }
+    dispatchSoon();
+    res.status(201).json({ success: true, message: 'Đã gửi báo giá cho khách hàng', data: { requestId: createdRequest._id, requestCode: createdRequest.code, quotationId: quotation._id } });
+  } catch (error) { next(error); }
+});
+
 router.get('/requests', async (req, res, next) => {
   try {
     const { page, limit } = pageValues(req.query);
     const filter = scopedFilter(req.user);
     if (req.query.view === 'new') {
-      filter.assignedTo = null;
-      filter.status = 'submitted';
+      filter.status = { $in: ['submitted', 'reviewing', 'need_more_info'] };
+    } else if (req.query.view === 'waiting') {
+      filter.status = 'quoted';
+    } else if (req.query.view === 'doing') {
+      const completedIds = await WorkOrder.find({ status: 'completed' }).distinct('request');
+      filter.status = 'accepted';
+      filter._id = { $nin: completedIds };
+    } else if (req.query.view === 'done') {
+      const doneIds = await WorkOrder.find({ status: 'completed' }).distinct('request');
+      delete filter.assignedTo;
+      filter.$and = [scopedFilter(req.user), { $or: [{ status: { $in: ['rejected', 'cancelled'] } }, { _id: { $in: doneIds } }] }];
     } else if (req.query.view === 'active') {
       filter.status = { $nin: ['accepted', 'rejected', 'cancelled'] };
       if (req.user.role === 'staff') filter.assignedTo = req.user._id;
@@ -251,9 +397,14 @@ router.get('/requests', async (req, res, next) => {
       ServiceRequest.find(filter).select('-attachments.storedName -internalSummary').populate('customer', 'name email phone company').populate('assignedTo', 'name email').sort({ priority: -1, createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
       ServiceRequest.countDocuments(filter)
     ]);
-    const unread = await RequestMessage.aggregate([{ $match: { request: { $in: items.map(item => item._id) }, senderRole: 'customer', readByStaffAt: null } }, { $group: { _id: '$request', count: { $sum: 1 } } }]);
+    const requestIds = items.map(item => item._id);
+    const [unread, latestQuotes] = await Promise.all([
+      RequestMessage.aggregate([{ $match: { request: { $in: requestIds }, senderRole: 'customer', readByStaffAt: null } }, { $group: { _id: '$request', count: { $sum: 1 } } }]),
+      Quotation.aggregate([{ $match: { request: { $in: requestIds } } }, { $sort: { version: -1 } }, { $group: { _id: '$request', status: { $first: '$status' } } }])
+    ]);
     const unreadByRequest = new Map(unread.map(item => [String(item._id), item.count]));
-    res.json({ success: true, data: { items: items.map(item => ({ ...item, unreadCount: unreadByRequest.get(String(item._id)) || 0 })), total, page, pages: Math.ceil(total / limit) } });
+    const revisionIds = new Set(latestQuotes.filter(item => item.status === 'rejected').map(item => String(item._id)));
+    res.json({ success: true, data: { items: items.map(item => ({ ...item, unreadCount: unreadByRequest.get(String(item._id)) || 0, revisionRequested: item.status === 'reviewing' && revisionIds.has(String(item._id)) })), total, page, pages: Math.ceil(total / limit) } });
   } catch (error) { next(error); }
 });
 
@@ -358,7 +509,7 @@ router.post('/requests/:id/messages', async (req, res, next) => {
     const request = validId(req.params.id) ? await ServiceRequest.findOne(scopedFilter(req.user, { _id: req.params.id })) : null;
     if (!request) fail('Không tìm thấy yêu cầu', 404);
     ensureOwnership(request, req.user, 'Hồ sơ');
-    if (!request.assignedTo) fail('Hãy nhận xử lý yêu cầu trước khi trao đổi với khách hàng', 409);
+    if (!request.assignedTo) request.assignedTo = req.user._id;
     if (['accepted', 'rejected', 'cancelled'].includes(request.status)) fail('Hồ sơ đã đóng, không thể gửi thêm trao đổi', 409);
     const content = clean(req.body.content);
     if (!content) fail('Vui lòng nhập nội dung');
@@ -386,25 +537,13 @@ router.post('/requests/:id/quotations', async (req, res, next) => {
     const request = validId(req.params.id) ? await ServiceRequest.findOne(scopedFilter(req.user, { _id: req.params.id })) : null;
     if (!request) fail('Không tìm thấy yêu cầu', 404);
     ensureOwnership(request, req.user, 'Hồ sơ');
-    if (!request.assignedTo) fail('Hãy nhận xử lý yêu cầu trước khi lập báo giá', 409);
+    if (!request.assignedTo) request.assignedTo = req.user._id;
     if (!['submitted', 'reviewing', 'need_more_info', 'quoted'].includes(request.status)) fail('Yêu cầu đã đóng, không thể tạo báo giá', 409);
-    if (!Array.isArray(req.body.items) || !req.body.items.length || req.body.items.length > 50) fail('Báo giá cần từ 1 đến 50 hạng mục');
-    const items = req.body.items.map(item => ({ description: clean(item.description, 500), quantity: Number(item.quantity), unit: clean(item.unit, 50), unitPrice: Number(item.unitPrice), lineTotal: 0 }));
-    if (items.some(item => !item.description || !item.unit || !Number.isInteger(item.quantity) || item.quantity <= 0 || !Number.isInteger(item.unitPrice) || item.unitPrice < 0)) fail('Số lượng phải là số nguyên dương và đơn giá phải là số nguyên không âm');
-    const validUntil = new Date(req.body.validUntil);
-    if (Number.isNaN(validUntil.getTime()) || validUntil <= new Date()) fail('Ngày hiệu lực báo giá phải ở tương lai');
-    const taxRate = Number(req.body.taxRate);
-    if (!Number.isInteger(taxRate) || taxRate < 0 || taxRate > 100) fail('Thuế VAT phải là số nguyên từ 0 đến 100');
-    const leadTimeDays = req.body.leadTimeDays === null || req.body.leadTimeDays === undefined || req.body.leadTimeDays === '' ? null : Number(req.body.leadTimeDays);
-    if (leadTimeDays !== null && (!Number.isInteger(leadTimeDays) || leadTimeDays <= 0)) fail('Thời gian thực hiện phải là số ngày nguyên dương');
-    const depositPercent = req.body.depositPercent === null || req.body.depositPercent === undefined || req.body.depositPercent === '' ? null : Number(req.body.depositPercent);
-    if (depositPercent !== null && (!Number.isInteger(depositPercent) || depositPercent < 0 || depositPercent > 100)) fail('Tỷ lệ đặt cọc phải là số nguyên từ 0 đến 100');
+    const quote = await lockRevisionItems(request, quotationInput(req));
     const sequenced = await ServiceRequest.findByIdAndUpdate(request._id, { $inc: { quotationSequence: 1 } }, { new: true }).select('quotationSequence');
     const status = req.body.status === 'sent' ? 'sent' : 'draft';
     const quotation = await Quotation.create({
-      request: request._id, customer: request.customer, version: sequenced.quotationSequence, items,
-      subtotal: 0, total: 0, taxRate,
-      leadTime: leadTimeDays === null ? clean(req.body.leadTime, 300) : `${leadTimeDays} ngày`, paymentTerms: depositPercent === null ? clean(req.body.paymentTerms, 1000) : `Đặt cọc ${depositPercent}%`, notes: clean(req.body.notes, 2000), validUntil,
+      request: request._id, customer: request.customer, version: sequenced.quotationSequence, ...quote,
       status, sentAt: status === 'sent' ? new Date() : undefined, createdBy: req.user._id
     });
     if (status === 'sent') {
@@ -552,6 +691,39 @@ router.patch('/work-orders/:id', async (req, res, next) => {
     await createNotification({ recipient: workOrder.customer, type: 'work_order.updated', title: `Dự án ${workOrder.code} đã được cập nhật`, message: `Tiến độ hiện tại: ${projectLabels[workOrder.status] || workOrder.status}.`, link: `/tai-khoan/du-an?projectId=${workOrder._id}` });
     dispatchSoon();
     res.json({ success: true, message: 'Đã cập nhật dự án', data: workOrder });
+  } catch (error) { next(error); }
+});
+
+router.patch('/work-orders/:id/repair', async (req, res, next) => {
+  try {
+    if (!validId(req.params.id)) fail('Dự án không hợp lệ', 404);
+    const decision = clean(req.body.decision);
+    const resolution = clean(req.body.resolution, 2000);
+    if (!['accept', 'reject'].includes(decision)) fail('Quyết định sửa chữa không hợp lệ');
+    if (resolution.length < 3) fail('Vui lòng ghi lý do hoặc ngày xử lý');
+    const workOrder = await WorkOrder.findOne(scopedFilter(req.user, { _id: req.params.id }));
+    if (!workOrder) fail('Không tìm thấy dự án', 404);
+    if (!['requested', 'requote'].includes(workOrder.repair?.status)) fail('Không có yêu cầu sửa đang chờ', 409);
+    if (decision === 'accept') {
+      const delivery = req.body.plannedDeliveryAt ? new Date(req.body.plannedDeliveryAt) : null;
+      if (delivery && Number.isNaN(delivery.getTime())) fail('Ngày giao không hợp lệ');
+      workOrder.status = 'in_progress';
+      if (delivery) workOrder.plannedDeliveryAt = delivery;
+      workOrder.repair.status = 'accepted';
+      workOrder.repair.resolution = resolution;
+      workOrder.repair.at = new Date();
+      workOrder.customerConfirmedAt = undefined;
+      workOrder.timeline.push({ status: 'in_progress', message: `Nhận sửa: ${resolution}`, actor: req.user._id, actorType: 'staff' });
+    } else {
+      workOrder.repair.status = 'rejected';
+      workOrder.repair.resolution = resolution;
+      workOrder.repair.at = new Date();
+      workOrder.timeline.push({ status: workOrder.status, message: `Từ chối sửa: ${resolution}`, actor: req.user._id, actorType: 'staff' });
+    }
+    await workOrder.save();
+    await createNotification({ recipient: workOrder.customer, type: 'work_order.repair', title: decision === 'accept' ? `Xưởng nhận sửa ${workOrder.code}` : `Xưởng chưa nhận sửa ${workOrder.code}`, message: resolution, link: `/tai-khoan/du-an?projectId=${workOrder._id}`, metadata: { workOrderId: workOrder._id } });
+    dispatchSoon();
+    res.json({ success: true, message: decision === 'accept' ? 'Đã nhận sửa và hẹn giao lại' : 'Đã từ chối yêu cầu sửa', data: workOrder });
   } catch (error) { next(error); }
 });
 

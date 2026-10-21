@@ -22,6 +22,13 @@ const workOrderSchema = new mongoose.Schema({
   depositPaid: { type: Number, default: 0, min: 0 },
   plannedStartAt: Date,
   plannedDeliveryAt: Date,
+  customerConfirmedAt: Date,
+  repair: {
+    status: { type: String, enum: ['requested', 'accepted', 'rejected', 'requote'] },
+    reason: { type: String, trim: true, maxlength: 2000 },
+    resolution: { type: String, trim: true, maxlength: 2000 },
+    at: Date
+  },
   milestones: { type: [milestoneSchema], default: [] },
   timeline: [{ status: String, message: String, actor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, actorType: { type: String, enum: ['customer', 'staff', 'system'], default: 'system' }, at: { type: Date, default: Date.now } }]
 }, { timestamps: true });

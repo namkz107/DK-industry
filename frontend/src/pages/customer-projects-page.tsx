@@ -1,25 +1,21 @@
-import { useQuery } from "@tanstack/react-query"
-import { ArrowLeft, Check, ChevronRight, CircleDollarSign, FileCheck2, FolderKanban, LoaderCircle, Timer } from "lucide-react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { ArrowLeft, ChevronRight, CircleDollarSign, FileCheck2, FolderKanban, LoaderCircle } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 import { CustomerShell } from "@/components/customer/customer-shell"
 import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/components/ui/toast"
 import { usePageMeta } from "@/hooks/use-page-meta"
 import { customerClient } from "@/lib/customer-client"
 import { cn, formatPrice } from "@/lib/utils"
 import type { WorkOrder } from "@/types/customer"
 
-const stageByStatus: Record<WorkOrder["status"], number> = {
-  awaiting_contract: 0, awaiting_deposit: 0, scheduled: 0,
-  in_progress: 1, quality_check: 1, ready_for_delivery: 2,
-  completed: 3, cancelled: -1,
-}
-const stages = ["Chuẩn bị", "Đang thực hiện", "Chờ bàn giao", "Hoàn thành"]
-const statusLabel = (status: WorkOrder["status"]) => status === "cancelled" ? "Đã hủy" : stages[stageByStatus[status]]
+const statusLabel = (status: WorkOrder["status"]) => status === "completed" ? "Hoàn thành" : status === "cancelled" ? "Đã hủy" : "Đang làm"
 const dateTime = (value?: string) => value ? new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "Chưa cập nhật"
 
 export function CustomerProjectsPage() {
-  usePageMeta("Dự án của tôi", "Theo dõi tiến độ các yêu cầu gia công đã thống nhất báo giá.")
+  usePageMeta("Dự án của tôi", "Xem ngày giao, xác nhận nhận hàng hoặc yêu cầu sửa.")
   const [params, setParams] = useSearchParams()
   const [tab, setTab] = useState<"active" | "completed">(params.get("view") === "completed" ? "completed" : "active")
   const selectedId = params.get("projectId") || ""
@@ -29,7 +25,7 @@ export function CustomerProjectsPage() {
   const selectProject = (id: string) => setParams({ projectId: id, view: tab })
   const changeTab = (value: "active" | "completed") => { setTab(value); setParams({ view: value }) }
 
-  return <CustomerShell title="Dự án của tôi" description="Xem dự án đang ở bước nào và các cập nhật mới nhất từ công ty.">
+  return <CustomerShell title="Dự án của tôi" description="Xem ngày giao. Đúng ngày nhận hàng thì bấm xác nhận. Hàng lỗi thì yêu cầu sửa.">
     {selected ? <ProjectDetail project={selected} onBack={() => setParams({ view: tab })}/> : <>
       <nav className="mb-5 flex w-fit gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm" aria-label="Lọc dự án">
         <button type="button" onClick={() => changeTab("active")} className={cn("min-h-11 rounded-xl px-5 text-sm font-bold", tab === "active" ? "bg-emerald-950 text-white" : "text-slate-600 hover:bg-slate-100")}>Đang triển khai</button>
@@ -41,19 +37,25 @@ export function CustomerProjectsPage() {
 }
 
 function ProjectDetail({ project, onBack }: { project: WorkOrder; onBack: () => void }) {
-  const current = stageByStatus[project.status]
+  const client = useQueryClient(); const toast = useToast()
+  const [reason, setReason] = useState(""); const [mode, setMode] = useState<"" | "request" | "requote">("")
+  const refresh = () => client.invalidateQueries({ queryKey: ["customer", "projects"] })
+  const receive = useMutation({ mutationFn: () => customerClient.receiveProject(project._id), onSuccess: result => { toast.success(result.message || "Đã xác nhận nhận hàng"); void refresh() }, onError: error => toast.error(error.message) })
+  const repair = useMutation({ mutationFn: () => customerClient.requestRepair(project._id, { action: mode === "requote" ? "requote" : "request", reason: reason.trim() }), onSuccess: result => { toast.success(result.message || "Đã gửi yêu cầu sửa"); setMode(""); setReason(""); void refresh() }, onError: error => toast.error(error.message) })
+  const busy = receive.isPending || repair.isPending
+  const open = !["completed", "cancelled"].includes(project.status)
   return <article className="space-y-6">
     <Button variant="outline" onClick={onBack}><ArrowLeft className="size-4"/>Quay lại danh sách dự án</Button>
     <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-      <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-black uppercase tracking-wider text-orange-700">{project.code}</p><h2 className="mt-2 font-display text-3xl font-bold text-emerald-950">{project.request?.title || "Dự án gia công"}</h2><p className="mt-2 text-slate-600">Báo giá {project.quotation?.code || "đã thống nhất"}</p></div><span className={cn("rounded-full px-4 py-2 text-sm font-black", project.status === "cancelled" ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-800")}>{statusLabel(project.status)}</span></div>
-      {project.status !== "cancelled" && <ol className="mt-8 grid grid-cols-4" aria-label="Tiến độ dự án">{stages.map((label, index) => {
-        const completed = index < current || project.status === "completed"
-        const active = index === current && project.status !== "completed"
-        return <li key={label} className="relative flex min-w-0 flex-col items-center text-center"><span className={cn("absolute left-0 right-1/2 top-4 h-0.5", index === 0 && "hidden", index <= current ? "bg-emerald-600" : "bg-slate-200")}/><span className={cn("absolute left-1/2 right-0 top-4 h-0.5", index === stages.length - 1 && "hidden", index < current || project.status === "completed" ? "bg-emerald-600" : "bg-slate-200")}/><span className={cn("relative z-10 grid size-8 place-items-center rounded-full border-2 bg-white", completed ? "border-emerald-600 bg-emerald-600 text-white" : active ? "border-orange-500 text-orange-600" : "border-slate-300 text-slate-300")}>{completed ? <Check className="size-4"/> : <span className="size-2 rounded-full bg-current"/>}</span><span className={cn("mt-2 text-[11px] font-bold sm:text-sm", index <= current ? "text-emerald-950" : "text-slate-400")}>{label}</span></li>
-      })}</ol>}
-      <div className="mt-8 grid gap-4 rounded-2xl bg-slate-50 p-5 sm:grid-cols-3"><Info icon={CircleDollarSign} label="Giá trị thống nhất" value={formatPrice(project.agreedTotal)}/><Info icon={FileCheck2} label="Báo giá đã duyệt" value={project.quotation?.code || "Đã thống nhất"}/><Info icon={Timer} label="Thời gian thực hiện" value={project.quotation?.leadTime || "Theo báo giá đã thống nhất"}/></div>
+      <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-black uppercase tracking-wider text-orange-700">{project.code}</p><h2 className="mt-2 font-display text-3xl font-bold text-emerald-950">{project.request?.title || "Dự án gia công"}</h2><p className="mt-2 text-slate-600">Báo giá {project.quotation?.code || "đã thống nhất"}</p></div><span className={cn("rounded-full px-4 py-2 text-sm font-black", project.status === "cancelled" ? "bg-red-50 text-red-700" : project.status === "completed" ? "bg-emerald-50 text-emerald-800" : "bg-orange-50 text-orange-800")}>{statusLabel(project.status)}</span></div>
+      <div className="mt-8 grid gap-4 rounded-2xl bg-slate-50 p-5 sm:grid-cols-3"><Info icon={CircleDollarSign} label="Giá trị đã chốt" value={formatPrice(project.agreedTotal)}/><Info icon={FileCheck2} label="Báo giá" value={project.quotation?.code || "Đã thống nhất"}/><Info icon={FileCheck2} label="Ngày giao" value={project.plannedDeliveryAt ? new Date(project.plannedDeliveryAt).toLocaleDateString("vi-VN") : "Chưa hẹn"}/></div>
+      {open && <Button className="mt-5" size="lg" disabled={busy} onClick={() => receive.mutate()}>Đã nhận hàng</Button>}
+      {project.status === "completed" && project.repair?.status !== "requested" && project.repair?.status !== "requote" && <div className="mt-5">{mode ? <form className="space-y-3" onSubmit={event => { event.preventDefault(); repair.mutate() }}><Textarea rows={3} value={reason} onChange={event => setReason(event.target.value)} placeholder={mode === "requote" ? "Mô tả việc cần sửa và đồng ý tính phí" : "Mô tả lỗi cần sửa"}/><div className="flex gap-2"><Button disabled={busy || reason.trim().length < 5}>{mode === "requote" ? "Gửi yêu cầu sửa tính phí" : "Gửi yêu cầu sửa"}</Button><Button type="button" variant="ghost" onClick={() => setMode("")}>Quay lại</Button></div></form> : <div className="flex flex-wrap gap-2">{project.repair?.status === "rejected" ? <Button variant="outline" onClick={() => setMode("requote")}>Sửa tính phí</Button> : <Button variant="outline" onClick={() => setMode("request")}>Yêu cầu sửa</Button>}</div>}</div>}
+      {project.repair?.status === "requested" && <p className="mt-5 rounded-2xl bg-orange-50 p-4 text-sm text-orange-900">Đã gửi yêu cầu sửa. Xưởng sẽ phản hồi qua email.</p>}
+      {project.repair?.status === "accepted" && <p className="mt-5 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-900">Xưởng đã nhận sửa{project.repair.resolution ? `: ${project.repair.resolution}` : "."}</p>}
+      {(receive.error || repair.error) && <p className="mt-4 rounded-xl bg-red-50 p-4 text-red-700">{(receive.error || repair.error)?.message}</p>}
     </section>
-    <section className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8"><h3 className="font-display text-2xl font-bold text-emerald-950">Cập nhật từ công ty</h3><ol className="mt-5 space-y-4">{[...(project.timeline || [])].reverse().map((item, index) => <li className="flex gap-3" key={`${item.at}-${index}`}><span className="mt-2 size-2.5 shrink-0 rounded-full bg-orange-500"/><div><strong className="text-slate-800">{statusLabel(item.status as WorkOrder["status"])}</strong>{item.message && <p className="mt-1 leading-6 text-slate-600">{item.message}</p>}<time className="mt-1 block text-xs text-slate-400">{dateTime(item.at)}</time></div></li>)}{!project.timeline?.length && <li className="text-slate-500">Chưa có cập nhật.</li>}</ol></section>
+    <section className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8"><h3 className="font-display text-2xl font-bold text-emerald-950">Nhật ký</h3><ol className="mt-5 space-y-4">{[...(project.timeline || [])].reverse().map((item, index) => <li className="flex gap-3" key={`${item.at}-${index}`}><span className="mt-2 size-2.5 shrink-0 rounded-full bg-orange-500"/><div><strong className="text-slate-800">{statusLabel(item.status as WorkOrder["status"])}</strong>{item.message && <p className="mt-1 leading-6 text-slate-600">{item.message}</p>}<time className="mt-1 block text-xs text-slate-400">{dateTime(item.at)}</time></div></li>)}{!project.timeline?.length && <li className="text-slate-500">Chưa có cập nhật.</li>}</ol></section>
   </article>
 }
 

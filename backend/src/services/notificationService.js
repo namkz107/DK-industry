@@ -70,6 +70,27 @@ async function notifyRole(role, payload, session = null) {
 
 const notifyOperations = (payload, session = null) => notifyRole('staff', payload, session);
 const notifyAdmins = (payload, session = null) => notifyRole('admin', payload, session);
+const quoteAdminEmail = () => String(process.env.QUOTE_ADMIN_EMAIL || 'hnam52041@gmail.com').trim().toLowerCase();
+
+async function notifyQuoteWatchers(payload, session = null) {
+  await notifyOperations(payload, session);
+  const email = quoteAdminEmail();
+  if (!email) return;
+  const escaped = email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const query = User.findOne({ email: { $regex: `^${escaped}$`, $options: 'i' }, role: 'admin', status: 'active' }).select('_id email').lean();
+  if (session) query.session(session);
+  const admin = await query;
+  if (admin) {
+    await createNotification({ ...payload, recipient: admin._id, email: admin.email, session });
+    return;
+  }
+  if (session || !smtpConfigured()) return;
+  const { notificationEmail } = require('./emailTemplateService');
+  const baseUrl = (process.env.CLIENT_URL || 'http://localhost:3000').split(',')[0].replace(/\/$/, '');
+  const actionUrl = payload.link ? `${baseUrl}${payload.link.startsWith('/') ? '' : '/'}${payload.link}` : '';
+  const mail = notificationEmail({ notification: payload, recipientName: 'Admin', actionUrl });
+  await sendDirectEmail({ to: email, subject: payload.title, text: mail.text, html: mail.html });
+}
 
 async function dispatchPendingEmails(limit = 25) {
   if (!smtpConfigured()) return { sent: 0, failed: 0 };
@@ -148,4 +169,4 @@ function dispatchSoon() {
   setImmediate(() => dispatchPendingEmails().catch(error => console.error('Notification email dispatch failed:', error.message)));
 }
 
-module.exports = { createNotification, notifyOperations, notifyAdmins, dispatchPendingEmails, dispatchSoon, mailTransport, smtpConfigured, sendDirectEmail };
+module.exports = { createNotification, notifyOperations, notifyAdmins, notifyQuoteWatchers, quoteAdminEmail, dispatchPendingEmails, dispatchSoon, mailTransport, smtpConfigured, sendDirectEmail };

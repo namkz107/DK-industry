@@ -1,15 +1,42 @@
-const PDFDocument = require('pdfkit');
+const fs = require('node:fs');
 const path = require('node:path');
+const PDFDocument = require('pdfkit');
 
 const regularFont = path.join(__dirname, '..', 'assets', 'fonts', 'NotoSans-Regular.ttf');
 const boldFont = path.join(__dirname, '..', 'assets', 'fonts', 'NotoSans-Bold.ttf');
+const logoPath = path.join(__dirname, '..', 'assets', 'brand', 'dk-logo.png');
+const stampPath = path.join(__dirname, '..', 'assets', 'brand', 'dk-stamp.jpg');
 
-const money = value => `${Number(value || 0).toLocaleString('vi-VN')} đ`;
-const date = value => new Date(value).toLocaleDateString('vi-VN');
+const letterhead = {
+  englishName: process.env.COMPANY_ENGLISH_NAME || 'DANG KHOA CIC AND T.,JSC',
+  legalName: process.env.COMPANY_LEGAL_NAME || 'CÔNG TY CỔ PHẦN TƯ VẤN ĐẦU TƯ XÂY DỰNG VÀ THƯƠNG MẠI ĐĂNG KHOA.',
+  address: process.env.COMPANY_QUOTE_ADDRESS || 'CỤM 3 - DUYEN TRUONG - DUYEN THAI - THUONG TIN - HA NOI',
+  phones: process.env.COMPANY_QUOTE_PHONES || '098 3688 326     097 7361 298',
+  taxCode: process.env.COMPANY_TAX_CODE || '0106426038',
+  email: process.env.COMPANY_QUOTE_EMAIL || process.env.COMPANY_EMAIL || 'ctydangkhoa8386@gmail.com'
+};
+
+const amount = value => Number(value || 0).toLocaleString('en-US');
+const pad = value => String(value).padStart(2, '0');
+const date = value => {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return `${pad(parsed.getDate())}/${pad(parsed.getMonth() + 1)}/${parsed.getFullYear()}`;
+};
+
+function validityText(quotation) {
+  if (quotation.validityLabel) return quotation.validityLabel;
+  if (Number.isInteger(quotation.validityDays) && quotation.validityDays > 0) return `${quotation.validityDays} ngày`;
+  const start = new Date(quotation.sentAt || quotation.createdAt || Date.now());
+  const end = new Date(quotation.validUntil);
+  const days = Math.round((end.getTime() - start.getTime()) / 86400000);
+  if (days > 0 && days <= 365) return `${days} ngày`;
+  return date(quotation.validUntil);
+}
 
 function generateQuotationPdf({ quotation, request, customer }) {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: 'A4', margin: 42, bufferPages: true, info: { Title: `Báo giá ${quotation.code}`, Author: process.env.COMPANY_NAME || 'Cơ khí Đăng Khoa' } });
+    const doc = new PDFDocument({ size: 'A4', margin: 32, bufferPages: true, info: { Title: `Báo giá ${quotation.code}`, Author: letterhead.legalName } });
     const chunks = [];
     doc.on('data', chunk => chunks.push(chunk));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
@@ -17,100 +44,158 @@ function generateQuotationPdf({ quotation, request, customer }) {
     doc.registerFont('Regular', regularFont);
     doc.registerFont('Bold', boldFont);
 
-    const companyName = process.env.COMPANY_NAME || 'CÔNG TY CỔ PHẦN TƯ VẤN ĐẦU TƯ XÂY DỰNG THƯƠNG MẠI ĐĂNG KHOA';
-    const brandName = process.env.EMAIL_BRAND_NAME || 'Cơ khí Đăng Khoa';
-    const orange = '#ea580c';
-    const green = '#022c22';
-    const muted = '#64748b';
-    const pageWidth = doc.page.width - 84;
+    const left = 32;
+    const width = doc.page.width - 64;
+    const bottom = doc.page.height - 36;
+    const ink = '#111111';
+    let y = 24;
 
-    const text = (value, options = {}) => {
-      const { x, y, bold, size, color, ...textOptions } = options;
-      doc.font(bold ? 'Bold' : 'Regular').fontSize(size || 10).fillColor(color || green);
-      if (Number.isFinite(x) && Number.isFinite(y)) return doc.text(String(value || ''), x, y, textOptions);
-      return doc.text(String(value || ''), textOptions);
+    const text = (value, x, top, options = {}) => {
+      doc.font(options.bold ? 'Bold' : 'Regular').fontSize(options.size || 9).fillColor(options.color || ink);
+      doc.text(String(value ?? ''), x, top, { width: options.width, height: options.height, align: options.align || 'left', lineGap: 1, ellipsis: Boolean(options.ellipsis) });
+      doc.x = left;
+      doc.y = y;
     };
-    const ensureSpace = height => { if (doc.y + height > doc.page.height - 64) doc.addPage(); };
+    const ensure = height => {
+      if (y + height <= bottom) return;
+      doc.addPage();
+      y = 32;
+    };
+    const withColon = label => `${String(label).replace(/:\s*$/, '')}: `;
+    const measureLine = (label, value, maxWidth, options = {}) => {
+      const caption = withColon(label);
+      doc.font('Bold').fontSize(9);
+      const captionWidth = Math.min(doc.widthOfString(caption), Math.max(40, maxWidth - 48));
+      const valueWidth = Math.max(36, maxWidth - captionWidth);
+      doc.font(options.bold ? 'Bold' : 'Regular').fontSize(9);
+      const valueHeight = doc.heightOfString(String(value || ''), { width: valueWidth });
+      return { caption, captionWidth, valueWidth, height: Math.max(12, valueHeight) };
+    };
+    const fullRow = (label, value, options = {}) => {
+      const measured = measureLine(label, value, width, options);
+      ensure(measured.height + 4);
+      text(measured.caption, left, y, { width: measured.captionWidth + 2, height: measured.height + 2, bold: true, size: 9 });
+      text(value || '', left + measured.captionWidth, y, { width: measured.valueWidth, height: measured.height + 2, bold: options.bold, size: 9 });
+      y += measured.height + 3;
+    };
+    const pairRow = (leftLabel, leftValue, rightLabel, rightValue) => {
+      const gap = 18;
+      const half = (width - gap) / 2;
+      const leftMeasured = measureLine(leftLabel, leftValue, half);
+      const rightMeasured = measureLine(rightLabel, rightValue, half);
+      const height = Math.max(leftMeasured.height, rightMeasured.height);
+      ensure(height + 4);
+      text(leftMeasured.caption, left, y, { width: leftMeasured.captionWidth + 2, height: height + 2, bold: true, size: 9 });
+      text(leftValue || '', left + leftMeasured.captionWidth, y, { width: leftMeasured.valueWidth, height: height + 2, size: 9 });
+      const rightX = left + half + gap;
+      text(rightMeasured.caption, rightX, y, { width: rightMeasured.captionWidth + 2, height: height + 2, bold: true, size: 9 });
+      text(rightValue || '', rightX + rightMeasured.captionWidth, y, { width: rightMeasured.valueWidth, height: height + 2, size: 9 });
+      y += height + 3;
+    };
 
-    doc.rect(0, 0, doc.page.width, 116).fill(green);
-    text(brandName, { x: 42, y: 34, width: 330, bold: true, size: 20, color: '#ffffff' });
-    text(companyName, { x: 42, y: 66, width: 390, size: 8.5, color: '#d1fae5' });
-    text('BÁO GIÁ', { x: 430, y: 36, width: 123, align: 'right', bold: true, size: 21, color: '#ffffff' });
-    text(quotation.code, { x: 430, y: 69, width: 123, align: 'right', bold: true, size: 10, color: '#fdba74' });
-    doc.x = 42;
-    doc.y = 142;
+    if (fs.existsSync(logoPath)) doc.image(logoPath, left, y, { fit: [78, 62] });
+    text(letterhead.englishName, left + 86, y + 2, { width: width - 86, align: 'center', bold: true, size: 13 });
+    text(`ADD: ${letterhead.address}`, left + 86, y + 20, { width: width - 86, align: 'center', size: 9 });
+    text(`TEL: ${letterhead.phones}`, left + 86, y + 34, { width: width - 86, align: 'center', size: 9 });
+    text(`MST: ${letterhead.taxCode}      Email: ${letterhead.email}`, left + 86, y + 48, { width: width - 86, align: 'center', size: 9 });
+    y += 74;
 
-    text(`Kính gửi: ${customer?.name || 'Quý khách hàng'}`, { bold: true, size: 12 });
-    text(customer?.company ? `Công ty: ${customer.company}` : `Email: ${customer?.email || ''}`, { color: muted, size: 9.5 });
-    if (customer?.company && customer?.email) text(`Email: ${customer.email}`, { color: muted, size: 9.5 });
-    doc.moveDown(0.5);
-    text(`Yêu cầu: ${request?.code || ''} - ${request?.title || ''}`, { bold: true, size: 10.5 });
-    text(`Ngày lập: ${date(quotation.sentAt || quotation.createdAt || new Date())}    |    Hiệu lực đến: ${date(quotation.validUntil)}`, { color: muted, size: 9.5 });
-    doc.moveDown(1.2);
+    const senderName = quotation.senderName || quotation.createdBy?.name || '';
+    const senderPhone = quotation.senderPhone || '';
+    const recipientCompany = quotation.recipientCompany || customer?.company || customer?.name || '';
+    const recipientName = quotation.recipientName || customer?.name || '';
+    const recipientPhone = quotation.recipientPhone || customer?.phone || '';
+    const workTitle = quotation.workTitle || request?.title || '';
 
-    const widths = [30, 218, 58, 55, 86, 86];
-    const headers = ['STT', 'Hạng mục', 'SL', 'Đơn vị', 'Đơn giá', 'Thành tiền'];
-    const drawRow = (values, height, header = false) => {
-      ensureSpace(height + 6);
-      const y = doc.y;
-      let x = 42;
+    fullRow('Supplier/ Công ty gửi báo giá:', letterhead.legalName);
+    pairRow('PIC/ Người gửi báo giá', senderName, 'Hand phone/ Số điện thoại:', senderPhone);
+    pairRow('Quotation No/ Số báo giá', quotation.code || '', 'Fax No/ Số Fax:', quotation.senderFax || '');
+    fullRow('Quotation Date/ Ngày báo giá', date(quotation.sentAt || quotation.createdAt || new Date()));
+    fullRow("Quotation's Validity/ Hiệu lực báo giá", validityText(quotation));
+    y += 6;
+    fullRow('To', recipientCompany, { bold: true });
+    pairRow('PIC/ Người nhận báo giá', recipientName, 'Hand phone/ Số điện thoại', recipientPhone);
+    fullRow('Fax No/ Số Fax', quotation.recipientFax || '');
+    y += 4;
+    ensure(28);
+    text('Please check quotation\'s detail as following/ Công ty chúng tôi xin gửi tới Quý công ty báo giá cụ thể như sau', left, y, { width, size: 9 });
+    y += 28;
+    fullRow('+ Working Title/ Tên công việc:', workTitle);
+    fullRow('+ Payment Term/ Điều kiện thanh toán:', quotation.paymentTerms || '');
+    fullRow('+ Incoterm/ Điều kiện giao hàng:', quotation.incoterm || '');
+    fullRow('+ Leadtime/ Thời gian giao hàng:', quotation.leadTime || '');
+    fullRow('+ TOTAL AMOUNT/ TỔNG GIÁ TRỊ ĐƠN HÀNG:', amount(quotation.total), { bold: true });
+    y += 4;
+    ensure(36);
+    text('1. Material Expense/ Chi phí vật tư:', left, y, { width, bold: true, size: 10 });
+    y += 16;
+    text('1.1. Main Material/ Vật tư chính:', left, y, { width, size: 10 });
+    y += 18;
+
+    const widths = [28, 188, 72, 48, 52, 66, width - 454];
+    const headers = ['STT', 'Material\n(Tên Vật Tư)', 'Spec\n(Model, Maker,…)', 'Unit\n(Đơn Vị)', 'Quantity\n(Khối Lượng)', 'Unit Price\n(Đơn giá)', 'Amount\n(Số Tiền)'];
+    const drawCells = (values, rowHeight, options = {}) => {
+      const header = options === true || options.header;
+      const emphasize = options === true || options.emphasize;
+      ensure(rowHeight + 4);
+      let x = left;
       values.forEach((value, index) => {
-        doc.rect(x, y, widths[index], height).fillAndStroke(header ? green : index === 0 ? '#f8fafc' : '#ffffff', '#cbd5e1');
-        text(value, { x: x + 5, y: y + 7, width: widths[index] - 10, height: height - 10, bold: header, size: header ? 8.5 : 8.3, color: header ? '#ffffff' : green, align: index >= 4 ? 'right' : index === 0 || index === 2 ? 'center' : 'left' });
+        doc.rect(x, y, widths[index], rowHeight).lineWidth(0.6).strokeColor('#222222').stroke();
+        text(value, x + 3, y + 5, {
+          width: widths[index] - 6,
+          height: rowHeight - 8,
+          align: header || index === 0 || index === 3 || index === 4 ? 'center' : index >= 5 ? 'right' : 'left',
+          bold: header || emphasize,
+          size: header ? 7.5 : 8.5
+        });
         x += widths[index];
       });
-      doc.y = y + height;
+      y += rowHeight;
     };
-    drawRow(headers, 30, true);
-    quotation.items.forEach((item, index) => {
-      const descriptionHeight = doc.font('Regular').fontSize(8.3).heightOfString(item.description, { width: widths[1] - 10 });
-      const height = Math.max(32, descriptionHeight + 14);
-      drawRow([index + 1, item.description, item.quantity.toLocaleString('vi-VN'), item.unit, money(item.unitPrice), money(item.lineTotal)], height);
+    const drawHeader = () => drawCells(headers, 54, { header: true });
+    drawHeader();
+    (quotation.items || []).forEach((item, index) => {
+      const values = [
+        String(index + 1),
+        item.description || '',
+        item.spec || '',
+        item.unit || '',
+        Number(item.quantity || 0).toLocaleString('en-US'),
+        amount(item.unitPrice),
+        amount(item.lineTotal)
+      ];
+      const heights = values.map((value, cell) => doc.font('Regular').fontSize(8.5).heightOfString(String(value), { width: widths[cell] - 6 }));
+      const rowHeight = Math.max(28, Math.max(...heights) + 12);
+      if (y + rowHeight > bottom) {
+        doc.addPage();
+        y = 32;
+        drawHeader();
+      }
+      drawCells(values, rowHeight);
     });
+    if (Number(quotation.taxAmount) > 0) {
+      drawCells(['', `VAT (${quotation.taxRate || 0}%)`, '', '', '', '', amount(quotation.taxAmount)], 24, { emphasize: true });
+    }
+    drawCells(['', 'Tổng giá trị đơn hàng.', '', '', '', '', amount(quotation.total)], 26, { emphasize: true });
 
-    doc.moveDown(1);
-    const totalsX = 335;
-    const totalRow = (label, value, emphasized = false) => {
-      ensureSpace(25);
-      const y = doc.y;
-      text(label, { x: totalsX, y: y + 4, width: 100, bold: emphasized, size: emphasized ? 11 : 9.5, color: emphasized ? green : muted });
-      text(value, { x: 435, y: y + 4, width: 118, align: 'right', bold: true, size: emphasized ? 12 : 9.5, color: emphasized ? orange : green });
-      doc.y = y + (emphasized ? 29 : 23);
-    };
-    totalRow('Tạm tính', money(quotation.subtotal));
-    totalRow(`VAT (${quotation.taxRate || 0}%)`, money(quotation.taxAmount));
-    doc.moveTo(totalsX, doc.y).lineTo(553, doc.y).strokeColor('#cbd5e1').stroke();
-    totalRow('TỔNG CỘNG', money(quotation.total), true);
-    doc.x = 42;
-
-    const conditions = [
-      quotation.leadTime && ['Thời gian thực hiện', quotation.leadTime],
-      quotation.paymentTerms && ['Điều khoản thanh toán', quotation.paymentTerms],
-      quotation.notes && ['Ghi chú', quotation.notes]
-    ].filter(Boolean);
-    if (conditions.length) {
-      ensureSpace(80);
-      doc.moveDown(0.6);
-      text('ĐIỀU KIỆN VÀ GHI CHÚ', { bold: true, size: 11, color: orange });
-      doc.moveDown(0.45);
-      conditions.forEach(([label, value]) => {
-        ensureSpace(22);
-        doc.font('Bold').fontSize(9.5).fillColor(green).text(`${label}: `, { continued: true });
-        doc.font('Regular').fillColor(muted).text(String(value));
-        doc.moveDown(0.35);
-      });
+    if (quotation.notes) {
+      y += 10;
+      ensure(24);
+      text(`Ghi chú: ${quotation.notes}`, left, y, { width, size: 9 });
+      y += doc.heightOfString(`Ghi chú: ${quotation.notes}`, { width }) + 8;
     }
 
-    const range = doc.bufferedPageRange();
-    for (let page = range.start; page < range.start + range.count; page += 1) {
-      doc.switchToPage(page);
-      const footerY = doc.page.height - 54;
-      doc.moveTo(42, footerY - 10).lineTo(doc.page.width - 42, footerY - 10).strokeColor('#e2e8f0').stroke();
-      text(`${brandName}  |  ${process.env.COMPANY_PHONE_LABEL || process.env.COMPANY_PHONE || '096 5243 386'}  |  ${process.env.COMPANY_EMAIL || ''}`, { x: 42, y: footerY, width: pageWidth - 60, size: 7.5, color: muted });
-      text(`${page - range.start + 1}/${range.count}`, { x: doc.page.width - 90, y: footerY, width: 48, align: 'right', size: 7.5, color: muted });
+    y += 12;
+    if (fs.existsSync(stampPath)) {
+      const stampWidth = 210;
+      if (y + 120 > bottom) {
+        doc.addPage();
+        y = 32;
+      }
+      doc.image(stampPath, left + width - stampWidth, y, { fit: [stampWidth, 120] });
     }
     doc.end();
   });
 }
 
-module.exports = { generateQuotationPdf };
+module.exports = { generateQuotationPdf, letterhead };

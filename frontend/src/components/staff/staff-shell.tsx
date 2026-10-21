@@ -1,4 +1,4 @@
-import { ClipboardList, FolderKanban, Headphones, Inbox, LayoutDashboard, LogOut, PackageCheck } from "lucide-react"
+import { ClipboardList, FolderKanban, Headphones, LayoutDashboard, LogOut, PackageCheck } from "lucide-react"
 import type { PropsWithChildren, ReactNode } from "react"
 import { NavLink, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
@@ -7,8 +7,7 @@ import { cn } from "@/lib/utils"
 
 const navigation = [
   { to: "/staff", label: "Tổng quan", icon: LayoutDashboard, end: true },
-  { to: "/staff/requests", label: "Yêu cầu gia công", icon: ClipboardList },
-  { to: "/staff/leads", label: "Yêu cầu báo giá", icon: Inbox },
+  { to: "/staff/requests", label: "Yêu cầu", icon: ClipboardList },
   { to: "/staff/work-orders", label: "Dự án", icon: FolderKanban },
   { to: "/staff/orders", label: "Đơn sản phẩm", icon: PackageCheck },
   { to: "/staff/support", label: "Hỗ trợ khách hàng", icon: Headphones },

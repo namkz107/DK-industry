@@ -28,6 +28,8 @@ export const customerClient = {
   createAfterSales: (id: string, body: { type: "return" | "warranty" | "complaint"; reason: string }) => authClient.authenticated<Result<CustomerOrder>>(`/customer/orders/${id}/after-sales`, json("POST", body)),
   requests: () => authClient.authenticated<Result<CustomerRequest[]>>("/customer/requests"),
   projects: () => authClient.authenticated<Result<WorkOrder[]>>("/customer/projects"),
+  receiveProject: (id: string) => authClient.authenticated<Result<WorkOrder>>(`/customer/projects/${id}/receive`, json("PATCH", {})),
+  requestRepair: (id: string, body: { action: "request" | "requote"; reason: string }) => authClient.authenticated<Result<WorkOrder>>(`/customer/projects/${id}/repair`, json("PATCH", body)),
   requestDetail: (id: string) => authClient.authenticated<Result<RequestDetail>>(`/customer/requests/${id}`),
   requestMessages: (id: string, before?: string | null) => authClient.authenticated<Result<{ items: RequestMessage[] } & MessagePage>>(`/customer/requests/${id}/messages?limit=50${before ? `&before=${encodeURIComponent(before)}` : ""}`),
   createRequest: (body: FormData) => authClient.authenticated<Result<{ id: string; code: string; status: string }>>("/customer/requests", { method: "POST", body }),

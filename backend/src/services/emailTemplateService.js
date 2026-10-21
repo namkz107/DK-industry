@@ -49,7 +49,7 @@ function plainText({ eyebrow, title, greeting, paragraphs = [], details = [], ct
   ].filter(value => value !== null && value !== undefined).join('\n').trim();
 }
 
-function renderBrandedEmail({ preheader = '', eyebrow = 'THÔNG BÁO TỪ CÔNG TY', title, greeting = 'Kính gửi Quý khách hàng,', paragraphs = [], contentHtml = '', details = [], cta, notice = '' }) {
+function renderBrandedEmail({ preheader = '', eyebrow = 'THÔNG BÁO TỪ CÔNG TY', title, greeting = 'Kính gửi Quý khách hàng,', paragraphs = [], contentHtml = '', details = [], cta, notice = '', width = 600 }) {
   const company = brand();
   const safeCtaUrl = cleanUrl(cta?.url);
   const detailRows = details.map((item, index) => `<tr>
@@ -66,7 +66,7 @@ function renderBrandedEmail({ preheader = '', eyebrow = 'THÔNG BÁO TỪ CÔNG 
 <body style="margin:0;padding:0;background:#f5f5f4;color:#0f172a;">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(preheader || title)}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#f5f5f4;"><tr><td align="center" style="padding:28px 12px;">
-    <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #e2e8f0;border-radius:20px;overflow:hidden;box-shadow:0 12px 32px rgba(2,44,34,.10);">
+    <table role="presentation" width="${width}" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:${width}px;background:#ffffff;border:1px solid #e2e8f0;border-radius:20px;overflow:hidden;box-shadow:0 12px 32px rgba(2,44,34,.10);">
       <tr><td align="center" style="padding:24px 28px 22px;background:#022c22;border-bottom:4px solid #ea580c;">
         ${company.logo ? `<img src="${escapeHtml(company.logo)}" width="112" alt="${escapeHtml(company.displayName)}" style="display:block;width:112px;max-width:112px;height:auto;margin:0 auto 12px;border:0;background:#ffffff;border-radius:12px;padding:6px;">` : ''}
         <div style="font-family:Arial,sans-serif;font-size:19px;line-height:26px;font-weight:700;color:#ffffff;">${escapeHtml(company.displayName)}</div>
@@ -198,67 +198,99 @@ function notificationEmail({ notification, recipientName, actionUrl }) {
 }
 
 const formatMoney = value => `${Number(value || 0).toLocaleString('vi-VN')} đ`;
+const quoteColon = label => /:\s*$/.test(label) ? label : `${label}:`;
 
 function quotationEmail({ quotation, request, customer, actionUrl }) {
+  const { letterhead } = require('./quotationDocumentService');
+  const cell = 'padding:6px 4px;border:1px solid #222222;font-family:Arial,sans-serif;font-size:12px;line-height:16px;color:#111111;';
+  const head = `${cell}font-weight:700;text-align:center;background:#f8fafc;`;
+  const field = (label, value) => `<tr><td style="padding:3px 8px 3px 0;font-family:Arial,sans-serif;font-size:13px;line-height:18px;font-weight:700;color:#111111;vertical-align:top;">${escapeHtml(quoteColon(label))}</td><td style="padding:3px 0;font-family:Arial,sans-serif;font-size:13px;line-height:18px;color:#111111;vertical-align:top;">${escapeHtml(value || '')}</td></tr>`;
+  const validity = Number.isInteger(quotation.validityDays) && quotation.validityDays > 0 ? `${quotation.validityDays} ngày` : new Date(quotation.validUntil).toLocaleDateString('vi-VN');
+  const quoteDate = new Date(quotation.sentAt || quotation.createdAt || Date.now()).toLocaleDateString('vi-VN');
+  const recipientCompany = quotation.recipientCompany || customer?.company || customer?.name || '';
   const rows = quotation.items.map((item, index) => `<tr>
-    <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:center;font-family:Arial,sans-serif;font-size:12px;color:#475569;">${index + 1}</td>
-    <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;font-family:Arial,sans-serif;font-size:12px;color:#0f172a;">${escapeHtml(item.description)}</td>
-    <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:center;font-family:Arial,sans-serif;font-size:12px;color:#475569;">${escapeHtml(item.quantity)}</td>
-    <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;font-family:Arial,sans-serif;font-size:12px;color:#475569;">${escapeHtml(item.unit)}</td>
-    <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-family:Arial,sans-serif;font-size:12px;color:#475569;white-space:nowrap;">${formatMoney(item.unitPrice)}</td>
-    <td style="padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-family:Arial,sans-serif;font-size:12px;font-weight:700;color:#022c22;white-space:nowrap;">${formatMoney(item.lineTotal)}</td>
+    <td style="${cell}text-align:center;">${index + 1}</td>
+    <td style="${cell}">${escapeHtml(item.description)}</td>
+    <td style="${cell}text-align:center;">${escapeHtml(item.spec || '')}</td>
+    <td style="${cell}text-align:center;">${escapeHtml(item.unit)}</td>
+    <td style="${cell}text-align:center;">${escapeHtml(item.quantity)}</td>
+    <td style="${cell}text-align:right;white-space:nowrap;">${formatMoney(item.unitPrice)}</td>
+    <td style="${cell}text-align:right;font-weight:700;white-space:nowrap;">${formatMoney(item.lineTotal)}</td>
   </tr>`).join('');
-  const conditionRows = [
-    quotation.leadTime && ['Thời gian thực hiện', quotation.leadTime],
-    quotation.paymentTerms && ['Điều khoản thanh toán', quotation.paymentTerms],
-    quotation.notes && ['Ghi chú', quotation.notes]
-  ].filter(Boolean).map(([label, value]) => `<p style="margin:7px 0;font-family:Arial,sans-serif;font-size:13px;line-height:20px;color:#475569;"><strong style="color:#022c22;">${escapeHtml(label)}:</strong> ${escapeHtml(value)}</p>`).join('');
   const contentHtml = `
-    <div style="margin-top:20px;overflow:hidden;border:1px solid #cbd5e1;border-radius:12px;">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;">
-        <thead><tr style="background:#022c22;">
-          <th style="padding:10px 6px;font-family:Arial,sans-serif;font-size:11px;color:#ffffff;">STT</th>
-          <th align="left" style="padding:10px 8px;font-family:Arial,sans-serif;font-size:11px;color:#ffffff;">HẠNG MỤC</th>
-          <th style="padding:10px 6px;font-family:Arial,sans-serif;font-size:11px;color:#ffffff;">SL</th>
-          <th align="left" style="padding:10px 8px;font-family:Arial,sans-serif;font-size:11px;color:#ffffff;">ĐƠN VỊ</th>
-          <th align="right" style="padding:10px 8px;font-family:Arial,sans-serif;font-size:11px;color:#ffffff;">ĐƠN GIÁ</th>
-          <th align="right" style="padding:10px 8px;font-family:Arial,sans-serif;font-size:11px;color:#ffffff;">THÀNH TIỀN</th>
-        </tr></thead><tbody>${rows}</tbody>
-      </table>
-    </div>
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:14px;background:#f8fafc;border-radius:12px;"><tr><td style="padding:16px 18px;">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-        <tr><td style="font-family:Arial,sans-serif;font-size:13px;color:#64748b;">Tạm tính</td><td align="right" style="font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#022c22;">${formatMoney(quotation.subtotal)}</td></tr>
-        <tr><td style="padding-top:8px;font-family:Arial,sans-serif;font-size:13px;color:#64748b;">VAT (${escapeHtml(quotation.taxRate || 0)}%)</td><td align="right" style="padding-top:8px;font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#022c22;">${formatMoney(quotation.taxAmount)}</td></tr>
-        <tr><td style="padding-top:12px;border-top:1px solid #cbd5e1;font-family:Arial,sans-serif;font-size:16px;font-weight:700;color:#022c22;">Tổng cộng</td><td align="right" style="padding-top:12px;border-top:1px solid #cbd5e1;font-family:Arial,sans-serif;font-size:18px;font-weight:700;color:#ea580c;">${formatMoney(quotation.total)}</td></tr>
-      </table>
-    </td></tr></table>
-    ${conditionRows ? `<div style="margin-top:16px;padding:14px 16px;background:#fff7ed;border-left:4px solid #f97316;border-radius:8px;">${conditionRows}</div>` : ''}`;
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:18px;border-top:1px solid #e2e8f0;padding-top:14px;">
+      <tr><td style="padding-top:14px;font-family:Arial,sans-serif;font-size:16px;line-height:22px;font-weight:700;color:#111111;text-align:center;">${escapeHtml(letterhead.englishName)}</td></tr>
+      <tr><td style="font-family:Arial,sans-serif;font-size:12px;line-height:18px;color:#111111;text-align:center;">ADD: ${escapeHtml(letterhead.address)}</td></tr>
+      <tr><td style="font-family:Arial,sans-serif;font-size:12px;line-height:18px;color:#111111;text-align:center;">TEL: ${escapeHtml(letterhead.phones)}</td></tr>
+      <tr><td style="font-family:Arial,sans-serif;font-size:12px;line-height:18px;color:#111111;text-align:center;">MST: ${escapeHtml(letterhead.taxCode)} · Email: ${escapeHtml(letterhead.email)}</td></tr>
+    </table>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:14px;">
+      ${field('Supplier/ Công ty gửi báo giá', letterhead.legalName)}
+      ${field('PIC/ Người gửi báo giá', quotation.senderName || '')}
+      ${field('Hand phone/ Số điện thoại', quotation.senderPhone || '')}
+      ${field('Quotation No/ Số báo giá', quotation.code)}
+      ${field('Quotation Date/ Ngày báo giá', quoteDate)}
+      ${field("Quotation's Validity/ Hiệu lực báo giá", validity)}
+      ${field('To', recipientCompany)}
+      ${field('PIC/ Người nhận báo giá', quotation.recipientName || customer?.name || '')}
+      ${field('Fax No/ Số Fax', quotation.recipientFax || '')}
+    </table>
+    <p style="margin:14px 0 8px;font-family:Arial,sans-serif;font-size:13px;line-height:20px;color:#111111;">Please check quotation's detail as following/ Công ty chúng tôi xin gửi tới Quý công ty báo giá cụ thể như sau</p>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+      ${field('+ Working Title/ Tên công việc', quotation.workTitle || request?.title || '')}
+      ${field('+ Payment Term/ Điều kiện thanh toán', quotation.paymentTerms || '')}
+      ${field('+ Incoterm/ Điều kiện giao hàng', quotation.incoterm || '')}
+      ${field('+ Leadtime/ Thời gian giao hàng', quotation.leadTime || '')}
+      ${field('+ TOTAL AMOUNT/ TỔNG GIÁ TRỊ ĐƠN HÀNG', formatMoney(quotation.total))}
+    </table>
+    <p style="margin:14px 0 4px;font-family:Arial,sans-serif;font-size:13px;line-height:20px;font-weight:700;color:#111111;">1. Material Expense/ Chi phí vật tư:</p>
+    <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:13px;line-height:20px;color:#111111;">1.1. Main Material/ Vật tư chính:</p>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;">
+      <tr>
+        <th style="${head}">STT</th>
+        <th style="${head}">Material<br>(Tên Vật Tư)</th>
+        <th style="${head}">Spec</th>
+        <th style="${head}">Unit</th>
+        <th style="${head}">Quantity</th>
+        <th style="${head}">Unit Price</th>
+        <th style="${head}">Amount</th>
+      </tr>
+      ${rows}
+      ${Number(quotation.taxAmount) > 0 ? `<tr><td style="${cell}" colspan="6">VAT (${escapeHtml(quotation.taxRate || 0)}%)</td><td style="${cell}text-align:right;font-weight:700;">${formatMoney(quotation.taxAmount)}</td></tr>` : ''}
+      <tr><td style="${cell}font-weight:700;" colspan="6">Tổng giá trị đơn hàng.</td><td style="${cell}text-align:right;font-weight:700;">${formatMoney(quotation.total)}</td></tr>
+    </table>
+    ${quotation.notes ? `<p style="margin:12px 0 0;font-family:Arial,sans-serif;font-size:13px;line-height:20px;color:#111111;"><strong>Ghi chú:</strong> ${escapeHtml(quotation.notes)}</p>` : ''}`;
   const rendered = renderBrandedEmail({
     preheader: `Báo giá ${quotation.code} - ${formatMoney(quotation.total)}`,
-    eyebrow: 'BÁO GIÁ CHI TIẾT',
+    eyebrow: 'BÁO GIÁ',
     title: `Báo giá ${quotation.code}`,
-    greeting: `Xin chào ${customer?.name || 'Quý khách'},`,
-    paragraphs: [`Chúng tôi gửi bạn báo giá cho yêu cầu ${request?.code || ''} - ${request?.title || ''}. File PDF đầy đủ được đính kèm email này.`],
+    greeting: `Kính gửi ${recipientCompany || customer?.name || 'Quý khách'},`,
+    paragraphs: [`File PDF đầy đủ được đính kèm email này.`],
     contentHtml,
-    details: [
-      { label: 'Mã báo giá', value: quotation.code, highlight: true },
-      { label: 'Hiệu lực đến', value: new Date(quotation.validUntil).toLocaleDateString('vi-VN') }
-    ],
+    width: 760,
     cta: actionUrl ? { label: 'Xem và phản hồi báo giá', url: actionUrl } : undefined
   });
-  const itemText = quotation.items.map((item, index) => `${index + 1}. ${item.description} - ${item.quantity} ${item.unit} x ${formatMoney(item.unitPrice)} = ${formatMoney(item.lineTotal)}`).join('\n');
+  const itemText = quotation.items.map((item, index) => `${index + 1}. ${item.description}${item.spec ? ` (${item.spec})` : ''} - ${item.quantity} ${item.unit} x ${formatMoney(item.unitPrice)} = ${formatMoney(item.lineTotal)}`).join('\n');
   rendered.text = [
-    `BÁO GIÁ ${quotation.code}`,
-    `Kính gửi: ${customer?.name || 'Quý khách'}`,
-    `Yêu cầu: ${request?.code || ''} - ${request?.title || ''}`,
-    '', 'CÁC HẠNG MỤC', itemText, '',
-    `Tạm tính: ${formatMoney(quotation.subtotal)}`,
-    `VAT (${quotation.taxRate || 0}%): ${formatMoney(quotation.taxAmount)}`,
-    `TỔNG CỘNG: ${formatMoney(quotation.total)}`,
-    `Hiệu lực đến: ${new Date(quotation.validUntil).toLocaleDateString('vi-VN')}`,
-    quotation.leadTime && `Thời gian thực hiện: ${quotation.leadTime}`,
-    quotation.paymentTerms && `Điều khoản thanh toán: ${quotation.paymentTerms}`,
+    letterhead.englishName,
+    `ADD: ${letterhead.address}`,
+    `TEL: ${letterhead.phones}`,
+    `MST: ${letterhead.taxCode} · Email: ${letterhead.email}`,
+    '',
+    `Supplier/ Công ty gửi báo giá: ${letterhead.legalName}`,
+    `PIC/ Người gửi báo giá: ${quotation.senderName || ''}`,
+    `Quotation No/ Số báo giá: ${quotation.code}`,
+    `Quotation Date/ Ngày báo giá: ${quoteDate}`,
+    `Quotation's Validity/ Hiệu lực báo giá: ${validity}`,
+    `To: ${recipientCompany}`,
+    `+ Working Title/ Tên công việc: ${quotation.workTitle || request?.title || ''}`,
+    quotation.paymentTerms && `+ Payment Term/ Điều kiện thanh toán: ${quotation.paymentTerms}`,
+    quotation.incoterm && `+ Incoterm/ Điều kiện giao hàng: ${quotation.incoterm}`,
+    quotation.leadTime && `+ Leadtime/ Thời gian giao hàng: ${quotation.leadTime}`,
+    `+ TOTAL AMOUNT/ TỔNG GIÁ TRỊ ĐƠN HÀNG: ${formatMoney(quotation.total)}`,
+    '', '1. Material Expense/ Chi phí vật tư:', itemText, '',
+    Number(quotation.taxAmount) > 0 && `VAT (${quotation.taxRate || 0}%): ${formatMoney(quotation.taxAmount)}`,
+    `Tổng giá trị đơn hàng: ${formatMoney(quotation.total)}`,
     quotation.notes && `Ghi chú: ${quotation.notes}`,
     actionUrl && `Xem và phản hồi: ${actionUrl}`,
     '', `File báo giá ${quotation.code}.pdf được đính kèm email này.`

@@ -56,10 +56,10 @@ export interface CustomerOrder {
 
 export interface RequestAttachment { _id: string; originalName: string; mimeType?: string; size?: number }
 export interface RequestMessage { _id: string; clientMessageId?: string; senderRole: "customer" | "staff" | "admin" | "system"; visibility: "customer"; content: string; attachments: RequestAttachment[]; readByCustomerAt?: string; readByStaffAt?: string; createdAt: string; deliveryStatus?: "sending" | "failed" }
-export interface QuotationItem { _id: string; description: string; quantity: number; unit: string; unitPrice: number; lineTotal: number }
+export interface QuotationItem { _id: string; description: string; spec?: string; quantity: number; unit: string; unitPrice: number; lineTotal: number }
 export interface Quotation {
   _id: string; code: string; version: number; items: QuotationItem[]; subtotal: number; taxRate: number; taxAmount: number; total: number
-  currency: "VND"; leadTime?: string; paymentTerms?: string; notes?: string; validUntil: string
+  currency: "VND"; workTitle?: string; leadTime?: string; paymentTerms?: string; incoterm?: string; notes?: string; validUntil: string
   status: "sent" | "accepted" | "rejected" | "superseded" | "expired"; sentAt?: string; respondedAt?: string; responseNote?: string
 }
 export interface QuotationResponse extends Quotation {
@@ -69,7 +69,8 @@ export interface QuotationResponse extends Quotation {
 export interface WorkOrder {
   _id: string; code: string; status: "awaiting_contract" | "awaiting_deposit" | "scheduled" | "in_progress" | "quality_check" | "ready_for_delivery" | "completed" | "cancelled"
   agreedTotal: number; depositRequired: number; depositPaid: number; contractReference?: string; purchaseOrderReference?: string
-  plannedStartAt?: string; plannedDeliveryAt?: string; timeline: TimelineItem[]; createdAt: string
+  plannedStartAt?: string; plannedDeliveryAt?: string; customerConfirmedAt?: string; timeline: TimelineItem[]; createdAt: string
+  repair?: { status?: "requested" | "accepted" | "rejected" | "requote"; reason?: string; resolution?: string; at?: string }
   request?: { _id: string; code: string; title: string; description?: string } | null
   quotation?: { _id: string; code: string; total: number; leadTime?: string; paymentTerms?: string; notes?: string } | null
 }

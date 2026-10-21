@@ -5,7 +5,7 @@ export type OrderStatus = "pending" | "confirmed" | "preparing" | "shipping" | "
 export type PaymentStatus = "unpaid" | "pending" | "paid" | "refund_pending" | "refunded"
 
 export interface StaffMember { _id: string; name: string; email: string; role: "staff" | "admin" }
-export interface StaffDashboard { newRequests: number; myRequests: number; activeProjects: number; pendingOrders: number; myOrders: number }
+export interface StaffDashboard { newRequests: number; waitingQuotes: number; myRequests: number; activeProjects: number; pendingOrders: number; myOrders: number }
 export interface StaffLead {
   _id: string; code: string; name: string; phone: string; email?: string; company?: string; serviceType?: string; budget?: string; message?: string
   source: string; priority: Priority; status: LeadStatus; assignedTo?: StaffMember | null; nextFollowUpAt?: string; lostReason?: string; createdAt: string
@@ -16,11 +16,11 @@ export interface StaffLead {
 export interface StaffRequest {
   _id: string; code: string; title: string; description: string; requestType: string; material?: string; quantity?: number; dimensions?: string; budget?: string
   priority: Priority; status: RequestStatus; assignedTo?: StaffMember | null; customer: { _id: string; name: string; email: string; phone?: string; company?: string }
-  contact: { name?: string; phone?: string; email?: string; company?: string }; internalSummary?: string; createdAt: string; unreadCount?: number
+  contact: { name?: string; phone?: string; email?: string; company?: string }; internalSummary?: string; createdAt: string; unreadCount?: number; revisionRequested?: boolean
   attachments: Array<{ _id: string; originalName: string; mimeType?: string; size?: number }>
 }
 export interface StaffMessage { _id: string; clientMessageId?: string; sender?: StaffMember; senderRole: string; visibility: "customer" | "internal"; content: string; createdAt: string; readByCustomerAt?: string; readByStaffAt?: string; deliveryStatus?: "sending" | "failed"; attachments: Array<{ _id: string; originalName: string }> }
-export interface StaffQuotation { _id: string; code: string; version: number; status: string; subtotal: number; taxRate: number; taxAmount: number; total: number; validUntil: string; createdAt: string; leadTime?: string; paymentTerms?: string; notes?: string; responseNote?: string; items: Array<{ description: string; quantity: number; unit: string; unitPrice: number; lineTotal: number }> }
+export interface StaffQuotation { _id: string; code: string; version: number; status: string; subtotal: number; taxRate: number; taxAmount: number; total: number; validUntil: string; validityDays?: number; createdAt: string; workTitle?: string; leadTime?: string; paymentTerms?: string; incoterm?: string; notes?: string; responseNote?: string; senderName?: string; senderPhone?: string; senderFax?: string; recipientCompany?: string; recipientName?: string; recipientPhone?: string; recipientFax?: string; items: Array<{ description: string; spec?: string; quantity: number; unit: string; unitPrice: number; lineTotal: number }> }
 export interface StaffRequestDetail { request: StaffRequest; messages: StaffMessage[]; messagePage?: { hasMore: boolean; nextCursor: string | null }; quotations: StaffQuotation[]; workOrder?: { _id: string; code: string; status: WorkOrderStatus } | null }
 export interface Paged<T> { items: T[]; total: number; page: number; pages: number }
 export interface StaffOrder {
@@ -38,7 +38,8 @@ export interface StaffOrder {
 export type WorkOrderStatus = "awaiting_contract" | "awaiting_deposit" | "scheduled" | "in_progress" | "quality_check" | "ready_for_delivery" | "completed" | "cancelled"
 export interface StaffWorkOrder {
   _id: string; code: string; status: WorkOrderStatus; agreedTotal: number; depositRequired: number; depositPaid: number
-  contractReference?: string; purchaseOrderReference?: string; plannedStartAt?: string; plannedDeliveryAt?: string; createdAt: string
+  contractReference?: string; purchaseOrderReference?: string; plannedStartAt?: string; plannedDeliveryAt?: string; customerConfirmedAt?: string; createdAt: string
+  repair?: { status?: "requested" | "accepted" | "rejected" | "requote"; reason?: string; resolution?: string; at?: string }
   customer: { _id: string; name: string; email: string; phone?: string; company?: string } | null; assignedTo?: StaffMember | null
   request: { _id: string; code: string; title: string } | null; quotation: { _id: string; code: string; total: number; leadTime?: string; paymentTerms?: string; notes?: string } | null
   integrityIssues?: Array<"customer" | "request" | "quotation">
