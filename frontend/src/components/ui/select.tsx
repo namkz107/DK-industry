@@ -78,14 +78,14 @@ export function Select({ value, options, onChange, disabled = false, ariaLabel, 
       aria-controls={open ? listboxId : undefined}
       aria-activedescendant={open ? `${listboxId}-${activeIndex}` : undefined}
       disabled={disabled}
-      className={cn("flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-slate-300 bg-white px-4 text-left text-[15px] font-semibold text-slate-800 shadow-sm transition hover:border-orange-400 hover:shadow-md focus:border-orange-500 focus:outline-none focus:ring-4 focus:ring-orange-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none", open && "border-orange-500 ring-4 ring-orange-100")}
+      className={cn("flex min-h-12 w-full items-center justify-between gap-3 rounded-control border border-slate-300 bg-white px-4 text-left text-base font-semibold text-slate-800 transition hover:border-orange-400 focus:border-orange-500 focus:outline-none focus:ring-4 focus:ring-orange-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400", open && "border-orange-500 ring-4 ring-orange-100")}
       onClick={() => open ? setOpen(false) : openMenu()}
       onKeyDown={onKeyDown}
     >
       <span className="truncate">{selected?.label}</span>
       <ChevronDown className={cn("size-4 shrink-0 transition-transform", open && "rotate-180")}/>
     </button>
-    {open && !disabled && <div id={listboxId} role="listbox" aria-label={ariaLabel} className="absolute z-[80] mt-2 max-h-72 w-full min-w-max overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_18px_45px_rgb(2_44_34_/_0.2)]">
+    {open && !disabled && <div id={listboxId} role="listbox" aria-label={ariaLabel} className="absolute z-[80] mt-2 max-h-72 w-full min-w-max overflow-y-auto rounded-card border border-slate-200 bg-white p-2 shadow-float">
       {options.map((option, index) => <button
         type="button"
         role="option"

@@ -30,8 +30,8 @@ type Props = { project: ProjectDetails | null; onOpenChange: (open: boolean) => 
 export function ProjectDetailsDialog({ project, onOpenChange }: Props) {
   return <Dialog.Root open={Boolean(project)} onOpenChange={onOpenChange}>
     <Dialog.Portal>
-      <Dialog.Overlay className="fixed inset-0 z-[120] bg-emerald-950/70 backdrop-blur-sm"/>
-      {project && <Dialog.Content aria-describedby="project-details-description" className="fixed left-1/2 top-1/2 z-[121] max-h-[calc(100dvh-24px)] w-[min(1120px,calc(100%-24px))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-3xl bg-white shadow-2xl outline-none">
+      <Dialog.Overlay className="fixed inset-0 z-[120] bg-emerald-950/70"/>
+      {project && <Dialog.Content aria-describedby="project-details-description" className="fixed left-1/2 top-1/2 z-[121] max-h-[calc(100dvh-24px)] w-[min(1120px,calc(100%-24px))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-panel bg-white shadow-float outline-none">
         {project.image && <div className="relative"><img className="h-64 w-full rounded-t-3xl object-cover sm:h-96" src={project.image} alt={project.title}/><div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-emerald-950/70 to-transparent"/></div>}
         <div className="p-6 sm:p-9">
           <span className="text-xs font-extrabold uppercase tracking-wider text-orange-700">{project.category}</span>
@@ -61,7 +61,7 @@ export function ProjectDetailsDialog({ project, onOpenChange }: Props) {
           {project.customerFeedback && <section className="mt-8 rounded-3xl bg-emerald-950 p-6 text-white sm:p-8"><Quote className="size-8 text-orange-400"/><blockquote className="mt-4 text-lg leading-8 text-emerald-50">“{project.customerFeedback}”</blockquote><p className="mt-4 text-sm font-bold text-orange-300">Phản hồi sau khi bàn giao</p></section>}
           <div className="mt-9 flex justify-end"><Dialog.Close asChild><Button type="button" variant="outline">Đóng</Button></Dialog.Close></div>
         </div>
-        <Dialog.Close className="absolute right-4 top-4 grid size-10 place-items-center rounded-xl bg-white/90 text-slate-700 shadow transition hover:bg-white" aria-label="Đóng chi tiết dự án"><X className="size-5"/></Dialog.Close>
+        <Dialog.Close className="absolute right-4 top-4 grid size-10 place-items-center rounded-control bg-white text-slate-700 transition hover:bg-slate-100" aria-label="Đóng chi tiết dự án"><X className="size-5"/></Dialog.Close>
       </Dialog.Content>}
     </Dialog.Portal>
   </Dialog.Root>

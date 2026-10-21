@@ -73,7 +73,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 function Toast({ item, onDismiss }: { item: ToastItem; onDismiss: (id: number) => void }) {
   const style = styles[item.variant]
   const Icon = style.icon
-  return <li role={item.variant === "error" ? "alert" : "status"} className={`toast-enter pointer-events-auto flex w-full items-start gap-3 rounded-2xl border bg-white p-4 shadow-[0_16px_45px_rgb(2_44_34_/_0.2)] ${style.borderClass}`}>
+  return <li role={item.variant === "error" ? "alert" : "status"} className={`toast-enter pointer-events-auto flex w-full items-start gap-3 rounded-card border bg-white p-4 shadow-float ${style.borderClass}`}>
     <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${style.iconClass}`}><Icon className="size-5" aria-hidden="true"/></span>
     <div className="min-w-0 flex-1 pt-0.5"><strong className="block text-sm text-emerald-950">{item.title || style.title}</strong><p className="mt-1 break-words text-sm leading-5 text-slate-600">{item.message}</p>{item.action && <button type="button" className="mt-2 text-sm font-bold text-orange-700 underline underline-offset-4 hover:text-orange-800" onClick={() => { item.action?.onClick(); onDismiss(item.id) }}>{item.action.label}</button>}</div>
     <button type="button" onClick={() => onDismiss(item.id)} className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Đóng thông báo"><X className="size-4" aria-hidden="true"/></button>

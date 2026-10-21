@@ -37,8 +37,8 @@ export function QuoteDialog({ open, onOpenChange, product }: { open: boolean; on
 
   return <Dialog.Root open={open} onOpenChange={onOpenChange}>
     <Dialog.Portal>
-      <Dialog.Overlay className="fixed inset-0 z-50 bg-emerald-950/75 backdrop-blur-sm data-[state=open]:animate-in" />
-      <Dialog.Content className="fixed left-1/2 top-1/2 z-50 grid max-h-[94vh] w-[min(960px,calc(100%-24px))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-3xl bg-white shadow-2xl outline-none lg:grid-cols-[.8fr_1.2fr]">
+      <Dialog.Overlay className="fixed inset-0 z-50 bg-emerald-950/75 data-[state=open]:animate-in" />
+      <Dialog.Content className="fixed left-1/2 top-1/2 z-50 grid max-h-[94vh] w-[min(960px,calc(100%-24px))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-panel bg-white shadow-float outline-none lg:grid-cols-[.8fr_1.2fr]">
         <div className="hidden bg-emerald-950 p-10 text-white lg:block">
           <p className="mb-5 text-xs font-bold uppercase tracking-[.2em] text-orange-400">Yêu cầu tư vấn</p>
           <Dialog.Title className="font-display text-4xl font-semibold leading-tight">Cho chúng tôi biết bài toán của bạn.</Dialog.Title>

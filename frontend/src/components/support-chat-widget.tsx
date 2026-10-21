@@ -146,7 +146,7 @@ export function SupportChatWidget() {
     } finally { setLoadingOlder(false) }
   }
 
-  return <div className="fixed bottom-4 right-3 z-[60] sm:bottom-6 sm:right-6">
+  return <div className="support-dock">
     {open && <section role="dialog" aria-label="Hỗ trợ khách hàng" className="mb-3 flex h-[min(660px,calc(100vh-7rem))] w-[min(400px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-3xl border border-emerald-200 bg-white shadow-2xl shadow-emerald-950/25">
       <header className="relative flex items-center justify-between overflow-hidden bg-gradient-to-r from-emerald-950 via-emerald-900 to-emerald-800 px-4 py-3.5 text-white after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-orange-500">
         <div className="relative flex min-w-0 items-center gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-full bg-orange-500 text-white shadow-lg shadow-emerald-950/30"><Headphones className="size-5"/></span><div className="min-w-0"><strong className="block truncate">Chăm sóc khách hàng</strong><span className="block text-xs text-emerald-100">AI hỗ trợ ngay · Nhân viên tiếp nhận sau</span></div></div>
@@ -169,11 +169,11 @@ export function SupportChatWidget() {
       </form>
     </section>}
     <div className="flex items-center justify-end gap-2.5">
-      <button onClick={() => setOpen(value => !value)} className={cn("flex min-h-14 items-center gap-2 rounded-full bg-emerald-950 px-5 font-bold text-white shadow-xl shadow-emerald-950/25 transition hover:-translate-y-0.5 hover:bg-emerald-900", open && "px-4")} aria-expanded={open} aria-label="Mở hỗ trợ khách hàng">
-        <span className="relative grid size-8 place-items-center rounded-full bg-orange-500 text-white"><Headphones className="size-5"/>{unread > 0 && <span className="absolute -right-2 -top-2 grid min-h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[10px] text-white">{Math.min(unread, 99)}</span>}</span>{!open && <span>Chăm sóc khách hàng</span>}{open && <MessageCircleMore className="size-5"/>}
+      <button onClick={() => setOpen(value => !value)} className="relative grid size-12 shrink-0 place-items-center rounded-full bg-emerald-950 text-white shadow-xl shadow-emerald-950/25 transition hover:-translate-y-0.5 hover:bg-emerald-900" aria-expanded={open} aria-label={open ? "Thu nhỏ hỗ trợ khách hàng" : "Mở hỗ trợ khách hàng"}>
+        <span className="grid size-7 place-items-center rounded-full bg-orange-500 text-white">{open ? <MessageCircleMore className="size-4"/> : <Headphones className="size-4"/>}</span>{unread > 0 && <span className="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[10px] text-white">{Math.min(unread, 99)}</span>}
       </button>
-      <a href={company.zaloUrl} target="_blank" rel="noopener noreferrer" title="Nhắn tin qua Zalo" aria-label="Nhắn tin với Đăng Khoa qua Zalo" className="group grid size-14 shrink-0 place-items-center rounded-[17px] shadow-xl shadow-emerald-950/20 transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-orange-200">
-        <ZaloIcon className="size-14 transition-transform group-hover:scale-105"/>
+      <a href={company.zaloUrl} target="_blank" rel="noopener noreferrer" title="Nhắn tin qua Zalo" aria-label="Nhắn tin với Đăng Khoa qua Zalo" className="group grid size-12 shrink-0 place-items-center rounded-2xl shadow-xl shadow-emerald-950/20 transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-orange-200">
+        <ZaloIcon className="size-12 transition-transform group-hover:scale-105"/>
       </a>
     </div>
   </div>

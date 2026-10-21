@@ -13,8 +13,8 @@ type PolicyDialogProps = {
 export function PolicyDialog({ open, policy, onOpenChange }: PolicyDialogProps) {
   return <Dialog.Root open={open} onOpenChange={onOpenChange}>
     <Dialog.Portal>
-      <Dialog.Overlay className="fixed inset-0 z-[110] bg-emerald-950/70 backdrop-blur-sm"/>
-      <Dialog.Content aria-describedby="policy-dialog-description" className="fixed left-1/2 top-1/2 z-[111] flex max-h-[min(88vh,760px)] w-[min(760px,calc(100%-24px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl outline-none">
+      <Dialog.Overlay className="fixed inset-0 z-[110] bg-emerald-950/70"/>
+      <Dialog.Content aria-describedby="policy-dialog-description" className="fixed left-1/2 top-1/2 z-[111] flex max-h-[min(88vh,760px)] w-[min(760px,calc(100%-24px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-panel border border-slate-200 bg-white shadow-float outline-none">
         <header className="shrink-0 border-b border-slate-200 bg-white px-6 py-5 pr-16 sm:px-8 sm:py-6 sm:pr-20">
           <p className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-orange-700"><FileText className="size-4" aria-hidden="true"/>Phiên bản {policyVersion}</p>
           <Dialog.Title className="mt-2 font-display text-2xl font-bold text-emerald-950 sm:text-3xl">{policy.title}</Dialog.Title>

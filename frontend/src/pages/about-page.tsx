@@ -24,7 +24,7 @@ export function AboutPage() {
   return <>
     <section className="industrial-hero text-white">
       <img className="industrial-hero__image" src="/images/heroes/about-hero.jpg" alt="" fetchPriority="high"/>
-      <div className="industrial-hero__shade"/><div className="industrial-hero__noise"/><div className="industrial-hero__beam"/><div className="industrial-hero__rings"><i/><i/><i/></div>
+      <div className="industrial-hero__shade"/>
       <div className="container-page relative z-10 flex min-h-[500px] items-center py-16 lg:py-20">
         <div className="max-w-[790px]"><p className="text-xs font-bold uppercase tracking-[.22em] text-orange-400">Về Cơ khí Đăng Khoa</p><h1 className="mt-5 max-w-3xl font-display text-4xl font-bold tracking-tight sm:text-6xl">Kiến tạo giải pháp.<br/><span className="text-orange-400">Đồng hành phát triển.</span></h1><p className="mt-6 max-w-2xl text-lg leading-8 text-emerald-50/75">CTY CPTV ĐẦU TƯ XD TM ĐĂNG KHOA là đối tác tư vấn, chế tạo và thi công cơ khí công nghiệp toàn diện. Chúng tôi kết nối năng lực kỹ thuật với sự tận tâm để biến yêu cầu của khách hàng thành những công trình hiệu quả và bền vững.</p></div>
       </div>
