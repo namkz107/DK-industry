@@ -9,7 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     services:
       mongodb:
-        image: mongo:8
+        # mongo:8 exits on the current GitHub runner kernel (SERVER-121912). 7.0 does not use that allocator.
+        image: mongo:7
         ports:
           - 27017:27017
         options: >-
