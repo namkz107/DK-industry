@@ -29,7 +29,7 @@ export function ServicesPage() {
   const [photo, setPhoto] = useState<{ src: string; title: string } | null>(null)
   const query = useQuery({ queryKey: ["services"], queryFn: api.services, staleTime: 10 * 60_000, retry: 1 })
   const workshop = useQuery({ queryKey: ["site-settings", "about"], queryFn: api.aboutSettings, staleTime: 60_000 })
-  const machines = completeMachines(workshop.data?.data.equipment)
+  const machines = completeMachines(workshop.data?.data?.equipment)
   const services = query.data?.data || []
   const pages = Math.max(1, Math.ceil(services.length / servicesPerPage))
   const activePage = Math.min(page, pages)

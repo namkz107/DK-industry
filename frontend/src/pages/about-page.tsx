@@ -20,7 +20,7 @@ const values = [
 
 export function AboutPage() {
   const aboutSettings = useQuery({ queryKey: ["site-settings", "about"], queryFn: api.aboutSettings, staleTime: 60_000 })
-  const ceoImage = aboutSettings.data?.data.leaderImage ?? import.meta.env.VITE_CLOUDINARY_CEO_IMAGE_URL
+  const ceoImage = aboutSettings.data?.data?.leaderImage ?? import.meta.env.VITE_CLOUDINARY_CEO_IMAGE_URL
   return <>
     <section className="industrial-hero text-white">
       <img className="industrial-hero__image" src="/images/heroes/about-hero.jpg" alt="" fetchPriority="high"/>

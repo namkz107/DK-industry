@@ -26,8 +26,8 @@ const values = [
 export function AboutPage() {
   usePageMeta("Giới thiệu", "Năng lực cơ điện, cơ cấu tổ chức và cách Cơ khí Đăng Khoa triển khai công trình.")
   const aboutSettings = useQuery({ queryKey: ["site-settings", "about"], queryFn: api.aboutSettings, staleTime: 60_000 })
-  const ceoImage = aboutSettings.data?.data.leaderImage ?? import.meta.env.VITE_CLOUDINARY_CEO_IMAGE_URL
-  const orgUnits = aboutSettings.data?.data.orgUnits ?? defaultOrgUnits
+  const ceoImage = aboutSettings.data?.data?.leaderImage ?? import.meta.env.VITE_CLOUDINARY_CEO_IMAGE_URL
+  const orgUnits = aboutSettings.data?.data?.orgUnits ?? defaultOrgUnits
 
   return <>
     <section className="relative isolate overflow-hidden bg-[#061d17] text-white">
