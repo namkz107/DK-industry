@@ -8,7 +8,7 @@ Website giới thiệu năng lực, dự án và sản phẩm dành cho doanh ng
 - Form yêu cầu tư vấn/RFQ có thể đính kèm các sản phẩm đã chọn.
 - API lưu và quản lý lead theo pipeline: mới, đã liên hệ, đã báo giá, thắng hoặc mất.
 - CRUD API cho dự án và sản phẩm; thống kê CRM mini cho dashboard.
-- Danh mục dịch vụ cơ khí thực tế: laser CNC, chấn gấp, gia công chính xác, Jig, hàn và hệ thống công nghiệp.
+- Danh mục dịch vụ cơ điện: đường ống, ống gió và bảo ôn, hook-up cơ điện, kết cấu cơ khí, thi công và bảo dưỡng.
 - Rate limiting và kiểm tra khóa nguy hiểm để hạn chế spam form/MongoDB injection.
 - Script seed MongoDB để tạo dữ liệu phát triển; giao diện production không tự thay dữ liệu thật bằng dữ liệu demo khi API lỗi.
 - Authentication cho Customer, Staff và Admin bằng access token ngắn hạn + refresh cookie HttpOnly.

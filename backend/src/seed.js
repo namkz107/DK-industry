@@ -5,8 +5,7 @@ const Project = require('./models/Project');
 const Lead = require('./models/Lead');
 const Service = require('./models/Service');
 const bootstrapAdmin = require('./services/bootstrapAdmin');
-const projectDetails = require('./projectDetails');
-const additionalProjects = require('./additionalProjects');
+const { services, projects } = require('./catalog');
 
 const products = [
   { name: 'Bộ truyền động công nghiệp', slug: 'bo-truyen-dong-cong-nghiep', sku: 'DK-TD-001', category: 'Truyền động', price: 4850000, unit: 'bộ', stock: 18, featured: true, image: 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&w=800&q=80' },
@@ -38,30 +37,6 @@ products.push(
   { name: 'Tủ điện và cover bảo vệ máy', slug: 'tu-dien-cover-bao-ve-may', sku: 'DK-CM-023', category: 'Cover máy & tủ điện', priceOnRequest: true, unit: 'bộ', stock: 0, image: 'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=900&q=80' },
   { name: 'Bàn ghế inox theo yêu cầu', slug: 'ban-ghe-inox-theo-yeu-cau', sku: 'DK-NT-024', category: 'Nội thất inox', priceOnRequest: true, unit: 'bộ', stock: 0, image: 'https://images.unsplash.com/photo-1556912172-45b7abe8b7e1?auto=format&fit=crop&w=900&q=80' }
 );
-
-const services = [
-  { name: 'Cắt Fiber Laser CNC', slug: 'cat-fiber-laser-cnc', summary: 'Cắt thép, inox, nhôm và đồng theo bản vẽ với mép cắt sạch, tốc độ cao.', capabilities: ['Cắt kim loại tấm', 'Cắt chi tiết phức tạp', 'Khắc và đánh dấu'], materials: ['Thép', 'Inox', 'Nhôm', 'Đồng'], applications: ['Chi tiết máy', 'Vỏ tủ điện', 'Nội thất kim loại'], image: 'https://images.unsplash.com/photo-1565439312106-298fa03a5364?auto=format&fit=crop&w=1200&q=80', order: 1, featured: true },
-  { name: 'Chấn gấp kim loại CNC', slug: 'chan-gap-kim-loai-cnc', summary: 'Tạo hình kim loại tấm chính xác, ổn định cho cả đơn mẫu và sản xuất hàng loạt.', capabilities: ['Chấn góc', 'Uốn định hình', 'Đột dập'], materials: ['Thép tấm', 'Inox', 'Nhôm'], applications: ['Vỏ máy', 'Tủ công nghiệp', 'Kết cấu tấm'], image: 'https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?auto=format&fit=crop&w=1200&q=80', order: 2, featured: true },
-  { name: 'Gia công cơ khí chính xác', slug: 'gia-cong-co-khi-chinh-xac', summary: 'Phay CNC, tiện CNC, cắt dây EDM và mài theo dung sai kỹ thuật.', capabilities: ['Phay CNC', 'Tiện CNC', 'Cắt dây EDM', 'Mài phẳng'], materials: ['Thép hợp kim', 'Nhôm', 'Inox', 'Nhựa kỹ thuật'], applications: ['Chi tiết máy', 'Khuôn mẫu', 'Linh kiện'], image: 'https://images.unsplash.com/photo-1565439312106-298fa03a5364?auto=format&fit=crop&w=1200&q=80', order: 3, featured: true },
-  { name: 'Thiết kế & chế tạo Jig', slug: 'thiet-ke-che-tao-jig', summary: 'Đồ gá gia công, Jig kiểm tra và Jig lắp ráp theo quy trình sản xuất thực tế.', capabilities: ['Jig gia công', 'Jig kiểm tra', 'Jig lắp ráp'], materials: ['Nhôm', 'Bakelite', 'POM', 'Thép'], applications: ['Điện tử', 'Ô tô xe máy', 'Sản xuất hàng loạt'], image: 'https://images.unsplash.com/photo-1530124566582-a618bc2615dc?auto=format&fit=crop&w=1200&q=80', order: 4, featured: true },
-  { name: 'Hàn & hoàn thiện kim loại', slug: 'han-hoan-thien-kim-loai', summary: 'Hàn MIG/TIG, xử lý mối hàn, đánh bóng và sơn phủ hoàn thiện sản phẩm.', capabilities: ['Hàn MIG/TIG', 'Hàn laser', 'Đánh bóng', 'Sơn tĩnh điện'], materials: ['Thép', 'Inox', 'Nhôm'], applications: ['Khung máy', 'Bồn bể', 'Nội thất inox'], image: 'https://images.unsplash.com/photo-1605218427368-35b3a9116a31?auto=format&fit=crop&w=1200&q=80', order: 5 },
-  { name: 'Chế tạo hệ thống công nghiệp', slug: 'che-tao-he-thong-cong-nghiep', summary: 'Băng tải, bàn thao tác, giá kệ và kết cấu phụ trợ thiết kế theo mặt bằng nhà máy.', capabilities: ['Băng tải', 'Bàn thao tác', 'Giá kệ', 'Khung bảo vệ máy'], materials: ['Thép sơn', 'Inox', 'Nhôm định hình'], applications: ['Nhà máy', 'Kho vận', 'Dây chuyền lắp ráp'], image: 'https://images.unsplash.com/photo-1565793298595-6a879b1d9492?auto=format&fit=crop&w=1200&q=80', order: 6 }
-];
-const projects = [
-  {
-    title: 'Hệ thống băng tải nhà máy', slug: 'he-thong-bang-tai-nha-may', category: 'Gia công cơ khí', location: 'Bắc Ninh', year: '2025', ...projectDetails['he-thong-bang-tai-nha-may'],
-    featured: true, image: 'https://images.unsplash.com/photo-1565793298595-6a879b1d9492?auto=format&fit=crop&w=1200&q=80'
-  },
-  {
-    title: 'Nhà xưởng công nghiệp 8.000m²', slug: 'nha-xuong-cong-nghiep-8000m2', category: 'Kết cấu thép', location: 'Hưng Yên', year: '2025', ...projectDetails['nha-xuong-cong-nghiep-8000m2'],
-    featured: true, image: 'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?auto=format&fit=crop&w=1200&q=80'
-  },
-  {
-    title: 'Dây chuyền và hệ thống phụ trợ', slug: 'day-chuyen-va-he-thong-phu-tro', category: 'Hệ thống M&E', location: 'Hải Phòng', year: '2024', ...projectDetails['day-chuyen-va-he-thong-phu-tro'],
-    featured: true, image: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=1200&q=80'
-  },
-  ...additionalProjects
-];
 
 const leads = [
   { name: 'Nguyễn Văn Minh', phone: '0912345678', email: 'minh@example.com', serviceType: 'Gia công cơ khí', budget: '100 - 500 triệu', message: 'Cần gia công cụm chi tiết theo bản vẽ kỹ thuật.', status: 'new', source: 'seed' },

@@ -1,20 +1,22 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
 const Project = require('./models/Project');
-const detailsBySlug = require('./projectDetails');
-const additionalProjects = require('./additionalProjects');
+const Service = require('./models/Service');
+const { services, projects } = require('./catalog');
 
 async function migrate() {
   if (!process.env.MONGODB_URI) throw new Error('MONGODB_URI chưa được cấu hình');
   await mongoose.connect(process.env.MONGODB_URI);
-  const outcomes = await Promise.all([
-    ...Object.entries(detailsBySlug).map(([slug, details]) => Project.updateOne({ slug }, { $set: details })),
-    ...additionalProjects.map(project => Project.updateOne({ slug: project.slug }, { $set: project }, { upsert: true, runValidators: true }))
+  const projectSlugs = projects.map(project => project.slug);
+  const serviceSlugs = services.map(service => service.slug);
+  const [removedProjects, removedServices] = await Promise.all([
+    Project.deleteMany({ slug: { $nin: projectSlugs } }),
+    Service.deleteMany({ slug: { $nin: serviceSlugs } })
   ]);
-  const matched = outcomes.reduce((total, outcome) => total + outcome.matchedCount, 0);
-  const modified = outcomes.reduce((total, outcome) => total + outcome.modifiedCount, 0);
-  const upserted = outcomes.reduce((total, outcome) => total + outcome.upsertedCount, 0);
-  console.log(`Project details migration complete: ${matched} matched, ${modified} modified, ${upserted} inserted`);
+  const projectResults = await Promise.all(projects.map(project => Project.updateOne({ slug: project.slug }, { $set: project }, { upsert: true, runValidators: true })));
+  const serviceResults = await Promise.all(services.map(service => Service.updateOne({ slug: service.slug }, { $set: service }, { upsert: true, runValidators: true })));
+  const upserted = [...projectResults, ...serviceResults].reduce((total, result) => total + (result.upsertedCount || 0), 0);
+  console.log(`Catalog sync complete: ${projects.length} projects, ${services.length} services, ${upserted} inserted, ${removedProjects.deletedCount} old projects removed, ${removedServices.deletedCount} old services removed`);
   await mongoose.disconnect();
 }
 

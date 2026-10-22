@@ -1,3 +1,4 @@
+import type { AboutSiteSetting } from "@/types/admin"
 import type { ApiList, Product, Project, Service } from "@/types"
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api"
@@ -13,7 +14,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  aboutSettings: () => request<{ success: boolean; data: { leaderImage: string | null } }>("/site-settings/about"),
+  aboutSettings: () => request<{ success: boolean; data: AboutSiteSetting }>("/site-settings/about"),
   products: () => request<ApiList<Product>>("/products?limit=100"),
   featuredProducts: () => request<ApiList<Product>>("/products?featured=true&limit=3"),
   product: (slug: string) => request<{ success: boolean; data: Product }>(`/products/${encodeURIComponent(slug)}`),

@@ -10,7 +10,7 @@ const queueTimers = new Map();
 const cleanText = (value, max = 800) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
 const businessContact = () => ({
   name: cleanText(process.env.COMPANY_NAME || 'CTY CPTV ĐẦU TƯ XD TM ĐĂNG KHOA', 180),
-  phone: cleanText(process.env.COMPANY_PHONE || '096 5243 386', 60),
+  phone: cleanText(process.env.COMPANY_PHONE || process.env.COMPANY_PHONE_LABEL || '098 368 8336', 60),
   email: cleanText(process.env.COMPANY_EMAIL || 'namkz107@gmail.com', 160),
   address: cleanText(process.env.COMPANY_ADDRESS || 'Cụm 3, thôn Duyên Trường, xã Hồng Vân, thành phố Hà Nội, Việt Nam', 360)
 });

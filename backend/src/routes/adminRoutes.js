@@ -11,6 +11,7 @@ const RefreshSession = require('../models/RefreshSession');
 const Service = require('../models/Service');
 const ServiceRequest = require('../models/ServiceRequest');
 const SiteSetting = require('../models/SiteSetting');
+const { presentSiteSetting } = require('../siteContent');
 const User = require('../models/User');
 const WorkOrder = require('../models/WorkOrder');
 const { validateImageFile } = require('../services/fileSecurityService');
@@ -282,28 +283,61 @@ router.post('/uploads/images', imageUpload.single('image'), async (req, res, nex
 router.get('/site-settings/about', async (_req, res, next) => {
   try {
     const setting = await SiteSetting.findOne({ key: 'about' }).lean();
-    const leaderImage = setting ? setting.leaderImage : null;
-    res.json({ success: true, data: { leaderImage } });
+    res.json({ success: true, data: presentSiteSetting(setting) });
   } catch (error) { next(error); }
 });
 
 router.patch('/site-settings/about', async (req, res, next) => {
   try {
-    const leaderImage = clean(req.body.leaderImage, 2000);
-    if (leaderImage) {
-      let parsed;
-      try { parsed = new URL(leaderImage); } catch { fail('Đường dẫn ảnh không hợp lệ'); }
-      if (!['http:', 'https:'].includes(parsed.protocol)) fail('Đường dẫn ảnh phải sử dụng HTTP hoặc HTTPS');
-    }
+    const update = {};
+    if (Object.prototype.hasOwnProperty.call(req.body, 'leaderImage')) update.leaderImage = safeImage(req.body.leaderImage);
+    if (Object.prototype.hasOwnProperty.call(req.body, 'equipment')) update.equipment = sanitizeEquipment(req.body.equipment);
+    if (Object.prototype.hasOwnProperty.call(req.body, 'orgUnits')) update.orgUnits = sanitizeOrgUnits(req.body.orgUnits);
+    if (!Object.keys(update).length) fail('Không có nội dung để cập nhật');
     const setting = await SiteSetting.findOneAndUpdate(
       { key: 'about' },
-      { $set: { leaderImage }, $setOnInsert: { key: 'about' } },
+      { $set: update, $setOnInsert: { key: 'about' } },
       { new: true, upsert: true, runValidators: true }
     );
-    await audit(req, 'site_setting.updated', 'site_setting', setting._id, 'Đã cập nhật ảnh người dẫn đường trong trang Giới thiệu');
-    res.json({ success: true, message: 'Đã cập nhật ảnh phần Giới thiệu', data: { leaderImage: setting.leaderImage } });
+    await audit(req, 'site_setting.updated', 'site_setting', setting._id, 'Đã cập nhật nội dung trang Giới thiệu và máy móc xưởng');
+    res.json({ success: true, message: 'Đã cập nhật nội dung', data: presentSiteSetting(setting.toObject()) });
   } catch (error) { next(error); }
 });
+
+function safeImage(value) {
+  const image = clean(value, 2000);
+  if (!image) return '';
+  if (image.startsWith('/images/') || image.startsWith('/uploads/')) {
+    if (image.includes('..') || image.includes('\\') || image.includes('//')) fail('Đường dẫn ảnh không hợp lệ');
+    return image;
+  }
+  let parsed;
+  try { parsed = new URL(image); } catch { fail('Đường dẫn ảnh không hợp lệ'); }
+  if (!['http:', 'https:'].includes(parsed.protocol)) fail('Đường dẫn ảnh phải sử dụng HTTP hoặc HTTPS');
+  return image;
+}
+
+function sanitizeEquipment(value) {
+  if (!Array.isArray(value) || value.length > 20) fail('Danh sách máy móc không hợp lệ');
+  return value.map(item => {
+    const name = clean(item && item.name, 120);
+    if (!name) fail('Tên máy không được để trống');
+    const images = (Array.isArray(item.images) ? item.images : []).map(safeImage).filter(Boolean);
+    if (images.length > 2) fail('Mỗi máy chỉ có tối đa 2 ảnh');
+    return { name, summary: clean(item.summary, 400), purpose: clean(item.purpose, 500), notes: clean(item.notes, 500), images };
+  });
+}
+
+function sanitizeOrgUnits(value) {
+  if (!Array.isArray(value) || value.length > 24) fail('Sơ đồ tổ chức không hợp lệ');
+  return value.map(item => {
+    const name = clean(item && item.name, 120);
+    if (!name) fail('Tên phòng ban không được để trống');
+    const tier = Number(item && item.tier);
+    if (!Number.isInteger(tier) || tier < 1 || tier > 4) fail('Cấp trong sơ đồ phải từ 1 đến 4');
+    return { name, note: clean(item.note, 240), tier };
+  });
+}
 
 function contentValues(kind, body, current = {}) {
   const name = clean(body.name ?? body.title ?? current.name ?? current.title, 200);

@@ -1,0 +1,13 @@
+---
+description: Khóa bảo mật hồ sơ công trình khi đưa nội dung lên website
+alwaysApply: true
+---
+
+# Khóa nội dung công khai
+
+Hai điều dưới đây có hiệu lực với mọi nội dung đưa lên website, seed, ảnh, chú thích, tên tệp và câu trả lời công khai. Không tự ý nới lỏng.
+
+1. Công trình chỉ được mô tả hạng mục đó là gì và làm gì. Không ghi tên khách hàng, logo, biển hiệu, tên nhà thầu, số hoặc giá trị hợp đồng.
+2. Mọi hình ảnh, tên và hạng mục liên quan tới Hoya đều không được đưa lên.
+
+Khi nội dung sắp đưa lên dính một trong hai điều này, dừng hạng mục đó, nói rõ để người dùng bỏ qua, và chỉ tiếp tục khi người dùng trực tiếp đồng ý. Thiếu ảnh thật thì không dùng ảnh minh họa để thế.

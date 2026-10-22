@@ -3,6 +3,7 @@ const Product = require('../models/Product');
 const Project = require('../models/Project');
 const Service = require('../models/Service');
 const SiteSetting = require('../models/SiteSetting');
+const { presentSiteSetting } = require('../siteContent');
 const mongoose = require('mongoose');
 const { createPublicLead } = require('../services/leadService');
 const { leadAcknowledgementEmail, leadOperationsEmail } = require('../services/emailTemplateService');
@@ -35,8 +36,7 @@ router.get('/health', readiness);
 router.get('/site-settings/about', async (_req, res, next) => {
   try {
     const setting = await SiteSetting.findOne({ key: 'about' }).lean();
-    const leaderImage = setting ? setting.leaderImage : null;
-    res.json({ success: true, data: { leaderImage } });
+    res.json({ success: true, data: presentSiteSetting(setting) });
   } catch (error) { next(error); }
 });
 

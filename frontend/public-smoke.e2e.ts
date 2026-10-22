@@ -22,7 +22,7 @@ test("public navigation and metadata work", async ({ page }, testInfo) => {
 
   await expect(page).toHaveURL(/\/dich-vu$/)
   await expect(page).toHaveTitle(/Dịch vụ/)
-  await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", /Cắt laser.*CNC/i)
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", /đường ống.*hook-up cơ điện/i)
 })
 
 test("protected customer route redirects anonymous visitors to login", async ({ page }) => {

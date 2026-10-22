@@ -5,15 +5,15 @@ const [mapLatitude = "20.895803", mapLongitude = "105.862915"] = mapDestination.
 
 export const company = {
   name: import.meta.env.VITE_COMPANY_NAME || "CTY CPTV ĐẦU TƯ XD TM ĐĂNG KHOA",
-  phone: import.meta.env.VITE_COMPANY_PHONE || "0965243386",
-  phoneLabel: import.meta.env.VITE_COMPANY_PHONE_LABEL || "096 5243 386",
+  phone: import.meta.env.VITE_COMPANY_PHONE || "0983688336",
+  phoneLabel: import.meta.env.VITE_COMPANY_PHONE_LABEL || "098 368 8336",
   email: import.meta.env.VITE_COMPANY_EMAIL || "namkz107@gmail.com",
   address: import.meta.env.VITE_COMPANY_ADDRESS || "Cụm 3, thôn Duyên Trường, xã Hồng Vân, thành phố Hà Nội, Việt Nam",
   mapDestination,
-  taxCode: import.meta.env.VITE_COMPANY_TAX_CODE || "",
+  taxCode: import.meta.env.VITE_COMPANY_TAX_CODE || "0106426038",
   registrationNumber: import.meta.env.VITE_COMPANY_REGISTRATION_NUMBER || "",
   legalRepresentative: import.meta.env.VITE_COMPANY_LEGAL_REPRESENTATIVE || "",
-  zaloUrl: import.meta.env.VITE_COMPANY_ZALO_URL || `https://zalo.me/${(import.meta.env.VITE_COMPANY_PHONE || "0965243386").replace(/\D/g, "")}`,
+  zaloUrl: import.meta.env.VITE_COMPANY_ZALO_URL || `https://zalo.me/${(import.meta.env.VITE_COMPANY_PHONE || "0983688336").replace(/\D/g, "")}`,
 }
 
 export const companyMapUrl = googleMapsViewPlaceUrl(mapLatitude, mapLongitude)

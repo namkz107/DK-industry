@@ -13,7 +13,7 @@ import type { Project } from "@/types"
 const allCategory = "Tất cả"
 
 export function ProjectsPage() {
-  usePageMeta("Dự án", "Hồ sơ năng lực và công trình cơ khí, kết cấu thép, băng tải và hệ thống công nghiệp của Cơ khí Đăng Khoa.")
+  usePageMeta("Dự án", "Công trình đường ống, ống gió, hook-up cơ điện, sàn thao tác và bảo ôn của Cơ khí Đăng Khoa.")
   const [selected, setSelected] = useState<Project | null>(null)
   const [category, setCategory] = useState(allCategory)
   const [page, setPage] = useState(1)
@@ -23,7 +23,10 @@ export function ProjectsPage() {
   const categories = [allCategory, ...(query.data?.categories || [])]
   const featured = projects[0]
   const remaining = projects.slice(1)
-  const latestYear = projects.map(project => Number(project.year)).filter(Number.isFinite).sort((a, b) => b - a)[0]
+  const latestYear = projects.map(project => {
+    const years = String(project.year || "").match(/\d{4}/g)?.map(Number) || []
+    return years.length ? Math.max(...years) : NaN
+  }).filter(Number.isFinite).sort((a, b) => b - a)[0]
   useEffect(() => {
     const row = categoryRow.current
     if (!row) return

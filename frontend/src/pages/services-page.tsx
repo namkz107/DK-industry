@@ -1,28 +1,35 @@
+import * as Dialog from "@radix-ui/react-dialog"
 import { useQuery } from "@tanstack/react-query"
-import { ArrowRight, ArrowUpRight, BadgeCheck, CheckCircle2, ClipboardCheck, Cog, DraftingCompass, Factory, ShieldCheck, Sparkles } from "lucide-react"
+import { ArrowRight, BadgeCheck, CheckCircle2, ClipboardCheck, Cog, DraftingCompass, Factory, ShieldCheck, Sparkles, X, ZoomIn } from "lucide-react"
 import { useState } from "react"
 import { Link, useOutletContext } from "react-router-dom"
 import type { LayoutContext } from "@/components/app-layout"
+import { ImageLightbox } from "@/components/image-lightbox"
 import { Pagination } from "@/components/pagination"
 import { Button } from "@/components/ui/button"
+import { completeMachines } from "@/content/site-content"
 import { usePageMeta } from "@/hooks/use-page-meta"
 import { api } from "@/lib/api"
+import type { WorkshopMachine } from "@/types/admin"
 import type { Service } from "@/types"
 
 const servicesPerPage = 6
 
 const process = [
-  { icon: ClipboardCheck, number: "01", title: "Khảo sát", text: "Hiểu hiện trạng và yêu cầu vận hành." },
-  { icon: DraftingCompass, number: "02", title: "Thiết kế", text: "Chốt phương án, vật liệu và tiêu chuẩn." },
-  { icon: Factory, number: "03", title: "Chế tạo", text: "Gia công và kiểm soát chất lượng." },
-  { icon: ShieldCheck, number: "04", title: "Bàn giao", text: "Lắp đặt, nghiệm thu và hỗ trợ." },
+  { icon: ClipboardCheck, number: "01", title: "Phương án", text: "Xây dựng phương án thi công và đánh giá rủi ro." },
+  { icon: DraftingCompass, number: "02", title: "Kế hoạch", text: "Phối hợp chủ đầu tư và đào tạo nhân viên." },
+  { icon: Factory, number: "03", title: "Thi công", text: "Triển khai đúng kế hoạch đã chốt." },
+  { icon: ShieldCheck, number: "04", title: "Nghiệm thu", text: "Rút kinh nghiệm, báo cáo và bàn giao." },
 ]
 
 export function ServicesPage() {
-  usePageMeta("Dịch vụ cơ khí", "Cắt laser, chấn gấp, phay tiện CNC, chế tạo Jig và hệ thống công nghiệp theo yêu cầu.")
+  usePageMeta("Dịch vụ cơ khí", "Đường ống, ống gió, bảo ôn, hook-up cơ điện, kết cấu cơ khí và bảo dưỡng công trình công nghiệp.")
   const { openQuote, canRequestQuote } = useOutletContext<LayoutContext>()
   const [page, setPage] = useState(1)
+  const [photo, setPhoto] = useState<{ src: string; title: string } | null>(null)
   const query = useQuery({ queryKey: ["services"], queryFn: api.services, staleTime: 10 * 60_000, retry: 1 })
+  const workshop = useQuery({ queryKey: ["site-settings", "about"], queryFn: api.aboutSettings, staleTime: 60_000 })
+  const machines = completeMachines(workshop.data?.data.equipment)
   const services = query.data?.data || []
   const pages = Math.max(1, Math.ceil(services.length / servicesPerPage))
   const activePage = Math.min(page, pages)
@@ -30,20 +37,100 @@ export function ServicesPage() {
   return <>
     <section className="relative isolate overflow-hidden bg-[#071d18] text-white">
       <div className="container-page relative grid min-h-[600px] items-start gap-12 pb-24 pt-10 lg:grid-cols-[1.04fr_.96fr] lg:items-center lg:py-24">
-        <div><div className="eyebrow-pill"><Sparkles className="size-4"/>Năng lực sản xuất</div><h1 className="heading-hero mt-7 max-w-3xl">Từ bản vẽ đến <span className="text-orange-400">giải&nbsp;pháp vận&nbsp;hành.</span></h1><p className="mt-7 max-w-2xl text-lg leading-8 text-emerald-50/70">Một đầu mối xuyên suốt cho gia công chính xác, kim loại tấm, Jig và hệ thống công nghiệp theo yêu cầu thực tế.</p><div className="mt-9 flex flex-wrap gap-3">{canRequestQuote ? <Button size="lg" onClick={() => openQuote("Tư vấn dịch vụ cơ khí")}>Trao đổi nhu cầu<ArrowRight className="size-5"/></Button> : <Button asChild size="lg"><Link to="/lien-he">Trao đổi nhu cầu<ArrowRight className="size-5"/></Link></Button>}<Button asChild size="lg" variant="outline" className="border-white/20 bg-white/5 text-white hover:border-white/40 hover:bg-white/10 hover:text-white"><a href="#danh-sach-dich-vu">Xem năng lực</a></Button></div><div className="mt-10 flex flex-wrap gap-x-10 gap-y-4 border-t border-white/10 pt-7"><HeroFact value={services.length || "—"} label="Nhóm dịch vụ"/><HeroFact value="4" label="Bước triển khai"/><HeroFact value="01" label="Đầu mối xuyên suốt"/></div></div>
+        <div><div className="eyebrow-pill"><Sparkles className="size-4"/>Năng lực sản xuất</div><h1 className="heading-hero mt-7 max-w-3xl">Từ bản vẽ đến <span className="text-orange-400">giải&nbsp;pháp vận&nbsp;hành.</span></h1><p className="mt-7 max-w-2xl text-lg leading-8 text-emerald-50/70">Một đầu mối cho đường ống, ống gió, bảo ôn, hook-up cơ điện, kết cấu cơ khí và bảo dưỡng công trình.</p><div className="mt-9 flex flex-wrap gap-3">{canRequestQuote ? <Button size="lg" onClick={() => openQuote("Tư vấn dịch vụ cơ khí")}>Trao đổi nhu cầu<ArrowRight className="size-5"/></Button> : <Button asChild size="lg"><Link to="/lien-he">Trao đổi nhu cầu<ArrowRight className="size-5"/></Link></Button>}<Button asChild size="lg" variant="outline" className="border-white/20 bg-white/5 text-white hover:border-white/40 hover:bg-white/10 hover:text-white"><a href="#danh-sach-dich-vu">Xem năng lực</a></Button></div><div className="mt-10 flex flex-wrap gap-x-10 gap-y-4 border-t border-white/10 pt-7"><HeroFact value={services.length || "—"} label="Nhóm dịch vụ"/><HeroFact value="4" label="Bước triển khai"/><HeroFact value="01" label="Đầu mối xuyên suốt"/></div></div>
         <div className="relative hidden min-h-[470px] lg:block"><div className="hero-frame absolute inset-y-4 right-0 w-[88%]"><img className="size-full object-cover" src="/images/heroes/services-hero.jpg" alt="Xưởng sản xuất và gia công cơ khí"/><div className="absolute inset-0 bg-gradient-to-t from-[#071d18]/90 via-transparent to-transparent"/><div className="absolute bottom-0 p-8"><span className="grid size-12 place-items-center rounded-2xl bg-orange-600"><Cog className="size-6"/></span><p className="mt-5 max-w-sm font-display text-2xl font-bold">Đúng công nghệ. Đúng vật liệu. Đúng mục tiêu vận hành.</p></div></div><div className="hero-note absolute left-0 top-10 p-5"><BadgeCheck className="size-6 text-orange-400"/><p className="mt-3 text-sm font-bold">Kiểm soát từng công đoạn</p></div></div>
       </div>
     </section>
 
-    <section className="border-b border-slate-200 bg-white py-10 sm:py-12"><div className="container-page"><p className="text-center text-xs font-black uppercase tracking-[.2em] text-slate-400">Quy trình triển khai thống nhất</p><div className="mt-7 grid gap-px overflow-hidden rounded-panel border border-slate-200 bg-slate-200 sm:grid-cols-2 lg:grid-cols-4">{process.map(({ icon: Icon, number, title, text }) => <div className="bg-white p-6" key={title}><div className="flex items-center justify-between"><span className="grid size-10 place-items-center rounded-xl bg-emerald-50 text-emerald-800"><Icon className="size-5"/></span><span className="font-display text-sm font-black text-orange-600">{number}</span></div><h2 className="mt-5 font-display text-xl font-bold text-emerald-950">{title}</h2><p className="mt-2 text-sm leading-6 text-slate-500">{text}</p></div>)}</div></div></section>
+    <section className="border-b border-slate-200 bg-white py-10 sm:py-12"><div className="container-page"><p className="text-center text-xs font-black uppercase tracking-[.2em] text-slate-400">Quy trình triển khai thống nhất</p><div className="mt-7 grid gap-px overflow-hidden rounded-panel border border-slate-200 bg-slate-200 sm:grid-cols-2 lg:grid-cols-4">{process.map(({ icon: Icon, number, title, text }) => <div className="bg-white p-6" key={title}><div className="flex items-center justify-between"><span className="grid size-10 place-items-center rounded-xl bg-emerald-50 text-emerald-800"><Icon className="size-5"/></span><span className="font-display text-sm font-black text-orange-600">{number}</span></div><h2 className="mt-5 font-display text-xl font-bold text-emerald-950">{title}</h2><p className="mt-2 text-sm leading-6 text-slate-500">{text}</p></div>)}</div></div>    </section>
 
-    <section id="danh-sach-dich-vu" className="scroll-mt-24 bg-[#f6f7f5] py-16 sm:py-20 lg:py-24"><div className="container-page"><div className="grid gap-6 lg:grid-cols-[.7fr_1.3fr] lg:items-end"><div><p className="text-xs font-black uppercase tracking-[.2em] text-orange-600">Danh mục năng lực</p><h2 className="heading-section mt-3">Dịch vụ được tổ chức theo nhu cầu thực tế.</h2></div><p className="max-w-2xl text-lg leading-8 text-slate-600 lg:justify-self-end">Từ một chi tiết mẫu đến một hệ thống hoàn chỉnh, mỗi dịch vụ đều có phạm vi, vật liệu và ứng dụng rõ ràng để bạn dễ lựa chọn.</p></div>
-      {query.isLoading ? <ServicesSkeleton/> : query.error ? <div role="alert" className="mt-12 rounded-panel border border-red-100 bg-red-50 p-8 text-center"><p className="font-bold text-red-700">Không thể tải danh sách dịch vụ.</p><button className="mt-3 text-sm font-bold text-red-700 underline underline-offset-4" onClick={() => void query.refetch()}>Thử tải lại</button></div> : services.length ? <div className="mt-12"><div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">{visibleServices.map((service, index) => <ServiceCard service={service} index={(activePage - 1) * servicesPerPage + index} canRequestQuote={canRequestQuote} onQuote={() => openQuote(service.name)} key={service._id}/>)}</div><Pagination page={activePage} pages={pages} onChange={nextPage => { setPage(nextPage); document.getElementById("danh-sach-dich-vu")?.scrollIntoView({ behavior: "smooth", block: "start" }) }}/></div> : <div className="mt-12 rounded-panel border border-dashed bg-white p-12 text-center text-slate-500">Chưa có dịch vụ được công bố.</div>}
+    <WorkshopGallery machines={machines}/>
+
+    <section id="danh-sach-dich-vu" className="scroll-mt-24 bg-[#f6f7f5] py-16 sm:py-20 lg:py-24"><div className="container-page"><div className="grid gap-6 lg:grid-cols-[.7fr_1.3fr] lg:items-end"><div><p className="text-xs font-black uppercase tracking-[.2em] text-orange-600">Danh mục năng lực</p><h2 className="heading-section mt-3">Dịch vụ được tổ chức theo nhu cầu thực tế.</h2></div><p className="max-w-2xl text-lg leading-8 text-slate-600 lg:justify-self-end">Năm nhóm việc dưới đây theo đúng năng lực đang triển khai: từ một tuyến ống đến một hạng mục hook-up hoàn chỉnh.</p></div>
+      {query.isLoading ? <ServicesSkeleton/> : query.error ? <div role="alert" className="mt-12 rounded-panel border border-red-100 bg-red-50 p-8 text-center"><p className="font-bold text-red-700">Không thể tải danh sách dịch vụ.</p><button className="mt-3 text-sm font-bold text-red-700 underline underline-offset-4" onClick={() => void query.refetch()}>Thử tải lại</button></div> : services.length ? <div className="mt-12"><div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">{visibleServices.map((service, index) => <ServiceCard service={service} index={(activePage - 1) * servicesPerPage + index} canRequestQuote={canRequestQuote} onQuote={() => openQuote(service.name)} onPreview={() => service.image && setPhoto({ src: service.image, title: service.name })} key={service._id}/>)}</div><Pagination page={activePage} pages={pages} onChange={nextPage => { setPage(nextPage); document.getElementById("danh-sach-dich-vu")?.scrollIntoView({ behavior: "smooth", block: "start" }) }}/></div> : <div className="mt-12 rounded-panel border border-dashed bg-white p-12 text-center text-slate-500">Chưa có dịch vụ được công bố.</div>}
       <div className="mt-16 grid overflow-hidden rounded-panel bg-emerald-950 text-white lg:grid-cols-[1fr_auto] lg:items-center"><div className="p-8 sm:p-10 lg:p-12"><p className="text-xs font-black uppercase tracking-[.18em] text-orange-400">Chưa chắc nên chọn dịch vụ nào?</p><h2 className="heading-section mt-3 max-w-2xl text-white">Gửi bài toán, đội kỹ thuật sẽ cùng bạn chọn phương án.</h2><p className="mt-4 max-w-xl leading-7 text-emerald-50/65">Không cần biết trước tên công nghệ. Chỉ cần cho chúng tôi biết sản phẩm, mục tiêu và điều kiện vận hành.</p></div><div className="border-t border-white/10 p-8 sm:p-10 lg:border-l lg:border-t-0 lg:p-12">{canRequestQuote ? <Button size="lg" onClick={() => openQuote("Tư vấn giải pháp")}>Nhận tư vấn<ArrowRight className="size-5"/></Button> : <Button asChild size="lg"><Link to="/lien-he">Liên hệ kỹ thuật<ArrowRight className="size-5"/></Link></Button>}</div></div>
     </div></section>
+    <ImageLightbox src={photo?.src ?? null} title={photo?.title ?? ""} onClose={() => setPhoto(null)}/>
   </>
 }
 
-function ServiceCard({ service, index, canRequestQuote, onQuote }: { service: Service; index: number; canRequestQuote: boolean; onQuote: () => void }) { return <article className="catalog-card group flex h-full flex-col overflow-hidden rounded-card border border-slate-200 bg-white"><div className="relative aspect-[16/10] overflow-hidden bg-slate-200">{service.image && <img className="size-full object-cover transition duration-700 group-hover:scale-105" src={service.image} alt={service.name} loading="lazy"/>}<div className="absolute inset-0 bg-gradient-to-t from-emerald-950/55 via-transparent to-transparent"/><span className="media-chip absolute left-5 top-5 px-3 py-1.5 text-xs font-black">{String(index + 1).padStart(2, "0")}</span><span className="absolute bottom-5 right-5 grid size-11 place-items-center rounded-full bg-white text-emerald-950 transition group-hover:bg-orange-600 group-hover:text-white"><ArrowUpRight className="size-5"/></span></div><div className="flex flex-1 flex-col p-6 sm:p-7"><h3 className="font-display text-2xl font-bold leading-tight text-emerald-950">{service.name}</h3><p className="mt-3 line-clamp-3 leading-7 text-slate-600">{service.summary}</p>{service.capabilities.length > 0 && <ul className="mt-6 space-y-2.5 border-t border-slate-100 pt-5">{service.capabilities.slice(0, 3).map(item => <li className="flex gap-2 text-sm font-semibold text-slate-700" key={item}><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-700"/>{item}</li>)}</ul>}{service.materials.length > 0 && <div className="mt-5 flex flex-wrap gap-2">{service.materials.slice(0, 4).map(item => <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600" key={item}>{item}</span>)}</div>}<div className="mt-auto pt-7">{canRequestQuote ? <button type="button" className="flex w-full items-center justify-between border-t border-slate-200 pt-5 text-sm font-bold text-emerald-950 transition hover:text-orange-700" onClick={onQuote}><span>Nhận tư vấn dịch vụ</span><ArrowRight className="size-4"/></button> : <Link className="flex items-center justify-between border-t border-slate-200 pt-5 text-sm font-bold text-emerald-950 transition hover:text-orange-700" to="/lien-he"><span>Trao đổi nhu cầu</span><ArrowRight className="size-4"/></Link>}</div></div></article> }
+function WorkshopGallery({ machines }: { machines: WorkshopMachine[] }) {
+  const [selected, setSelected] = useState<WorkshopMachine | null>(null)
+  return <section className="bg-[#f6f7f5] py-16 sm:py-20 lg:py-24"><div className="container-page">
+    <div className="grid gap-6 lg:grid-cols-[.7fr_1.3fr] lg:items-end">
+      <div>
+        <p className="text-xs font-black uppercase tracking-[.2em] text-orange-600">Thiết bị sản xuất</p>
+        <h2 className="heading-section mt-3">Máy móc dùng cho gia công tại xưởng.</h2>
+      </div>
+      <p className="max-w-2xl text-lg leading-8 text-slate-600 lg:justify-self-end">Bấm vào từng máy để xem đó là máy gì, dùng để làm gì và những điểm chung khi gia công.</p>
+    </div>
+    <ul className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+      {machines.map((machine, index) => {
+        const src = machine.images[0]
+        return <li key={`${machine.name}-${index}`}>
+          <article className="catalog-card group flex h-full cursor-pointer flex-col overflow-hidden rounded-card border border-slate-200 bg-white" role="button" tabIndex={0} onClick={() => setSelected(machine)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelected(machine) } }}>
+            <div className="relative aspect-[16/10] overflow-hidden bg-slate-200">
+              {src ? <img className="size-full object-cover transition duration-700 group-hover:scale-105" src={src} alt={machine.name} loading="lazy"/> : <span className="grid size-full place-items-center text-sm text-slate-400">Chưa có ảnh</span>}
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-emerald-950/55 via-transparent to-transparent"/>
+              <span className="pointer-events-none media-chip absolute left-5 top-5 px-3 py-1.5 text-xs font-black">{String(index + 1).padStart(2, "0")}</span>
+              <span className="pointer-events-none absolute bottom-5 right-5 inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-black text-emerald-950 transition group-hover:bg-orange-600 group-hover:text-white"><ZoomIn className="size-4"/>Xem máy</span>
+            </div>
+            <div className="flex flex-1 flex-col p-6 sm:p-7">
+              <h3 className="font-display text-2xl font-bold leading-tight text-emerald-950">{machine.name}</h3>
+              <p className="mt-3 line-clamp-3 leading-7 text-slate-600">{machine.summary}</p>
+              <div className="mt-auto pt-7">
+                <span className="flex items-center justify-between border-t border-slate-200 pt-5 text-sm font-bold text-emerald-950 transition group-hover:text-orange-700"><span>Giới thiệu máy</span><ArrowRight className="size-4"/></span>
+              </div>
+            </div>
+          </article>
+        </li>
+      })}
+    </ul>
+  </div>
+  <MachineDialog machine={selected} onClose={() => setSelected(null)}/>
+  </section>
+}
+
+function MachineDialog({ machine, onClose }: { machine: WorkshopMachine | null; onClose: () => void }) {
+  const src = machine?.images[0]
+  const facts = [
+    { label: "Đây là máy gì", text: machine?.summary },
+    { label: "Công dụng", text: machine?.purpose },
+    { label: "Thông tin chung", text: machine?.notes },
+  ].filter(item => item.text)
+  return <Dialog.Root open={Boolean(machine)} onOpenChange={open => { if (!open) onClose() }}>
+    <Dialog.Portal>
+      <Dialog.Overlay className="fixed inset-0 z-[120] bg-emerald-950/70"/>
+      <Dialog.Content aria-describedby="machine-dialog-description" className="fixed left-1/2 top-1/2 z-[121] max-h-[calc(100dvh-24px)] w-[min(920px,calc(100%-24px))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-panel bg-white shadow-float outline-none">
+        <div className="grid lg:grid-cols-[1.05fr_.95fr]">
+          <div className="bg-slate-100">
+            {src ? <img className="aspect-[16/10] size-full object-cover lg:aspect-auto lg:min-h-full" src={src} alt={machine?.name || ""}/> : <div className="grid aspect-[16/10] place-items-center text-sm text-slate-400">Chưa có ảnh</div>}
+          </div>
+          <div className="p-6 sm:p-8">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[.18em] text-orange-600">Thiết bị xưởng</p>
+                <Dialog.Title className="mt-2 font-display text-3xl font-bold text-emerald-950">{machine?.name}</Dialog.Title>
+              </div>
+              <Dialog.Close className="grid size-10 shrink-0 place-items-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-emerald-950 hover:text-white">
+                <X className="size-5"/>
+                <span className="sr-only">Đóng</span>
+              </Dialog.Close>
+            </div>
+            <Dialog.Description id="machine-dialog-description" className="sr-only">Giới thiệu máy, công dụng và thông tin chung.</Dialog.Description>
+            <dl className="mt-6 space-y-5">
+              {facts.map(item => <div key={item.label}>
+                <dt className="text-xs font-black uppercase tracking-[.16em] text-slate-400">{item.label}</dt>
+                <dd className="mt-2 leading-7 text-slate-700">{item.text}</dd>
+              </div>)}
+            </dl>
+          </div>
+        </div>
+      </Dialog.Content>
+    </Dialog.Portal>
+  </Dialog.Root>
+}
+
+function ServiceCard({ service, index, canRequestQuote, onQuote, onPreview }: { service: Service; index: number; canRequestQuote: boolean; onQuote: () => void; onPreview: () => void }) { return <article id={service.slug} className={`catalog-card group flex h-full scroll-mt-28 flex-col overflow-hidden rounded-card border border-slate-200 bg-white ${service.image ? "cursor-zoom-in" : ""}`} onClick={() => { if (service.image) onPreview() }}><button className="relative block aspect-[16/10] w-full overflow-hidden bg-slate-200 text-left" type="button" onClick={event => { event.stopPropagation(); onPreview() }} disabled={!service.image}>{service.image && <img className="size-full object-cover transition duration-700 group-hover:scale-105" src={service.image} alt={service.name} loading="lazy"/>}<div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-emerald-950/55 via-transparent to-transparent"/><span className="pointer-events-none media-chip absolute left-5 top-5 px-3 py-1.5 text-xs font-black">{String(index + 1).padStart(2, "0")}</span>{service.image && <span className="pointer-events-none absolute bottom-5 right-5 inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-black text-emerald-950 transition group-hover:bg-orange-600 group-hover:text-white"><ZoomIn className="size-4"/>Xem ảnh</span>}</button><div className="flex flex-1 flex-col p-6 sm:p-7"><h3 className="font-display text-2xl font-bold leading-tight text-emerald-950">{service.name}</h3><p className="mt-3 line-clamp-3 leading-7 text-slate-600">{service.summary}</p>{service.capabilities.length > 0 && <ul className="mt-6 space-y-2.5 border-t border-slate-100 pt-5">{service.capabilities.slice(0, 3).map(item => <li className="flex gap-2 text-sm font-semibold text-slate-700" key={item}><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-700"/>{item}</li>)}</ul>}{service.materials.length > 0 && <div className="mt-5 flex flex-wrap gap-2">{service.materials.slice(0, 4).map(item => <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600" key={item}>{item}</span>)}</div>}<div className="mt-auto pt-7">{canRequestQuote ? <button type="button" className="flex w-full cursor-pointer items-center justify-between border-t border-slate-200 pt-5 text-sm font-bold text-emerald-950 transition hover:text-orange-700" onClick={event => { event.stopPropagation(); onQuote() }}><span>Nhận tư vấn dịch vụ</span><ArrowRight className="size-4"/></button> : <Link className="flex items-center justify-between border-t border-slate-200 pt-5 text-sm font-bold text-emerald-950 transition hover:text-orange-700" to="/lien-he" onClick={event => event.stopPropagation()}><span>Trao đổi nhu cầu</span><ArrowRight className="size-4"/></Link>}</div></div></article> }
 function HeroFact({ value, label }: { value: string | number; label: string }) { return <div><strong className="font-display text-3xl font-bold">{value}</strong><span className="mt-1 block text-xs font-bold uppercase tracking-wider text-emerald-100/45">{label}</span></div> }
 function ServicesSkeleton() { return <div className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 6 }, (_, index) => <div className="animate-pulse overflow-hidden rounded-card border bg-white" key={index}><div className="aspect-[16/10] bg-slate-200"/><div className="space-y-4 p-7"><div className="h-7 w-4/5 rounded bg-slate-200"/><div className="h-20 rounded bg-slate-100"/><div className="h-16 rounded bg-slate-100"/></div></div>)}</div> }

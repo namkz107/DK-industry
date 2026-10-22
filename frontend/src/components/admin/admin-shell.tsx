@@ -8,7 +8,7 @@ const navigation = [
   { to: "/admin", label: "Tổng quan", icon: LayoutDashboard, end: true },
   { to: "/admin/nhan-su", label: "Nhân sự", icon: UserCog },
   { to: "/admin/noi-dung", label: "Nội dung website", icon: Boxes },
-  { to: "/admin/gioi-thieu", label: "Giới thiệu", icon: Image },
+  { to: "/admin/gioi-thieu", label: "Giới thiệu & xưởng", icon: Image },
   { to: "/admin/nhat-ky", label: "Nhật ký", icon: ClipboardClock },
   { to: "/admin/quyen-rieng-tu", label: "Quyền riêng tư", icon: ShieldCheck },
 ]

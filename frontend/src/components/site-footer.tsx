@@ -1,12 +1,13 @@
-import { ChevronRight, Mail, MapPin, Phone } from "lucide-react"
+import { ChevronRight, Hash, Mail, MapPin, Phone, type LucideIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { company, companyMapUrl } from "@/config/company"
 
 const serviceLinks = [
-  ["Cắt Fiber Laser CNC", "cat-fiber-laser-cnc"],
-  ["Chấn gấp kim loại CNC", "chan-gap-kim-loai-cnc"],
-  ["Gia công cơ khí chính xác", "gia-cong-co-khi-chinh-xac"],
-  ["Thiết kế & chế tạo Jig", "thiet-ke-che-tao-jig"],
+  ["Đường ống công nghiệp", "duong-ong-cong-nghiep"],
+  ["Ống gió và bảo ôn", "ong-gio-va-bao-on"],
+  ["Hook-up cơ điện", "hook-up-co-dien"],
+  ["Kết cấu và cơ khí chính xác", "ket-cau-va-co-khi-chinh-xac"],
+  ["Thi công và bảo dưỡng", "thi-cong-va-bao-duong"],
 ]
 const supportItems = [
   ["Chính sách bảo mật", "/chinh-sach/bao-mat"],
@@ -23,8 +24,30 @@ export function SiteFooter() {
       <section><h2 className="footer-title">Về Cơ khí Đăng Khoa</h2><p className="mt-8 font-display text-base font-bold uppercase tracking-wide text-slate-300">{company.name}</p><address className="mt-5 not-italic text-[15px] leading-8 text-slate-400"><strong className="font-semibold text-slate-300">Trụ sở & nhà xưởng:</strong><br/>{company.address}</address><div className="mt-4 flex flex-wrap gap-x-5 gap-y-2"><Link className="text-sm font-bold text-orange-400 hover:text-orange-300" to="/lien-he">Xem thông tin liên hệ</Link><a className="text-sm font-bold text-orange-400 hover:text-orange-300" href={companyMapUrl} target="_blank" rel="noreferrer">Chỉ đường</a></div></section>
       <section><h2 className="footer-title">Dịch vụ nổi bật</h2><ul className="mt-7 space-y-4">{serviceLinks.map(([item,slug]) => <li key={item}><Link className="footer-link" to={`/dich-vu#${slug}`}><ChevronRight className="size-4 shrink-0 text-orange-500"/>{item}</Link></li>)}</ul></section>
       <section><h2 className="footer-title">Hỗ trợ khách hàng</h2><ul className="mt-7 space-y-4">{supportItems.map(([item, href]) => <li key={href}><Link className="footer-link" to={href}><ChevronRight className="size-4 shrink-0 text-orange-500"/>{item}</Link></li>)}</ul></section>
-      <section><h2 className="footer-title">Liên hệ</h2><div className="mt-7 space-y-5 text-[15px] leading-7 text-slate-400"><a className="footer-contact" href={`tel:${company.phone}`}><Phone className="size-5 shrink-0 text-orange-500"/><span><strong>Hotline</strong><br/>{company.phoneLabel}</span></a><a className="footer-contact" href={`mailto:${company.email}`}><Mail className="size-5 shrink-0 text-orange-500"/><span><strong>Email</strong><br/>{company.email}</span></a><div className="footer-contact"><MapPin className="size-5 shrink-0 text-orange-500"/><span><strong>Khu vực phục vụ</strong><br/>Hà Nội và các tỉnh miền Bắc</span></div></div></section>
+      <section>
+        <h2 className="footer-title">Liên hệ</h2>
+        <ul className="mt-7 space-y-4">
+          <li><ContactItem icon={Phone} label="Hotline" value={company.phoneLabel} href={`tel:${company.phone}`}/></li>
+          <li><ContactItem icon={Mail} label="Email" value={company.email} href={`mailto:${company.email}`}/></li>
+          {company.taxCode ? <li><ContactItem icon={Hash} label="Mã số thuế" value={company.taxCode}/></li> : null}
+          <li><ContactItem icon={MapPin} label="Khu vực phục vụ" value="Hà Nội và các tỉnh miền Bắc"/></li>
+        </ul>
+      </section>
     </div>
     <div className="relative border-t border-white/10"><div className="container-page flex flex-col gap-2 pb-24 pt-5 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between"><span>© 2026 CTY CPTV ĐẦU TƯ XD TM ĐĂNG KHOA. Bảo lưu mọi quyền.</span><span>Thiết kế cho ngành công nghiệp Việt Nam.</span></div></div>
   </footer>
+}
+
+function ContactItem({ icon: Icon, label, value, href }: { icon: LucideIcon; label: string; value: string; href?: string }) {
+  const content = <>
+    <Icon className="mt-0.5 size-4 text-orange-500" aria-hidden="true"/>
+    <span className="min-w-0">
+      <span className="block text-[11px] font-bold uppercase tracking-[.14em] text-slate-500">{label}</span>
+      <span className={`mt-1 block text-[15px] font-semibold leading-6 text-slate-200 ${href ? "group-hover:text-white" : ""}`}>{value}</span>
+    </span>
+  </>
+  const className = "grid grid-cols-[1rem_minmax(0,1fr)] items-start gap-x-3"
+  return href
+    ? <a className={`${className} group`} href={href}>{content}</a>
+    : <div className={className}>{content}</div>
 }
