@@ -11,9 +11,12 @@ export function projectStageIndex(status: string) {
 }
 
 export function projectStageLabel(status: string) {
-  if (status === "cancelled") return "Đã hủy"
-  const stage = projectStageIndex(status)
-  return stage >= 0 ? projectStages[stage] : "Cập nhật"
+  switch (projectStageIndex(status)) {
+    case 0: return projectStages[0]
+    case 1: return projectStages[1]
+    case 2: return projectStages[2]
+    default: return status === "cancelled" ? "Đã hủy" : "Cập nhật"
+  }
 }
 
 export function projectHasStarted(status: string) {
