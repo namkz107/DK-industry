@@ -10,11 +10,12 @@ import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/toast"
 import { usePageMeta } from "@/hooks/use-page-meta"
 import { staffClient } from "@/lib/staff-client"
+import { projectStageLabel } from "@/lib/project-progress"
 import { cn } from "@/lib/utils"
 import type { WorkOrderStatus } from "@/types/staff"
 
 const money = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" })
-const statusLabel = (status: WorkOrderStatus) => status === "completed" ? "Hoàn thành" : status === "cancelled" ? "Đã hủy" : "Đang làm"
+const statusLabel = (status: WorkOrderStatus) => projectStageLabel(status)
 
 export function StaffProjectsPage() {
   usePageMeta("Dự án", "Theo dõi các dự án gia công từ khi thống nhất báo giá đến khi hoàn thành.")

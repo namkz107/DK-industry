@@ -508,6 +508,7 @@ router.patch('/projects/:id/receive', async (req, res, next) => {
     const workOrder = await WorkOrder.findOne({ _id: req.params.id, customer: req.user._id });
     if (!workOrder) fail('Không tìm thấy dự án', 404);
     if (['completed', 'cancelled'].includes(workOrder.status)) fail('Dự án không còn chờ nhận hàng', 409);
+    if (['awaiting_contract', 'awaiting_deposit', 'scheduled'].includes(workOrder.status)) fail('Dự án chưa được chuyển sang đang triển khai.', 409);
     if (!workOrder.deliveryDateSavedAt || !workOrder.plannedDeliveryAt) fail('Xưởng chưa chốt ngày giao. Chưa thể xác nhận nhận hàng.', 409);
     if (!deliveryDayReached(workOrder.plannedDeliveryAt)) fail('Chỉ xác nhận nhận hàng từ đúng ngày giao đã hẹn.', 409);
     workOrder.status = 'completed';

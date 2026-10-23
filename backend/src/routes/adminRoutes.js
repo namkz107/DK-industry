@@ -94,16 +94,18 @@ router.get('/dashboard', async (req, res, next) => {
       Quotation.distinct('request', { sentAt: { $gte: analyticsStart }, status: { $ne: 'draft' } }),
       Order.countDocuments({ createdAt: { $gte: analyticsStart }, status: { $ne: 'cancelled' } }),
       WorkOrder.countDocuments({ createdAt: { $gte: analyticsStart }, status: { $ne: 'cancelled' } }),
-      Order.aggregate([{ $match: { paymentStatus: 'paid', paidAt: { $gte: analyticsStart } } }, { $unwind: '$items' }, { $group: { _id: { product: '$items.product', name: '$items.name' }, quantity: { $sum: '$items.quantity' }, revenue: { $sum: '$items.lineTotal' } } }, { $sort: { revenue: -1 } }, { $limit: 5 }])
-    ]).then(([monthly, orderStatuses, directRequests, quotedRequests, orders, workOrders, topProducts]) => {
+      Order.aggregate([{ $match: { paymentStatus: 'paid', paidAt: { $gte: analyticsStart } } }, { $unwind: '$items' }, { $group: { _id: { product: '$items.product', name: '$items.name' }, quantity: { $sum: '$items.quantity' }, revenue: { $sum: '$items.lineTotal' } } }, { $sort: { revenue: -1 } }, { $limit: 5 }]),
+      WorkOrder.aggregate([{ $match: { status: { $ne: 'cancelled' }, createdAt: { $gte: analyticsStart } } }, { $group: { _id: { $dateToString: { format: '%Y-%m', date: '$createdAt', timezone: 'Asia/Bangkok' } }, revenue: { $sum: '$agreedTotal' }, projects: { $sum: 1 } } }])
+    ]).then(([monthly, orderStatuses, directRequests, quotedRequests, orders, workOrders, topProducts, projectMonthly]) => {
       const monthlyMap = new Map(monthly.map(item => [item._id, item]));
+      const projectMap = new Map(projectMonthly.map(item => [item._id, item]));
       const statusMap = orderStatuses.reduce((map, item) => {
         const status = item._id === 'preparing' ? 'confirmed' : item._id;
         map.set(status, (map.get(status) || 0) + item.count);
         return map;
       }, new Map());
       return {
-        revenueTrend: months.map(month => ({ ...month, revenue: monthlyMap.get(month.key)?.revenue || 0, orders: monthlyMap.get(month.key)?.orders || 0 })),
+        revenueTrend: months.map(month => ({ ...month, revenue: monthlyMap.get(month.key)?.revenue || 0, orders: monthlyMap.get(month.key)?.orders || 0, projectRevenue: projectMap.get(month.key)?.revenue || 0, projects: projectMap.get(month.key)?.projects || 0 })),
         orderStatuses: Array.from(statusMap, ([status, count]) => ({ status, count })),
         conversion: { opportunities: directRequests, quotations: quotedRequests.length, wins: orders + workOrders },
         topProducts: topProducts.map(item => ({ productId: item._id.product, name: item._id.name, quantity: item.quantity, revenue: item.revenue }))

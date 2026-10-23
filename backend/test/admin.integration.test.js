@@ -58,6 +58,8 @@ test('Admin quản lý nhân sự, nội dung và nhật ký đúng quyền', { 
     const dashboardBody = await dashboardResponse.json();
     assert.equal(dashboardResponse.status, 200);
     assert.equal(dashboardBody.data.analytics.revenueTrend.length, 12);
+    assert.equal(typeof dashboardBody.data.analytics.revenueTrend[0].projectRevenue, 'number');
+    assert.equal(typeof dashboardBody.data.analytics.revenueTrend[0].projects, 'number');
     assert.ok(Array.isArray(dashboardBody.data.analytics.orderStatuses));
     assert.ok(Array.isArray(dashboardBody.data.analytics.topProducts));
     assert.deepEqual(Object.keys(dashboardBody.data.analytics.conversion).sort(), ['opportunities', 'quotations', 'wins']);

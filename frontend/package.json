@@ -2,7 +2,9 @@
   "name": "dk-industry-frontend",
   "version": "1.0.0",
   "private": true,
-  "engines": { "node": ">=20.19" },
+  "engines": {
+    "node": ">=20.19"
+  },
   "type": "module",
   "scripts": {
     "start": "vite",
@@ -26,7 +28,9 @@
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-hook-form": "^7.64.0",
+    "react-is": "^19.3.1",
     "react-router-dom": "^7.9.3",
+    "recharts": "^3.10.1",
     "socket.io-client": "^4.8.1",
     "tailwind-merge": "^3.3.1",
     "zod": "^4.1.11"

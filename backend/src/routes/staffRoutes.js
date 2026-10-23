@@ -697,7 +697,7 @@ router.patch('/work-orders/:id', async (req, res, next) => {
       await writeAudit({ actor: req.user._id, action: 'work_order.updated', entity: 'work_order', entityId: current._id, summary: `Cập nhật dự án ${current.code}`, metadata: { before, after: { status: current.status, assignedTo: current.assignedTo, depositRequired: current.depositRequired, depositPaid: current.depositPaid } }, session });
       return current;
     });
-    const projectLabels = { awaiting_contract: 'Chuẩn bị', awaiting_deposit: 'Chuẩn bị', scheduled: 'Chuẩn bị', in_progress: 'Đang thực hiện', quality_check: 'Đang thực hiện', ready_for_delivery: 'Chờ bàn giao', completed: 'Hoàn thành', cancelled: 'Đã hủy' };
+    const projectLabels = { awaiting_contract: 'Nhận dự án thành công', awaiting_deposit: 'Nhận dự án thành công', scheduled: 'Nhận dự án thành công', in_progress: 'Đang triển khai', quality_check: 'Đang triển khai', ready_for_delivery: 'Đang triển khai', completed: 'Đã hoàn thành', cancelled: 'Đã hủy' };
     await createNotification({ recipient: workOrder.customer, type: 'work_order.updated', title: `Dự án ${workOrder.code} đã được cập nhật`, message: `Tiến độ hiện tại: ${projectLabels[workOrder.status] || workOrder.status}.`, link: `/tai-khoan/du-an?projectId=${workOrder._id}` });
     dispatchSoon();
     res.json({ success: true, message: 'Đã cập nhật dự án', data: workOrder });

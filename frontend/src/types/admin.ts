@@ -8,7 +8,7 @@ export interface AdminUser { _id: string; name: string; email: string; phone: st
 export interface AuditLog { _id: string; action: string; entity: AdminEntity; entityId: string; summary: string; metadata?: Record<string, unknown>; actor?: { _id: string; name: string; email: string }; createdAt: string }
 export interface AdminOrderSummary { _id: string; code: string; total: number; status: string; paymentStatus: string; customer?: { name: string }; createdAt: string }
 export interface AdminAnalytics {
-  revenueTrend: Array<{ key: string; label: string; revenue: number; orders: number }>
+  revenueTrend: Array<{ key: string; label: string; revenue: number; orders: number; projectRevenue: number; projects: number }>
   orderStatuses: Array<{ status: string; count: number }>
   conversion: { opportunities: number; quotations: number; wins: number }
   topProducts: Array<{ productId?: string; name: string; quantity: number; revenue: number }>

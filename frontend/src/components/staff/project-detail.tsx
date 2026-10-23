@@ -1,6 +1,8 @@
 import { CalendarClock, CircleDollarSign, FileCheck2 } from "lucide-react"
 import { useEffect, useState } from "react"
+import { ProjectProgress } from "@/components/project-progress"
 import { Button } from "@/components/ui/button"
+import { projectHasStarted, projectStageLabel } from "@/lib/project-progress"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { staffClient } from "@/lib/staff-client"
@@ -8,7 +10,7 @@ import { cn } from "@/lib/utils"
 import type { StaffWorkOrder, WorkOrderStatus } from "@/types/staff"
 
 const money = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" })
-const statusLabel = (status: WorkOrderStatus) => status === "completed" ? "Hoàn thành" : status === "cancelled" ? "Đã hủy" : "Đang làm"
+const statusLabel = (status: WorkOrderStatus) => projectStageLabel(status)
 const dateValue = (value?: string) => value ? value.slice(0, 10) : ""
 
 export function ProjectDetail({ item, busy, error, onUpdate, onRepair }: { item: StaffWorkOrder; busy: boolean; error: Error | null; onUpdate: (body: Parameters<typeof staffClient.updateWorkOrder>[1]) => void; onRepair: (body: { decision: "accept" | "reject"; resolution: string; plannedDeliveryAt?: string }) => void }) {
@@ -23,6 +25,8 @@ export function ProjectDetail({ item, busy, error, onUpdate, onRepair }: { item:
     {incomplete && <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-800"><strong className="block">Hồ sơ dự án không đầy đủ</strong><p className="mt-1">Khách hàng, yêu cầu hoặc báo giá liên kết không còn tồn tại.</p></div>}
     <section className="rounded-3xl border bg-white p-6 shadow-sm sm:p-8">
       <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-black uppercase tracking-wider text-orange-700">{item.code}</p><h2 className="mt-2 font-display text-3xl font-bold text-emerald-950">{item.request?.title || "Yêu cầu không còn tồn tại"}</h2><p className="mt-2 text-slate-600">{item.customer?.name || "Khách hàng không còn tồn tại"} · Báo giá {item.quotation?.code || "không còn tồn tại"}</p></div><span className={cn("inline-block rounded-full px-4 py-2 text-sm font-black", item.status === "cancelled" ? "bg-red-50 text-red-700" : item.status === "completed" ? "bg-emerald-50 text-emerald-800" : "bg-orange-50 text-orange-800")}>{statusLabel(item.status)}</span></div>
+      <ProjectProgress status={item.status}/>
+      {!incomplete && !projectHasStarted(item.status) && item.status !== "cancelled" && <div className="mt-5"><Button type="button" disabled={busy} onClick={() => onUpdate({ status: "in_progress", message: "Dự án đang triển khai." })}>Chuyển sang đang triển khai</Button><p className="mt-2 text-sm leading-6 text-slate-600">Bước này báo cho khách là xưởng đã bắt đầu làm. Khách chỉ xác nhận nhận hàng sau bước này và đúng ngày giao.</p></div>}
       <div className="mt-8 grid gap-4 rounded-2xl bg-emerald-50 p-5 sm:grid-cols-3"><p><span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500"><CircleDollarSign className="size-4 text-orange-600"/>Giá trị đã chốt</span><strong className="mt-1 block text-emerald-950">{money.format(item.agreedTotal)}</strong></p><p><span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500"><FileCheck2 className="size-4 text-orange-600"/>Báo giá</span><strong className="mt-1 block text-emerald-950">{item.quotation?.code || "Không còn tồn tại"}</strong></p><p><span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500"><CalendarClock className="size-4 text-orange-600"/>Ngày giao</span><strong className="mt-1 block text-emerald-950">{item.plannedDeliveryAt ? new Date(item.plannedDeliveryAt).toLocaleDateString("vi-VN") : "Chưa hẹn"}</strong></p></div>
       {!incomplete && item.status !== "completed" && item.status !== "cancelled" && <form className="mt-5 flex flex-wrap items-end gap-3" onSubmit={event => { event.preventDefault(); onUpdate({ plannedDeliveryAt: delivery, message: `Hẹn giao ngày ${delivery}.` }) }}><label className="text-sm font-bold text-slate-700">Đổi ngày giao<Input className="mt-2" type="date" value={delivery} onChange={event => setDelivery(event.target.value)} required/></label><Button disabled={busy || !delivery}>Lưu ngày giao</Button></form>}
     </section>
