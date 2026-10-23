@@ -18,6 +18,7 @@ const { issueAccountToken } = require('../services/accountTokenService');
 const { createIdempotentMessage, messagePage, publicMessage } = require('../services/chatMessageService');
 const { emitMessage, emitRequestEvent, emitRequestUpdated } = require('../services/realtimeService');
 const { sendStoredFile } = require('../services/fileStorageService');
+const { vietnamDateKey } = require('../lib/vietnamDate');
 
 const router = express.Router();
 const leadStatuses = new Set(['new', 'qualified', 'contacted', 'needs_analysis', 'quoted', 'won', 'lost', 'spam']);
@@ -674,6 +675,15 @@ router.patch('/work-orders/:id', async (req, res, next) => {
       for (const field of ['plannedStartAt', 'plannedDeliveryAt']) if (req.body[field] !== undefined) {
         const value = req.body[field] ? new Date(req.body[field]) : null;
         if (value && Number.isNaN(value.getTime())) fail('Mốc thời gian kế hoạch không hợp lệ');
+        if (field === 'plannedDeliveryAt') {
+          const previousKey = current.deliveryDateSavedAt && current.plannedDeliveryAt ? vietnamDateKey(current.plannedDeliveryAt) : '';
+          const nextKey = value ? vietnamDateKey(value) : '';
+          current.deliveryDateSavedAt = value ? new Date() : undefined;
+          if (value && previousKey !== nextKey) {
+            const [year, month, day] = nextKey.split('-');
+            current.timeline.push({ status: current.status, message: `Hẹn giao ngày ${day}/${month}/${year}.`, actor: req.user._id, actorType: 'staff' });
+          }
+        }
         current[field] = value;
       }
       if (req.body.status !== undefined && req.body.status !== current.status) {
@@ -708,7 +718,10 @@ router.patch('/work-orders/:id/repair', async (req, res, next) => {
       const delivery = req.body.plannedDeliveryAt ? new Date(req.body.plannedDeliveryAt) : null;
       if (delivery && Number.isNaN(delivery.getTime())) fail('Ngày giao không hợp lệ');
       workOrder.status = 'in_progress';
-      if (delivery) workOrder.plannedDeliveryAt = delivery;
+      if (delivery) {
+        workOrder.plannedDeliveryAt = delivery;
+        workOrder.deliveryDateSavedAt = new Date();
+      }
       workOrder.repair.status = 'accepted';
       workOrder.repair.resolution = resolution;
       workOrder.repair.at = new Date();

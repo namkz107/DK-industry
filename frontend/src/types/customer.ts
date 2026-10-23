@@ -60,7 +60,9 @@ export interface QuotationItem { _id: string; description: string; spec?: string
 export interface Quotation {
   _id: string; code: string; version: number; items: QuotationItem[]; subtotal: number; taxRate: number; taxAmount: number; total: number
   currency: "VND"; workTitle?: string; leadTime?: string; paymentTerms?: string; incoterm?: string; notes?: string; validUntil: string
-  status: "sent" | "accepted" | "rejected" | "superseded" | "expired"; sentAt?: string; respondedAt?: string; responseNote?: string
+  validityDays?: number; senderName?: string; senderPhone?: string; senderFax?: string
+  recipientCompany?: string; recipientName?: string; recipientPhone?: string; recipientFax?: string
+  status: "sent" | "accepted" | "rejected" | "superseded" | "expired"; sentAt?: string; createdAt?: string; respondedAt?: string; responseNote?: string
 }
 export interface QuotationResponse extends Quotation {
   nextAction: "track_project" | "wait_for_revised_quotation"
@@ -69,7 +71,7 @@ export interface QuotationResponse extends Quotation {
 export interface WorkOrder {
   _id: string; code: string; status: "awaiting_contract" | "awaiting_deposit" | "scheduled" | "in_progress" | "quality_check" | "ready_for_delivery" | "completed" | "cancelled"
   agreedTotal: number; depositRequired: number; depositPaid: number; contractReference?: string; purchaseOrderReference?: string
-  plannedStartAt?: string; plannedDeliveryAt?: string; customerConfirmedAt?: string; timeline: TimelineItem[]; createdAt: string
+  plannedStartAt?: string; plannedDeliveryAt?: string; deliveryDateSavedAt?: string; customerConfirmedAt?: string; timeline: TimelineItem[]; createdAt: string
   repair?: { status?: "requested" | "accepted" | "rejected" | "requote"; reason?: string; resolution?: string; at?: string }
   request?: { _id: string; code: string; title: string; description?: string } | null
   quotation?: { _id: string; code: string; total: number; leadTime?: string; paymentTerms?: string; notes?: string } | null

@@ -24,6 +24,7 @@ const { reverseLocation, searchLocations } = require('../services/locationServic
 const { requireVerifiedEmail } = require('../middleware/authenticate');
 const { createIdempotentMessage, messagePage, publicMessage } = require('../services/chatMessageService');
 const { emitMessage, emitRequestEvent, emitRequestUpdated } = require('../services/realtimeService');
+const { deliveryDayReached } = require('../lib/vietnamDate');
 
 const router = express.Router();
 const phonePattern = /^(?:\+84|0)[0-9]{9,10}$/;
@@ -507,6 +508,8 @@ router.patch('/projects/:id/receive', async (req, res, next) => {
     const workOrder = await WorkOrder.findOne({ _id: req.params.id, customer: req.user._id });
     if (!workOrder) fail('Không tìm thấy dự án', 404);
     if (['completed', 'cancelled'].includes(workOrder.status)) fail('Dự án không còn chờ nhận hàng', 409);
+    if (!workOrder.deliveryDateSavedAt || !workOrder.plannedDeliveryAt) fail('Xưởng chưa chốt ngày giao. Chưa thể xác nhận nhận hàng.', 409);
+    if (!deliveryDayReached(workOrder.plannedDeliveryAt)) fail('Chỉ xác nhận nhận hàng từ đúng ngày giao đã hẹn.', 409);
     workOrder.status = 'completed';
     workOrder.customerConfirmedAt = new Date();
     workOrder.timeline.push({ status: 'completed', message: 'Khách hàng xác nhận đã nhận hàng.', actor: req.user._id, actorType: 'customer' });

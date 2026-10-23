@@ -103,7 +103,7 @@ async function deliverLeadNotice(lead) {
     type: 'lead.created',
     title: `Yêu cầu báo giá mới ${lead.code}`,
     message: summary,
-    link: `/staff/leads?leadId=${lead._id}`,
+    link: `/staff/requests?view=new&leadId=${lead._id}`,
     metadata: { leadId: lead._id }
   });
   const acknowledgement = leadAcknowledgementEmail(lead);

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { ArrowLeft, ChevronRight, CircleDollarSign, FileCheck2, FolderKanban, LoaderCircle } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 import { CustomerShell } from "@/components/customer/customer-shell"
 import { Button } from "@/components/ui/button"
@@ -44,12 +44,16 @@ function ProjectDetail({ project, onBack }: { project: WorkOrder; onBack: () => 
   const repair = useMutation({ mutationFn: () => customerClient.requestRepair(project._id, { action: mode === "requote" ? "requote" : "request", reason: reason.trim() }), onSuccess: result => { toast.success(result.message || "Đã gửi yêu cầu sửa"); setMode(""); setReason(""); void refresh() }, onError: error => toast.error(error.message) })
   const busy = receive.isPending || repair.isPending
   const open = !["completed", "cancelled"].includes(project.status)
+  const savedDelivery = project.deliveryDateSavedAt ? project.plannedDeliveryAt : undefined
+  const now = useClock(savedDelivery)
+  const ready = Boolean(savedDelivery) && vietnamDateKey(now) >= vietnamDateKey(savedDelivery)
+  const deliveryLabel = savedDelivery ? new Date(savedDelivery).toLocaleDateString("vi-VN") : ""
   return <article className="space-y-6">
     <Button variant="outline" onClick={onBack}><ArrowLeft className="size-4"/>Quay lại danh sách dự án</Button>
     <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
       <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-black uppercase tracking-wider text-orange-700">{project.code}</p><h2 className="mt-2 font-display text-3xl font-bold text-emerald-950">{project.request?.title || "Dự án gia công"}</h2><p className="mt-2 text-slate-600">Báo giá {project.quotation?.code || "đã thống nhất"}</p></div><span className={cn("rounded-full px-4 py-2 text-sm font-black", project.status === "cancelled" ? "bg-red-50 text-red-700" : project.status === "completed" ? "bg-emerald-50 text-emerald-800" : "bg-orange-50 text-orange-800")}>{statusLabel(project.status)}</span></div>
-      <div className="mt-8 grid gap-4 rounded-2xl bg-slate-50 p-5 sm:grid-cols-3"><Info icon={CircleDollarSign} label="Giá trị đã chốt" value={formatPrice(project.agreedTotal)}/><Info icon={FileCheck2} label="Báo giá" value={project.quotation?.code || "Đã thống nhất"}/><Info icon={FileCheck2} label="Ngày giao" value={project.plannedDeliveryAt ? new Date(project.plannedDeliveryAt).toLocaleDateString("vi-VN") : "Chưa hẹn"}/></div>
-      {open && <Button className="mt-5" size="lg" disabled={busy} onClick={() => receive.mutate()}>Đã nhận hàng</Button>}
+      <div className="mt-8 grid gap-4 rounded-2xl bg-slate-50 p-5 sm:grid-cols-3"><Info icon={CircleDollarSign} label="Giá trị đã chốt" value={formatPrice(project.agreedTotal)}/><Info icon={FileCheck2} label="Báo giá" value={project.quotation?.code || "Đã thống nhất"}/><Info icon={FileCheck2} label="Ngày giao" value={deliveryLabel || "Chưa hẹn"}/></div>
+      {open && <div className="mt-5"><Button size="lg" disabled={busy || !ready} onClick={() => receive.mutate()}>Đã nhận hàng</Button>{!ready && <p className="mt-2 text-sm leading-6 text-slate-600">{deliveryLabel ? `Nút nhận hàng mở vào ngày ${deliveryLabel}, theo đúng ngày giao xưởng đã lưu.` : "Xưởng chưa chốt ngày giao. Nút nhận hàng sẽ mở vào đúng ngày đó."}</p>}</div>}
       {project.status === "completed" && project.repair?.status !== "requested" && project.repair?.status !== "requote" && <div className="mt-5">{mode ? <form className="space-y-3" onSubmit={event => { event.preventDefault(); repair.mutate() }}><Textarea rows={3} value={reason} onChange={event => setReason(event.target.value)} placeholder={mode === "requote" ? "Mô tả việc cần sửa và đồng ý tính phí" : "Mô tả lỗi cần sửa"}/><div className="flex gap-2"><Button disabled={busy || reason.trim().length < 5}>{mode === "requote" ? "Gửi yêu cầu sửa tính phí" : "Gửi yêu cầu sửa"}</Button><Button type="button" variant="ghost" onClick={() => setMode("")}>Quay lại</Button></div></form> : <div className="flex flex-wrap gap-2">{project.repair?.status === "rejected" ? <Button variant="outline" onClick={() => setMode("requote")}>Sửa tính phí</Button> : <Button variant="outline" onClick={() => setMode("request")}>Yêu cầu sửa</Button>}</div>}</div>}
       {project.repair?.status === "requested" && <p className="mt-5 rounded-2xl bg-orange-50 p-4 text-sm text-orange-900">Đã gửi yêu cầu sửa. Xưởng sẽ phản hồi qua email.</p>}
       {project.repair?.status === "accepted" && <p className="mt-5 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-900">Xưởng đã nhận sửa{project.repair.resolution ? `: ${project.repair.resolution}` : "."}</p>}
@@ -60,3 +64,24 @@ function ProjectDetail({ project, onBack }: { project: WorkOrder; onBack: () => 
 }
 
 function Info({ icon: Icon, label, value }: { icon: typeof CircleDollarSign; label: string; value: string }) { return <div className="flex gap-3"><Icon className="mt-0.5 size-5 shrink-0 text-orange-600"/><p><span className="block text-xs font-bold uppercase tracking-wide text-slate-400">{label}</span><strong className="mt-1 block text-sm text-emerald-950">{value}</strong></p></div> }
+
+const vietnamDateKey = (value: string | number | Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value))
+
+function useClock(deliveryAt?: string) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const tick = () => setNow(Date.now())
+    const interval = window.setInterval(tick, 30_000)
+    const onWake = () => tick()
+    document.addEventListener("visibilitychange", onWake)
+    window.addEventListener("focus", onWake)
+    let timer = 0
+    if (deliveryAt) {
+      const unlockAt = new Date(`${vietnamDateKey(deliveryAt)}T00:00:00+07:00`).getTime()
+      const delay = unlockAt - Date.now()
+      if (delay > 0) timer = window.setTimeout(tick, Math.min(delay + 500, 2_147_483_647))
+    }
+    return () => { window.clearInterval(interval); window.clearTimeout(timer); document.removeEventListener("visibilitychange", onWake); window.removeEventListener("focus", onWake) }
+  }, [deliveryAt])
+  return now
+}

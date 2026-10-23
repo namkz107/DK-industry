@@ -22,6 +22,7 @@ const workOrderSchema = new mongoose.Schema({
   depositPaid: { type: Number, default: 0, min: 0 },
   plannedStartAt: Date,
   plannedDeliveryAt: Date,
+  deliveryDateSavedAt: Date,
   customerConfirmedAt: Date,
   repair: {
     status: { type: String, enum: ['requested', 'accepted', 'rejected', 'requote'] },
