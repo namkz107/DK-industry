@@ -37,7 +37,7 @@ export function AboutPage() {
         <div className="eyebrow-pill"><Sparkles className="size-4"/>Về Cơ khí Đăng Khoa</div>
         <h1 className="heading-hero mt-7">Kỹ thuật vững vàng.<br/><span className="text-orange-400">Đồng hành dài lâu.</span></h1>
         <p className="mt-7 max-w-2xl text-base leading-8 text-emerald-50/72 sm:text-lg">CTY CPTV ĐẦU TƯ XD TM ĐĂNG KHOA hoạt động trong ngành cơ điện và xây dựng từ năm 2014, với vốn điều lệ 3 tỷ đồng và mã số thuế 0106426038.</p>
-        <div className="mt-9 flex flex-wrap gap-3"><Button asChild size="lg"><Link to="/du-an">Xem dự án đã thực hiện<ArrowRight className="size-5"/></Link></Button><Button asChild size="lg" variant="outline" className="border-white/20 bg-white/5 text-white hover:border-white/40 hover:bg-white/10 hover:text-white"><Link to="/lien-he">Trao đổi cùng chúng tôi</Link></Button></div>
+        <div className="mt-9 flex flex-wrap gap-3"><Button asChild size="lg"><Link to="/du-an">Xem dự án đã thực hiện<ArrowRight className="size-5"/></Link></Button><Button asChild size="lg" variant="outline" className="border-white bg-transparent text-white hover:bg-white hover:text-emerald-950"><Link to="/lien-he">Trao đổi cùng chúng tôi</Link></Button></div>
         <div className="mt-11 flex flex-wrap gap-x-10 gap-y-5 border-t border-white/10 pt-7"><HeroFact value="2014" label="Năm thành lập"/><HeroFact value="38" label="Nhân sự"/><HeroFact value="9" label="Kỹ sư"/></div>
       </div></div>
     </section>

@@ -148,12 +148,12 @@ export function SupportChatWidget() {
 
   return <div className="support-dock">
     {open && <section role="dialog" aria-label="Hỗ trợ khách hàng" className="mb-3 flex h-[min(660px,calc(100vh-7rem))] w-[min(400px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-3xl border border-emerald-200 bg-white shadow-2xl shadow-emerald-950/25">
-      <header className="relative flex items-center justify-between overflow-hidden bg-gradient-to-r from-emerald-950 via-emerald-900 to-emerald-800 px-4 py-3.5 text-white after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-orange-500">
+      <header className="relative flex items-center justify-between overflow-hidden bg-emerald-950 px-4 py-3.5 text-white after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-orange-500">
         <div className="relative flex min-w-0 items-center gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-full bg-orange-500 text-white shadow-lg shadow-emerald-950/30"><Headphones className="size-5"/></span><div className="min-w-0"><strong className="block truncate">Chăm sóc khách hàng</strong><span className="block text-xs text-emerald-100">AI hỗ trợ ngay · Nhân viên tiếp nhận sau</span></div></div>
         <div className="flex"><button className="grid size-9 place-items-center rounded-full hover:bg-white/10" onClick={() => setOpen(false)} aria-label="Thu nhỏ"><Minus className="size-5"/></button><button className="grid size-9 place-items-center rounded-full hover:bg-white/10" onClick={() => setOpen(false)} aria-label="Đóng"><X className="size-4"/></button></div>
       </header>
       <SupportQuickActions disabled={send.isPending} onSelect={sendQuickAction}/>
-      <div ref={listRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-gradient-to-b from-stone-50 via-white to-emerald-50/50 p-4" aria-live="polite">
+      <div ref={listRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-stone-50 p-4" aria-live="polite">
         <div className="w-fit max-w-[88%] rounded-2xl rounded-bl-md border border-orange-200 bg-white px-3 py-2.5 text-sm leading-5 text-slate-700 shadow-sm"><strong className="mb-1 block text-xs text-orange-700">Đăng Khoa xin chào!</strong>Bạn có thể chọn hỗ trợ nhanh ở trên hoặc gửi câu hỏi chi tiết cho trợ lý AI.</div>
         {user?.role === 'customer' && session.data?.data?.page.hasMore && <button className="mx-auto block rounded-lg px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-50" disabled={loadingOlder} onClick={() => void loadOlder()}>{loadingOlder ? "Đang tải..." : "Tải tin nhắn cũ"}</button>}
         {messages.map(message => <SupportBubble key={message._id} message={message}/>) }
@@ -169,10 +169,10 @@ export function SupportChatWidget() {
       </form>
     </section>}
     <div className="flex items-center justify-end gap-2.5">
-      <button onClick={() => setOpen(value => !value)} className="relative grid size-12 shrink-0 place-items-center rounded-full bg-emerald-950 text-white shadow-xl shadow-emerald-950/25 transition hover:-translate-y-0.5 hover:bg-emerald-900" aria-expanded={open} aria-label={open ? "Thu nhỏ hỗ trợ khách hàng" : "Mở hỗ trợ khách hàng"}>
+      <button onClick={() => setOpen(value => !value)} className="relative grid size-12 shrink-0 place-items-center rounded-full bg-emerald-950 text-white shadow-xl shadow-emerald-950/25 transition  hover:bg-emerald-900" aria-expanded={open} aria-label={open ? "Thu nhỏ hỗ trợ khách hàng" : "Mở hỗ trợ khách hàng"}>
         <span className="grid size-7 place-items-center rounded-full bg-orange-500 text-white">{open ? <MessageCircleMore className="size-4"/> : <Headphones className="size-4"/>}</span>{unread > 0 && <span className="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[10px] text-white">{Math.min(unread, 99)}</span>}
       </button>
-      <a href={company.zaloUrl} target="_blank" rel="noopener noreferrer" title="Nhắn tin qua Zalo" aria-label="Nhắn tin với Đăng Khoa qua Zalo" className="group grid size-12 shrink-0 place-items-center rounded-2xl shadow-xl shadow-emerald-950/20 transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-orange-200">
+      <a href={company.zaloUrl} target="_blank" rel="noopener noreferrer" title="Nhắn tin qua Zalo" aria-label="Nhắn tin với Đăng Khoa qua Zalo" className="group grid size-12 shrink-0 place-items-center rounded-2xl shadow-xl shadow-emerald-950/20 transition  focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-orange-200">
         <ZaloIcon className="size-12 transition-transform group-hover:scale-105"/>
       </a>
     </div>

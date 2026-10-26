@@ -88,7 +88,7 @@ export function NotificationsPage() {
   const groups = useMemo(() => groupItems(visible), [visible])
   const actionError = read.error || readAll.error
 
-  return <main className="bg-stone-50 pb-20 pt-8 sm:pt-12">
+  return <div className="bg-stone-50 pb-20 pt-8 sm:pt-12">
     <div className="container-page">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -101,7 +101,7 @@ export function NotificationsPage() {
         </div>
       </header>
 
-      <section className="mt-6 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_40px_-28px_rgb(2_44_34/0.45)]" aria-busy={query.isLoading}>
+      <section className="mt-6 overflow-hidden rounded-card border border-slate-200 bg-white shadow-[0_18px_40px_-28px_rgb(2_44_34/0.45)]" aria-busy={query.isLoading}>
         <div className="h-1 bg-gradient-to-r from-emerald-800 via-emerald-600 to-orange-500" />
         <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div className="inline-flex w-fit rounded-full bg-stone-100 p-1" role="group" aria-label="Lọc thông báo">
@@ -123,7 +123,7 @@ export function NotificationsPage() {
         {!query.isLoading && !query.error && Boolean(items.length) && !visible.length && <EmptyState title="Bạn đã đọc hết thông báo." detail="Bộ lọc đang chỉ các mục chưa đọc. Chuyển sang Tất cả để xem lại lịch sử." />}
       </section>
     </div>
-  </main>
+  </div>
 }
 
 function NotificationRow({ item, pending, onOpen }: { item: NotificationItem; pending: boolean; onOpen: () => void }) {

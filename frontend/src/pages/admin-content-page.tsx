@@ -81,7 +81,7 @@ export function AdminContentPage() {
     </div>
     <Dialog.Root open={showForm} onOpenChange={open => { if (!open && !save.isPending && !imageUploading) closeForm() }}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-[110] bg-emerald-950/65 backdrop-blur-sm"/>
+        <Dialog.Overlay className="fixed inset-0 z-[110] bg-emerald-950/65 "/>
         <Dialog.Content aria-describedby="content-editor-description" className="fixed left-1/2 top-1/2 z-[111] w-[min(1100px,calc(100%-24px))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl outline-none">
           <form className="flex max-h-[calc(100dvh-24px)] min-h-0 flex-col" onSubmit={form.handleSubmit(submit)}>
             <header className="shrink-0 border-b border-slate-200 bg-white px-5 py-5 pr-16 sm:px-7">

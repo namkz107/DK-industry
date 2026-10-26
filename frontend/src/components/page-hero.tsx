@@ -1,5 +1,3 @@
-import { motion, useReducedMotion } from "motion/react"
-
 type HeroVariant = "services" | "products" | "projects" | "contact" | "about" | "factory"
 
 const heroImages: Record<HeroVariant, string> = {
@@ -12,12 +10,11 @@ const heroImages: Record<HeroVariant, string> = {
 }
 
 export function PageHero({ eyebrow, title, description, variant = "factory" }: { eyebrow: string; title: string; description: string; variant?: HeroVariant }) {
-  const reduceMotion = useReducedMotion()
   return <section className="industrial-hero text-white">
     <img className="industrial-hero__image" src={heroImages[variant]} alt="" fetchPriority="high" />
     <div className="industrial-hero__shade"/>
-    <div className="container-page relative z-10 flex min-h-[420px] items-center py-16 lg:py-20">
-      <motion.div className="max-w-[760px]" initial={reduceMotion ? false : { opacity: 0, y: 26 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reduceMotion ? 0 : .65, delay: .08, ease: [.2,.75,.2,1] }}><p className="text-xs font-bold uppercase tracking-[.2em] text-orange-400">{eyebrow}</p><h1 className="heading-hero mt-4 max-w-3xl">{title}</h1><p className="mt-5 max-w-2xl text-lg leading-8 text-emerald-50/75">{description}</p></motion.div>
+    <div className="container-page relative z-10 flex min-h-[22rem] items-end py-12 lg:min-h-[26rem] lg:py-16">
+      <div className="max-w-[760px]"><p className="text-sm font-semibold text-orange-300">{eyebrow}</p><h1 className="heading-hero mt-3 max-w-3xl">{title}</h1><p className="mt-4 max-w-2xl text-base leading-7 text-emerald-50/80 sm:text-lg">{description}</p></div>
     </div>
   </section>
 }

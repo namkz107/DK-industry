@@ -30,17 +30,13 @@ export function AdminAnalyticsPanel({ analytics, sales, recentOrders }: { analyt
   const total = productTotal + projectTotal
   const rate = analytics?.conversion.opportunities ? Math.round((analytics.conversion.wins / analytics.conversion.opportunities) * 100) : 0
 
-  return <section className="relative mt-8 overflow-hidden rounded-[32px] border border-emerald-100/80 bg-[radial-gradient(circle_at_12%_8%,rgba(251,146,60,.28),transparent_28%),radial-gradient(circle_at_88%_0%,rgba(16,185,129,.22),transparent_26%),linear-gradient(165deg,#f8fafc_0%,#ecfdf5_48%,#fff7ed_100%)] p-4 shadow-[0_30px_80px_-48px_rgba(6,78,59,.65)] sm:p-6">
-    <div className="pointer-events-none absolute inset-0 opacity-50 [background-image:linear-gradient(rgba(15,118,110,.08)_1px,transparent_1px),linear-gradient(90deg,rgba(15,118,110,.08)_1px,transparent_1px)] [background-size:32px_32px]"/>
-    <div className="pointer-events-none absolute -left-16 top-24 size-56 rounded-full bg-orange-300/30 blur-3xl"/>
-    <div className="pointer-events-none absolute -right-10 bottom-10 size-64 rounded-full bg-emerald-300/30 blur-3xl"/>
-    <div className="relative">
+  return <section className="mt-8">
+    <div>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[.18em] text-orange-700">Phân tích kinh doanh</p>
-          <h2 className="mt-2 font-display text-3xl font-bold text-emerald-950">Doanh thu và xu hướng</h2>
+          <h2 className="font-display text-2xl font-bold text-emerald-950">Doanh thu và xu hướng</h2>
+          <p className="mt-1 text-sm text-slate-600">Số liệu 12 tháng gần nhất, theo dữ liệu đơn hàng và dự án đã ghi nhận.</p>
         </div>
-        <span className="rounded-full bg-white/80 px-4 py-2 text-sm font-bold text-emerald-800 shadow-sm ring-1 ring-emerald-100">12 tháng gần nhất</span>
       </div>
       {sales && <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <SalesCard label="Đã thu" value={money.format(sales.revenue)} note={`Tháng này ${money.format(sales.monthlyRevenue)}`} icon={CircleDollarSign}/>
@@ -62,17 +58,16 @@ export function AdminAnalyticsPanel({ analytics, sales, recentOrders }: { analyt
 }
 
 function SalesCard({ label, value, note, icon: Icon }: { label: string; value: string; note: string; icon: typeof CircleDollarSign }) {
-  return <article className="rounded-[24px] border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur-md">
-    <span className="grid size-10 place-items-center rounded-2xl bg-emerald-950 text-orange-300"><Icon className="size-5"/></span>
-    <p className="mt-4 text-xs font-black uppercase tracking-[.14em] text-slate-500">{label}</p>
-    <strong className="mt-1 block font-display text-2xl text-emerald-950">{value}</strong>
+  return <article className="border border-slate-200 bg-white p-4">
+    <p className="flex items-center gap-2 text-sm font-semibold text-slate-600"><Icon className="size-4 text-emerald-900" aria-hidden="true"/>{label}</p>
+    <strong className="mt-2 block font-display text-2xl text-emerald-950">{value}</strong>
     <p className="mt-1 text-sm leading-5 text-slate-500">{note}</p>
   </article>
 }
 
 function RevenueChart({ items }: { items: AdminAnalytics["revenueTrend"] }) {
   const hasValue = items.some(item => item.revenue > 0 || item.projectRevenue > 0)
-  return <section className="overflow-hidden rounded-[28px] border border-white/80 bg-white/90 p-5 shadow-sm backdrop-blur-sm sm:p-6">
+  return <section className="overflow-hidden rounded-card border border-slate-200 bg-white p-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
         <div className="flex items-center gap-2 text-emerald-950"><TrendingUp className="size-5 text-orange-600"/><h3 className="font-display text-2xl font-bold">Doanh thu theo tháng</h3></div>
@@ -180,14 +175,14 @@ function TopProductsChart({ items }: { items: AdminAnalytics["topProducts"] }) {
 }
 
 function RecentOrders({ items }: { items: AdminOrderSummary[] }) {
-  return <section className="mt-5 overflow-hidden rounded-[28px] border border-white/80 bg-white/90 shadow-sm">
+  return <section className="mt-5 overflow-hidden rounded-card border border-slate-200 bg-white">
     <header className="border-b border-slate-100 px-5 py-4"><h3 className="font-display text-xl font-bold text-emerald-950">Đơn hàng gần đây</h3><p className="mt-1 text-sm text-slate-500">Các đơn mới nhất trên hệ thống.</p></header>
     <div className="divide-y divide-slate-100">{items.length ? items.map(order => <div key={order._id} className="flex min-h-16 items-center justify-between gap-4 px-5 py-3"><div><strong className="text-emerald-950">{order.code}</strong><p className="text-sm text-slate-500">{order.customer?.name || "Khách hàng"} · {new Date(order.createdAt).toLocaleDateString("vi-VN")}</p></div><strong className="text-orange-700">{money.format(order.total)}</strong></div>) : <p className="px-5 py-8 text-center text-sm font-semibold text-slate-400">Chưa có đơn hàng.</p>}</div>
   </section>
 }
 
 function ChartCard({ icon: Icon, title, caption, extra, children }: { icon: typeof Boxes; title: string; caption: string; extra?: ReactNode; children: ReactNode }) {
-  return <section className="rounded-[28px] border border-white/80 bg-white/90 p-5 shadow-sm backdrop-blur-sm sm:p-6">
+  return <section className="rounded-card border border-slate-200 bg-white p-5">
     <div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><Icon className="size-5 text-orange-600"/><h3 className="font-display text-xl font-bold text-emerald-950">{title}</h3></div>{extra}</div>
     <p className="mt-1 text-sm text-slate-500">{caption}</p>
     {children}

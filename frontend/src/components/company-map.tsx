@@ -16,9 +16,9 @@ export function CompanyMap() {
     /></div>
   }
 
-  return <div className="grid min-h-[420px] place-items-center bg-[radial-gradient(circle_at_top_right,_#fed7aa,_transparent_36%),linear-gradient(135deg,#ecfdf5,#f8fafc)] p-7 text-center">
+  return <div className="grid min-h-[420px] place-items-center bg-stone-100 p-7 text-center">
     <div className="max-w-md">
-      <span className="mx-auto grid size-16 place-items-center rounded-2xl bg-emerald-950 text-white shadow-lg"><MapPinned className="size-8"/></span>
+      <span className="mx-auto grid size-12 place-items-center rounded-control bg-emerald-950 text-white"><MapPinned className="size-6"/></span>
       <h2 className="mt-6 font-display text-2xl font-bold text-emerald-950">Trụ sở & nhà xưởng</h2>
       <p className="mt-3 leading-7 text-slate-600">{company.address}</p>
       <div className="mt-6 flex flex-wrap justify-center gap-3">

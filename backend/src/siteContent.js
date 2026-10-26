@@ -5,18 +5,21 @@ const defaultEquipment = [
   { name: 'Máy cắt tôn', summary: 'Máy cắt tấm tôn thành phôi thẳng trước khi gia công tiếp.', purpose: 'Xả tôn cuộn hoặc tấm thành khổ cần dùng cho máng, ống gió và chi tiết kết cấu.', notes: 'Đường cắt thẳng, chiều dài cắt phụ thuộc khổ máy. Phôi sau khi cắt được chuyển sang chấn, đột hoặc hàn.', images: ['/images/equipment/cat-ton-1.jpg'] },
   { name: 'Máy uốn tôn', summary: 'Máy lốc tấm tôn thành cung hoặc ống tròn.', purpose: 'Lốc máng cong, ống gió tròn và các chi tiết tôn cần độ cong đều.', notes: 'Ba trục lốc ép tấm đi qua và uốn dần. Bán kính phụ thuộc khoảng cách trục và độ dày tôn.', images: ['/images/equipment/uon-ton.jpg'] },
   { name: 'Máy hàn laser', summary: 'Máy hàn kim loại bằng chùm tia laser và khí bảo vệ.', purpose: 'Hàn mối mỏng trên tôn, inox và chi tiết cần ít biến dạng nhiệt.', notes: 'Đầu hàn đi dọc mối, khí bảo vệ vùng hàn. Phù hợp đường hàn dài và chi tiết cần bề mặt gọn.', images: ['/images/equipment/han-laser.jpg'] },
-  { name: 'Máy hàn', summary: 'Máy hàn nối các chi tiết kim loại thành một khối.', purpose: 'Hàn ống, kết cấu, máng tôn và các mối liên kết tại xưởng trước khi đưa ra công trình.', notes: 'Thường dùng hồ quang que hoặc khí bảo vệ. Mối hàn được làm sạch và kiểm tra trước khi lắp đặt.', images: ['/images/equipment/han-xuong.jpg'] },
-  { name: 'Máy tiện ren', summary: 'Máy tiện ren trên đầu ống thép để bắt khớp nối.', purpose: 'Tạo ren ngoài cho ống nước, ống khí và các mối nối bằng rắc co, măng sông.', notes: 'Ống được kẹp và dao ren chạy dọc đầu ống. Ren đúng bước thì mối nối kín và tháo lắp được.', images: ['/images/equipment/tien-ren.jpg'] },
+  { name: 'Máy hàn', summary: 'Máy hàn nối các chi tiết kim loại thành một khối.', purpose: 'Hàn ống, kết cấu, máng tôn và các mối liên kết tại xưởng trước khi đưa ra công trình.', notes: 'Thường dùng hồ quang que hoặc khí bảo vệ. Mối hàn được làm sạch và kiểm tra trước khi lắp đặt.', images: ['/images/equipment/han-ho-quang.png'] },
+  { name: 'Máy tiện ren', summary: 'Máy tiện ren trên đầu ống thép để bắt khớp nối.', purpose: 'Tạo ren ngoài cho ống nước, ống khí và các mối nối bằng rắc co, măng sông.', notes: 'Ống được kẹp và dao ren chạy dọc đầu ống. Ren đúng bước thì mối nối kín và tháo lắp được.', images: ['/images/equipment/tien-ren-xuong.jpg'] },
   { name: 'Máy khoan', summary: 'Máy khoan lỗ trên kim loại bằng mũi khoan đứng.', purpose: 'Khoan lỗ bắt bulông, lỗ định vị và lỗ chờ trên chi tiết tôn, thép.', notes: 'Phôi được kẹp chặt trên bàn máy. Đường kính lỗ theo mũi khoan và độ dày vật liệu.', images: ['/images/equipment/khoan-xuong.jpg'] },
   { name: 'Máy mài, cắt cầm tay', summary: 'Máy cầm tay để mài mép, làm sạch và cắt chi tiết nhỏ.', purpose: 'Cắt đoạn thép, mài mối hàn, bo mép tôn ngay tại xưởng hoặc trên công trình.', notes: 'Dùng đá mài hoặc lưỡi cắt. Đây là thiết bị cầm tay, bổ sung cho các máy cố định.', images: ['/images/equipment/mai-cat.jpg'] },
-  { name: 'Xe nâng tay', summary: 'Xe kéo tay để nâng và di chuyển pallet trong xưởng.', purpose: 'Chuyển tôn, ống và thành phẩm giữa khu gia công và khu tập kết.', notes: 'Nâng bằng tay bơm thủy lực, không phải xe nâng động cơ. Phù hợp lối đi hẹp trong xưởng.', images: ['/images/equipment/xe-nang.jpg'] },
+  { name: 'Xe nâng', summary: 'Xe nâng động cơ để nâng và di chuyển hàng nặng trong xưởng.', purpose: 'Chuyển tôn, ống, thành phẩm và pallet giữa khu gia công, khu tập kết và điểm xếp hàng.', notes: 'Người lái ngồi trên xe và nâng hàng bằng càng phía trước. Dùng cho kiện nặng hơn sức của xe kéo tay.', images: ['/images/equipment/xe-nang-xuong.png'] },
   { name: 'Máy bắn cốt', summary: 'Máy chiếu tia laser để lấy cao độ và đường thẳng.', purpose: 'Lấy cốt sàn, tim tuyến ống và cao độ lắp đặt ngoài công trình.', notes: 'Đặt trên chân ba, tự cân bằng và chiếu tia ngang hoặc đứng. Thợ đọc tia bằng thước hoặc mắt nhận.', images: ['/images/equipment/ban-cot.jpg'] }
 ];
 
 const previousEquipmentImages = {
   '/images/equipment/chan-1.jpg': '/images/equipment/chan.jpg',
   '/images/equipment/chan-2.jpg': '/images/equipment/chan.jpg',
-  '/images/equipment/han.jpg': '/images/equipment/han-xuong.jpg',
+  '/images/equipment/han.jpg': '/images/equipment/han-ho-quang.png',
+  '/images/equipment/han-xuong.jpg': '/images/equipment/han-ho-quang.png',
+  '/images/equipment/tien-ren.jpg': '/images/equipment/tien-ren-xuong.jpg',
+  '/images/equipment/xe-nang.jpg': '/images/equipment/xe-nang-xuong.png',
   '/images/equipment/khoan.jpg': '/images/equipment/khoan-xuong.jpg',
   '/images/equipment/dot-dap.jpg': '/images/equipment/dot-dap-xuong.jpg',
   '/images/equipment/mai-1.jpg': '/images/equipment/mai-cat.jpg',

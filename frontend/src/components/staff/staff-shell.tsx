@@ -1,9 +1,9 @@
 import { ClipboardList, FolderKanban, Headphones, LayoutDashboard, LogOut, PackageCheck } from "lucide-react"
 import type { PropsWithChildren, ReactNode } from "react"
-import { NavLink, useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
+import { WorkspaceFrame } from "@/components/workspace-frame"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
-import { cn } from "@/lib/utils"
 
 const navigation = [
   { to: "/staff", label: "Tổng quan", icon: LayoutDashboard, end: true },
@@ -14,11 +14,8 @@ const navigation = [
 ]
 
 export function StaffShell({ title, description, action, children }: PropsWithChildren<{ title: string; description: string; action?: ReactNode }>) {
-  const { user, logout } = useAuth(); const navigate = useNavigate()
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
   const signOut = async () => { await logout(); navigate("/", { replace: true }) }
-  return <section className="workspace-shell min-h-[75vh] bg-slate-100 py-8 sm:py-10"><div className="container-page">
-    <div className="workspace-heading flex flex-col justify-between gap-5 lg:flex-row lg:items-end"><div><p className="text-xs font-black uppercase tracking-[.2em] text-orange-700">Khu vực nhân viên · {user?.name}</p><h1 className="mt-2 font-display text-3xl font-bold text-emerald-950 sm:text-4xl">{title}</h1><p className="mt-3 max-w-3xl text-lg leading-7 text-slate-600">{description}</p></div><div className="flex flex-wrap gap-2">{action}<Button variant="outline" onClick={signOut}><LogOut className="size-5"/>Đăng xuất</Button></div></div>
-    <nav className="workspace-nav my-7 flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-sm" aria-label="Khu vực vận hành">{navigation.map(({ to, label, icon: Icon, end }) => <NavLink key={to} end={end} to={to} className={({ isActive }) => cn("flex min-h-12 shrink-0 items-center gap-2 rounded-xl px-5 text-base font-bold text-slate-600 transition hover:bg-slate-100", isActive && "bg-emerald-950 text-white hover:bg-emerald-900")}><Icon className="size-5"/>{label}</NavLink>)}</nav>
-    <div className="workspace-content">{children}</div>
-  </div></section>
+  return <WorkspaceFrame kicker={`Khu vực nhân viên · ${user?.name || "Nhân viên"}`} title={title} description={description} action={<><>{action}</><Button variant="outline" onClick={signOut}><LogOut className="size-4"/>Đăng xuất</Button></>} navLabel="Khu vực vận hành" navigation={navigation}>{children}</WorkspaceFrame>
 }

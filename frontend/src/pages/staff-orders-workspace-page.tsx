@@ -53,7 +53,7 @@ export function StaffOrdersWorkspacePage() {
 
   return <StaffShell title="Đơn sản phẩm" description="Kiểm tra tồn kho, xác nhận và theo dõi giao hàng sản phẩm.">
     <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-      <div className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-slate-900 px-5 py-5 text-white sm:px-6">
+      <div className="bg-emerald-950 px-5 py-5 text-white sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-4"><div className="flex items-center gap-3"><span className="grid size-11 place-items-center rounded-2xl bg-white/10 text-orange-300 ring-1 ring-white/15"><Sparkles className="size-5"/></span><div><h2 className="font-display text-xl font-bold">Danh sách đơn hàng</h2><p className="mt-1 text-sm text-emerald-100/70">Chọn một đơn để xem và xử lý ngay trong cửa sổ làm việc.</p></div></div><div className="flex items-center gap-2"><span className="rounded-full bg-orange-400 px-3 py-1.5 text-xs font-black text-emerald-950">{list.data?.data.total || 0} đơn</span><button type="button" onClick={() => void list.refetch()} className="grid size-10 place-items-center rounded-xl bg-white/10 text-white ring-1 ring-white/15 transition hover:bg-white/20" aria-label="Làm mới danh sách"><RefreshCw className={cn("size-4", list.isFetching && "animate-spin")}/></button></div></div>
       </div>
       <div className="border-b border-slate-200 p-4 sm:p-5">
@@ -91,7 +91,7 @@ function OrderDialog({ open, onOpenChange, loading, order, busy, onUpdate, onAft
   const [tab, setTab] = useState<DetailTab>("overview")
   useEffect(() => setTab("overview"), [order?._id])
   return <Dialog.Root open={open} onOpenChange={onOpenChange}><Dialog.Portal>
-    <Dialog.Overlay className="fixed inset-0 z-[110] bg-emerald-950/65 backdrop-blur-sm"/>
+    <Dialog.Overlay className="fixed inset-0 z-[110] bg-emerald-950/65 "/>
     <Dialog.Content aria-describedby="staff-order-dialog-description" className="fixed left-1/2 top-1/2 z-[111] flex h-[min(92vh,900px)] w-[min(1220px,calc(100%-20px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 shadow-2xl outline-none">
       {loading || !order ? <div className="grid flex-1 place-items-center"><LoaderCircle className="size-9 animate-spin text-orange-600"/></div> : <>
         <header className="shrink-0 border-b border-slate-200 bg-white px-5 py-4 sm:px-7">
