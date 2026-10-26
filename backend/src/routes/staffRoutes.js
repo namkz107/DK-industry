@@ -296,23 +296,40 @@ router.post('/leads/:id/convert', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+const accountRoles = { admin: 'quản trị', staff: 'nhân viên', customer: 'khách hàng' };
+
 async function customerForLead(lead) {
   const email = String(lead.email || '').trim().toLowerCase();
   const phone = String(lead.phone || '').trim();
-  let customer = email ? await User.findOne({ role: 'customer', status: 'active', email }) : null;
-  if (!customer && phone) customer = await User.findOne({ role: 'customer', status: 'active', phone });
-  if (customer) return { customer, created: false };
-  if (!email) fail('Khách chưa có email để nhận báo giá');
+  if (!email) fail('Yêu cầu chưa có email khách hàng, nên chưa thể gửi báo giá.');
+  const [byEmail, byPhone] = await Promise.all([
+    User.findOne({ email }),
+    phone ? User.findOne({ phone }) : null
+  ]);
+  if (byEmail) return { customer: byEmail, created: false };
+  const phoneTaken = Boolean(byPhone);
   const passwordHash = await User.hashPassword(crypto.randomBytes(18).toString('hex'));
+  const draft = { name: lead.name, email, phone: phoneTaken ? undefined : (phone || undefined), passwordHash, role: 'customer', status: 'active', emailVerifiedAt: new Date() };
   try {
-    customer = await User.create({ name: lead.name, email, phone: phone || undefined, passwordHash, role: 'customer', status: 'active', emailVerifiedAt: new Date() });
+    const customer = await User.create(draft);
+    return { customer, created: true };
   } catch (error) {
     if (error.code !== 11000) throw error;
-    customer = await User.findOne({ role: 'customer', status: 'active', $or: [{ email }, ...(phone ? [{ phone }] : [])] });
-    if (!customer) throw error;
-    return { customer, created: false };
+    const again = await User.findOne({ email });
+    if (again) return { customer: again, created: false };
+    if (!phoneTaken && phone && Object.keys(error.keyPattern || {}).includes('phone')) {
+      const customer = await User.create({ ...draft, phone: undefined });
+      return { customer, created: true };
+    }
+    throw error;
   }
-  return { customer, created: true };
+}
+
+function quoteDeliveryMessage(customer, created) {
+  if (created) return 'Đã gửi báo giá cho khách hàng';
+  const role = accountRoles[customer.role] || 'khách hàng';
+  const locked = customer.status !== 'active' ? ' Tài khoản này đang bị khóa, cần mở khóa thì người nhận mới đăng nhập xem được.' : '';
+  return `Đã gửi báo giá tới email đã có tài khoản ${role}.${locked}`;
 }
 
 router.post('/leads/:id/quotation', async (req, res, next) => {
@@ -323,6 +340,11 @@ router.post('/leads/:id/quotation', async (req, res, next) => {
     if (!lead) fail('Không tìm thấy Lead', 404);
     if (lead.convertedRequest) fail('Yêu cầu này đã có báo giá. Hãy mở hồ sơ đang chờ khách.', 409);
     if (lead.status === 'spam') fail('Không gửi báo giá cho yêu cầu spam', 409);
+    const customerEmail = clean(req.body.customerEmail, 200).toLowerCase();
+    if (customerEmail) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) fail('Email khách nhận báo giá không đúng định dạng.');
+      lead.email = customerEmail;
+    }
     const { customer, created } = await customerForLead(lead);
     claimIfUnassigned(lead, req.user);
     const requestCode = `YC-${new Date().toISOString().slice(2, 10).replaceAll('-', '')}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
@@ -356,7 +378,7 @@ router.post('/leads/:id/quotation', async (req, res, next) => {
       sendDirectEmail({ to: customer.email, subject: mail.subject, text: mail.text, html: mail.html }).catch(error => console.error('Quote account email failed:', error.message));
     }
     dispatchSoon();
-    res.status(201).json({ success: true, message: 'Đã gửi báo giá cho khách hàng', data: { requestId: createdRequest._id, requestCode: createdRequest.code, quotationId: quotation._id } });
+    res.status(201).json({ success: true, message: quoteDeliveryMessage(customer, created), data: { requestId: createdRequest._id, requestCode: createdRequest.code, quotationId: quotation._id } });
   } catch (error) { next(error); }
 });
 

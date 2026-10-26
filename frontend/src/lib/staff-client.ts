@@ -18,6 +18,7 @@ export type QuotationDraft = {
   recipientName: string
   recipientPhone: string
   recipientFax: string
+  customerEmail?: string
 }
 const json = (method: string, body?: unknown): RequestInit => ({ method, body: body === undefined ? undefined : JSON.stringify(body) })
 const query = (values: Record<string, string | number | undefined>) => new URLSearchParams(Object.entries(values).filter(([, value]) => value !== undefined && value !== "").map(([key, value]) => [key, String(value)])).toString()

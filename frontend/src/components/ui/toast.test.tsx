@@ -32,6 +32,7 @@ describe("ToastProvider", () => {
     act(() => vi.advanceTimersByTime(5000))
     expect(screen.queryByText("Đã cập nhật địa chỉ")).not.toBeInTheDocument()
     expect(screen.getByRole("alert")).toHaveTextContent("Không thể lưu địa chỉ")
+    expect(screen.getByRole("alert")).not.toHaveTextContent("Có lỗi xảy ra")
 
     act(() => vi.advanceTimersByTime(2000))
     expect(screen.queryByText("Không thể lưu địa chỉ")).not.toBeInTheDocument()

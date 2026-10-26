@@ -51,7 +51,7 @@ export function StaffRequestsPage() {
   const updateDetail = (updater: (value: StaffRequestDetail) => StaffRequestDetail) => client.setQueryData<DetailResult>(detailKey, current => current ? { ...current, data: updater(current.data) } : current)
   const refresh = () => { void client.invalidateQueries({ queryKey: ["staff", "requests"] }); void client.invalidateQueries({ queryKey: ["staff", "leads"] }); void client.invalidateQueries({ queryKey: detailKey }); void client.invalidateQueries({ queryKey: ["staff", "dashboard"] }) }
   const update = useMutation({ mutationFn: (body: Parameters<typeof staffClient.updateRequest>[1]) => staffClient.updateRequest(selected, body), onSuccess: result => { toast.success(result.message || "Đã cập nhật hồ sơ"); refresh() }, onError: error => toast.error(error.message) })
-  const quoteLead = useMutation({ mutationFn: (body: Parameters<typeof staffClient.quoteLead>[1]) => staffClient.quoteLead(selectedLead, body), onSuccess: result => { toast.success(result.message || "Đã gửi báo giá"); setFilters(current => ({ ...current, view: "waiting" })); setSelectedLead(""); setSelected(result.data.requestId); setParams({ view: "waiting", requestId: result.data.requestId }); refresh() }, onError: error => toast.error(error.message) })
+  const quoteLead = useMutation({ mutationFn: (body: Parameters<typeof staffClient.quoteLead>[1]) => staffClient.quoteLead(selectedLead, body), onSuccess: result => { toast.success(result.message || "Đã gửi báo giá"); setFilters(current => ({ ...current, view: "waiting" })); setSelectedLead(""); setSelected(result.data.requestId); setParams({ view: "waiting", requestId: result.data.requestId }); refresh() }, onError: error => toast.error(error.message, { title: "Không gửi được báo giá" }) })
   const rejectLead = useMutation({ mutationFn: (lostReason: string) => staffClient.updateLead(selectedLead, { status: "lost", lostReason, message: lostReason }), onSuccess: result => { toast.success(result.message || "Đã từ chối yêu cầu"); setSelectedLead(""); refresh() }, onError: error => toast.error(error.message) })
   const message = useMutation({
     mutationFn: (body: { content: string; visibility: "customer" | "internal"; clientMessageId: string }) => staffClient.sendMessage(selected, body.content, body.visibility, body.clientMessageId),
@@ -219,6 +219,7 @@ function LeadQuotePanel({ lead, busy, error, onQuote, onReject }: { lead: StaffL
   const closed = lead.status === "lost" || lead.status === "spam" || Boolean(lead.convertedRequest)
   const [rejecting, setRejecting] = useState(false)
   const [reason, setReason] = useState("")
+  const [customerEmail, setCustomerEmail] = useState(lead.email || "")
   return <article className="space-y-6">
     <section className="rounded-card border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
       <p className="text-sm font-black uppercase tracking-wider text-orange-700">{lead.code} · Website</p>
@@ -235,8 +236,9 @@ function LeadQuotePanel({ lead, busy, error, onQuote, onReject }: { lead: StaffL
     </section>
     {!closed && <section className="rounded-card border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
       <h3 className="font-display text-2xl font-bold text-emerald-950">Gửi báo giá</h3>
-      <p className="mt-1 text-sm text-slate-500">Báo giá theo mẫu công ty. Nếu khách chưa có tài khoản, hệ thống tạo tài khoản và gửi email đặt mật khẩu.</p>
-      <div className="mt-5"><QuotationForm busy={busy} submitLabel="Gửi báo giá" defaults={{ workTitle: lead.serviceType || "", recipientCompany: lead.company || "", recipientName: lead.name, recipientPhone: lead.phone }} onSubmit={onQuote}/></div>
+      <p className="mt-1 text-sm text-slate-500">Báo giá theo mẫu công ty. Email đã có tài khoản thì nhận báo giá ngay. Email chưa có tài khoản thì hệ thống tạo tài khoản và gửi email đặt mật khẩu.</p>
+      <label className="mt-5 block text-sm font-bold text-slate-700">Email khách nhận báo giá<Input className="mt-2" type="email" value={customerEmail} onChange={event => setCustomerEmail(event.target.value)} placeholder="email@khachhang.vn"/></label>
+      <div className="mt-5"><QuotationForm busy={busy} submitLabel="Gửi báo giá" defaults={{ workTitle: lead.serviceType || "", recipientCompany: lead.company || "", recipientName: lead.name, recipientPhone: lead.phone }} onSubmit={body => onQuote({ ...body, customerEmail: customerEmail.trim() })}/></div>
     </section>}
   </article>
 }
