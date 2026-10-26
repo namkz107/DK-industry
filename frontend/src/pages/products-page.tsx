@@ -18,7 +18,7 @@ import type { Product } from "@/types"
 const productsPerPage = 9
 
 export function ProductsPage() {
-  usePageMeta("Sản phẩm công nghiệp", "Bọc bảo ôn, nhà để xe, cover máy, bàn thao tác, băng tải, chi tiết phay tiện, vỏ tủ điện và tủ locker inox, gia công theo yêu cầu.")
+  usePageMeta("Sản phẩm công nghiệp", "Bọc bảo ôn, nhà để xe, mái che, bàn inox, cầu trục, tôn tấm, khung thép, chi tiết cơ khí, tủ điện và tủ locker, gia công theo yêu cầu.")
   const { openQuote, canRequestQuote } = useOutletContext<LayoutContext>()
   const { user } = useAuth()
   const navigate = useNavigate()
