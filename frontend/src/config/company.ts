@@ -13,7 +13,7 @@ export const company = {
   taxCode: import.meta.env.VITE_COMPANY_TAX_CODE || "0106426038",
   registrationNumber: import.meta.env.VITE_COMPANY_REGISTRATION_NUMBER || "",
   legalRepresentative: import.meta.env.VITE_COMPANY_LEGAL_REPRESENTATIVE || "",
-  zaloUrl: import.meta.env.VITE_COMPANY_ZALO_URL || `https://zalo.me/${(import.meta.env.VITE_COMPANY_PHONE || "0983688336").replace(/\D/g, "")}`,
+  zaloUrl: import.meta.env.VITE_COMPANY_ZALO_URL || "https://zalo.me/0983688326",
 }
 
 export const companyMapUrl = googleMapsViewPlaceUrl(mapLatitude, mapLongitude)

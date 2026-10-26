@@ -24,7 +24,7 @@ function brand() {
     address: String(process.env.COMPANY_ADDRESS || '').trim(),
     website,
     logo: cleanUrl(process.env.COMPANY_LOGO_URL || DEFAULT_LOGO),
-    zalo: cleanUrl(process.env.COMPANY_ZALO_URL || '')
+    zalo: cleanUrl(process.env.COMPANY_ZALO_URL || 'https://zalo.me/0983688326')
   };
 }
 

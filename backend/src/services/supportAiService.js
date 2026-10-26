@@ -11,6 +11,7 @@ const cleanText = (value, max = 800) => String(value || '').replace(/\s+/g, ' ')
 const businessContact = () => ({
   name: cleanText(process.env.COMPANY_NAME || 'CTY CPTV ĐẦU TƯ XD TM ĐĂNG KHOA', 180),
   phone: cleanText(process.env.COMPANY_PHONE || process.env.COMPANY_PHONE_LABEL || '098 368 8336', 60),
+  zalo: '098 3688326',
   email: cleanText(process.env.COMPANY_EMAIL || 'namkz107@gmail.com', 160),
   address: cleanText(process.env.COMPANY_ADDRESS || 'Cụm 3, thôn Duyên Trường, xã Hồng Vân, thành phố Hà Nội, Việt Nam', 360)
 });
@@ -50,7 +51,7 @@ async function businessKnowledge() {
 
   return [
     `DOANH NGHIỆP: ${contact.name}.`,
-    `Hotline: ${contact.phone}. Email: ${contact.email}.`,
+    `Hotline: ${contact.phone}. Zalo: ${contact.zalo}. Email: ${contact.email}.`,
     `Địa chỉ: ${contact.address}.`,
     productLines.length ? `SẢN PHẨM ĐANG CÓ TRONG HỆ THỐNG:\n${productLines.join('\n')}` : 'SẢN PHẨM: Chưa có dữ liệu công khai trong hệ thống.',
     serviceLines.length ? `DỊCH VỤ ĐANG CÓ TRONG HỆ THỐNG:\n${serviceLines.join('\n')}` : 'DỊCH VỤ: Chưa có dữ liệu công khai trong hệ thống.'
