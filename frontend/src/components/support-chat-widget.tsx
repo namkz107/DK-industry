@@ -172,7 +172,7 @@ export function SupportChatWidget() {
       <button onClick={() => setOpen(value => !value)} className="relative grid size-12 shrink-0 place-items-center rounded-full bg-emerald-950 text-white shadow-xl shadow-emerald-950/25 transition  hover:bg-emerald-900" aria-expanded={open} aria-label={open ? "Thu nhỏ hỗ trợ khách hàng" : "Mở hỗ trợ khách hàng"}>
         <span className="grid size-7 place-items-center rounded-full bg-orange-500 text-white">{open ? <MessageCircleMore className="size-4"/> : <Headphones className="size-4"/>}</span>{unread > 0 && <span className="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[10px] text-white">{Math.min(unread, 99)}</span>}
       </button>
-      <a href="https://zalo.me/0983688326" target="_blank" rel="noopener noreferrer" title="Nhắn tin qua Zalo" aria-label="Nhắn tin với Đăng Khoa qua Zalo" className="group grid size-12 shrink-0 place-items-center rounded-2xl shadow-xl shadow-emerald-950/20 transition  focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-orange-200">
+      <a href={company.zaloUrl} target="_blank" rel="noopener noreferrer" title="Nhắn tin qua Zalo" aria-label="Nhắn tin với Đăng Khoa qua Zalo" className="group grid size-12 shrink-0 place-items-center rounded-2xl shadow-xl shadow-emerald-950/20 transition  focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-orange-200">
         <ZaloIcon className="size-12 transition-transform group-hover:scale-105"/>
       </a>
     </div>
