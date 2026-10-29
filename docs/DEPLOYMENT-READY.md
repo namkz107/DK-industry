@@ -19,6 +19,23 @@ Copy-Item frontend/.env.production.example frontend/.env.production
 
 Không commit hai file `.env.production`. Toàn bộ khóa bí mật phải nằm trong secret manager hoặc biến môi trường của hosting.
 
+### Tự động cập nhật production sau khi CI thành công
+
+Vercel phải theo dõi nhánh `master` và bật **Auto-assign Custom Production Domains**. Các file `vercel.json` ở repository và trong `frontend` cùng giữ fallback về `index.html` cho cả hai cách cấu hình Root Directory, vì vậy mở thẳng hoặc tải lại các URL SPA như `/admin`, `/admin/xuong` sẽ không còn trả trang 404 của Vercel.
+
+Backend `api.cokhidangkhoa.com` chạy độc lập với Vercel. Job `deploy_backend_production` trong `.github/workflows/ci.yml` chỉ chạy khi toàn bộ job `verify` đạt và sự kiện là push lên `master`. Cấu hình một lần các repository secrets sau trong **GitHub → Settings → Secrets and variables → Actions**:
+
+- `PRODUCTION_HOST`: hostname hoặc IP của VPS chạy API.
+- `PRODUCTION_PORT`: cổng SSH; có thể bỏ trống nếu dùng `22`.
+- `PRODUCTION_USER`: tài khoản SSH có quyền chạy Docker Compose trong thư mục ứng dụng.
+- `PRODUCTION_SSH_PRIVATE_KEY`: private key dành riêng cho GitHub Actions; không dùng mật khẩu tài khoản cá nhân.
+- `PRODUCTION_KNOWN_HOSTS`: dòng khóa host đã kiểm tra trước của VPS, tạo từ máy tin cậy bằng `ssh-keyscan -H <host>` rồi đối chiếu fingerprint trên VPS.
+- `PRODUCTION_APP_DIR`: đường dẫn tuyệt đối tới repository trên VPS, ví dụ `/srv/dk-industry`.
+
+Trên VPS, repository phải có remote `origin`, đọc được nhánh `master`, không có thay đổi cục bộ chưa commit và tài khoản deploy phải chạy được `docker compose`. Workflow dùng `git pull --ff-only`, build/recreate riêng service `api`, truyền đúng `RELEASE_SHA`, rồi chỉ báo thành công khi `https://api.cokhidangkhoa.com/api/live` trả đúng commit cùng `apiContract >= 2`.
+
+Không cần promote thủ công các deployment Vercel sau khi Production Branch đã là `master`. Một lần push lên `master` sẽ kích hoạt Vercel cho frontend và CI cho backend; backend chỉ đổi phiên bản sau khi kiểm tra đạt.
+
 ## 2. Chạy cổng kiểm tra trước deploy
 
 ```powershell

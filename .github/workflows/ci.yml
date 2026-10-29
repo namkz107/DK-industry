@@ -59,3 +59,83 @@ jobs:
       - run: npm run test:e2e --prefix frontend
       - run: npm audit --omit=dev --prefix backend
       - run: npm audit --omit=dev --prefix frontend
+
+  deploy_backend_production:
+    name: Deploy backend production
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: production-backend
+      cancel-in-progress: false
+    env:
+      PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+      PRODUCTION_PORT: ${{ secrets.PRODUCTION_PORT || '22' }}
+      PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+      PRODUCTION_SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}
+      PRODUCTION_KNOWN_HOSTS: ${{ secrets.PRODUCTION_KNOWN_HOSTS }}
+      PRODUCTION_APP_DIR: ${{ secrets.PRODUCTION_APP_DIR }}
+      PRODUCTION_API_URL: https://api.cokhidangkhoa.com
+    steps:
+      - name: Validate production deployment secrets
+        shell: bash
+        run: |
+          missing=()
+          for name in PRODUCTION_HOST PRODUCTION_PORT PRODUCTION_USER PRODUCTION_SSH_PRIVATE_KEY PRODUCTION_KNOWN_HOSTS PRODUCTION_APP_DIR; do
+            if [ -z "${!name}" ]; then missing+=("$name"); fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            printf 'Missing GitHub Actions secrets: %s\n' "${missing[*]}"
+            exit 1
+          fi
+
+      - name: Configure SSH
+        shell: bash
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$PRODUCTION_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$PRODUCTION_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+
+      - name: Deploy the verified backend commit
+        shell: bash
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -p "$PRODUCTION_PORT" "$PRODUCTION_USER@$PRODUCTION_HOST" \
+            "bash -s -- '$PRODUCTION_APP_DIR' '$GITHUB_SHA'" <<'REMOTE'
+          set -euo pipefail
+          app_dir=$1
+          release_sha=$2
+          cd "$app_dir"
+          git fetch --prune origin master
+          git checkout master
+          git pull --ff-only origin master
+          test "$(git rev-parse HEAD)" = "$release_sha"
+          RELEASE_SHA="$release_sha" docker compose --env-file compose.production.env -f compose.production.yml build --pull api
+          RELEASE_SHA="$release_sha" docker compose --env-file compose.production.env -f compose.production.yml up -d --force-recreate api
+          REMOTE
+
+      - name: Verify the deployed API release
+        shell: bash
+        run: |
+          node <<'NODE'
+          const expectedRelease = process.env.GITHUB_SHA
+          const endpoint = `${process.env.PRODUCTION_API_URL}/api/live`
+          const wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds))
+
+          for (let attempt = 1; attempt <= 18; attempt += 1) {
+            try {
+              const response = await fetch(endpoint, { headers: { "cache-control": "no-cache" } })
+              const body = await response.json()
+              if (response.ok && body.release === expectedRelease && Number(body.apiContract) >= 2) {
+                console.log(`Production API is running ${body.release} with contract ${body.apiContract}`)
+                process.exit(0)
+              }
+              console.log(`Attempt ${attempt}: release=${body.release || "unknown"}, contract=${body.apiContract || "unknown"}`)
+            } catch (error) {
+              console.log(`Attempt ${attempt}: ${error.message}`)
+            }
+            await wait(10_000)
+          }
+
+          throw new Error(`Production API did not switch to ${expectedRelease}`)
+          NODE

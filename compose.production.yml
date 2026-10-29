@@ -8,6 +8,7 @@ services:
     expose:
       - "5000"
     environment:
+      RELEASE_SHA: "${RELEASE_SHA:?Set RELEASE_SHA to the deployed Git commit}"
       CLAMAV_HOST: clamav
       CLAMAV_PORT: "3310"
     depends_on:

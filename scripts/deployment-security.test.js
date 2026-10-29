@@ -47,3 +47,20 @@ test('local deployment and age identity files are ignored', () => {
   assert.match(gitignore, /\*\.agekey/);
   assert.match(gitignore, /compose\.production\.env/);
 });
+
+test('Vercel serves the Vite application for direct SPA routes', () => {
+  const expected = [{ source: '/(.*)', destination: '/index.html' }];
+  assert.deepEqual(JSON.parse(read('vercel.json')).rewrites, expected);
+  assert.deepEqual(JSON.parse(read('frontend/vercel.json')).rewrites, expected);
+});
+
+test('production backend deploy waits for verification and pins the release', () => {
+  const workflow = read('.github/workflows/ci.yml');
+  const compose = read('compose.production.yml');
+  assert.match(workflow, /deploy_backend_production:[\s\S]*needs: verify/);
+  assert.match(workflow, /github\.ref == 'refs\/heads\/master'/);
+  assert.match(workflow, /git pull --ff-only origin master/);
+  assert.match(workflow, /PRODUCTION_KNOWN_HOSTS/);
+  assert.match(workflow, /body\.release === expectedRelease/);
+  assert.match(compose, /RELEASE_SHA: "\$\{RELEASE_SHA:\?Set RELEASE_SHA to the deployed Git commit\}"/);
+});
