@@ -1,0 +1,20 @@
+rules:
+  - id: react-dangerously-set-inner-html
+    message: Rendering raw HTML can introduce XSS. Sanitize trusted content and document why this is required.
+    severity: ERROR
+    languages: [typescript, javascript]
+    pattern: <$TAG ... dangerouslySetInnerHTML=$VALUE ... />
+
+  - id: weak-jwt-decode-for-authorization
+    message: jwt.decode does not verify the signature and must not be used for authentication or authorization.
+    severity: ERROR
+    languages: [javascript, typescript]
+    pattern: jwt.decode(...)
+
+  - id: child-process-shell-execution
+    message: Shell command execution requires strict input validation and a security review.
+    severity: ERROR
+    languages: [javascript, typescript]
+    pattern-either:
+      - pattern: exec(...)
+      - pattern: execSync(...)

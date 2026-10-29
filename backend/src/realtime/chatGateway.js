@@ -1,27 +1,13 @@
 const { Server } = require('socket.io');
-const RefreshSession = require('../models/RefreshSession');
 const RequestMessage = require('../models/RequestMessage');
 const ServiceRequest = require('../models/ServiceRequest');
-const User = require('../models/User');
-const { verifyAccessToken } = require('../services/authService');
 const { customerRoom, staffRoom, setChatNamespace, emitRequestEvent, emitTyping } = require('../services/realtimeService');
 const { isSocketSessionActive, registerSocketSession } = require('../services/socketSessionService');
 const { initializeSupportGateway } = require('./supportGateway');
+const { authenticatedUser } = require('./socketAuth');
 const { clientOrigins } = require('../config/runtime');
 
 const validRequestId = value => /^[a-f\d]{24}$/i.test(String(value || ''));
-
-async function authenticatedUser(token) {
-  const payload = verifyAccessToken(token);
-  const user = await User.findById(payload.sub).select('+tokenVersion');
-  if (!user || user.status !== 'active' || user.tokenVersion !== payload.tv) throw new Error('Phiên đăng nhập không còn hiệu lực');
-  if (process.env.NODE_ENV === 'production' || process.env.ENFORCE_SESSION_CHECK === 'true') {
-    if (!payload.sid) throw new Error('Phiên đăng nhập không còn hiệu lực');
-    const active = await RefreshSession.exists({ _id: payload.sid, user: user._id, revokedAt: null, expiresAt: { $gt: new Date() } });
-    if (!active) throw new Error('Phiên đăng nhập đã bị thu hồi');
-  }
-  return { user, expiresAt: payload.exp * 1000, sessionId: payload.sid };
-}
 
 async function authorizedRequest(requestId, user) {
   if (!validRequestId(requestId)) return null;

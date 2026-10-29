@@ -14,7 +14,8 @@
     "migrate:lead-service": "node src/migrateLeadService.js",
     "migrate:project-details": "node src/migrateProjectDetails.js",
     "verify:integrations": "node src/verifyIntegrations.js",
-    "test": "node --test"
+    "test": "node --test",
+    "test:coverage": "c8 --reporter=text --reporter=lcov --check-coverage --statements 40 --branches 55 --functions 35 --lines 40 node --test"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -34,6 +35,7 @@
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
+    "c8": "^12.0.0",
     "socket.io-client": "^4.8.1"
   }
 }

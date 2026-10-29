@@ -46,9 +46,10 @@ jobs:
       - run: npm ci
       - run: npm ci --prefix backend
       - run: npm ci --prefix frontend
-      - run: npm test --prefix backend
+      - run: npm run test:coverage --prefix backend
       - run: npm run lint --prefix frontend
-      - run: npm test --prefix frontend
+      - run: npm run test:coverage --prefix frontend
+      - run: npm run check:architecture
       - run: npm run test:preflight
       - run: npm run test:backup-security
       - run: npm run test:deployment-security
@@ -60,9 +61,36 @@ jobs:
       - run: npm audit --omit=dev --prefix backend
       - run: npm audit --omit=dev --prefix frontend
 
+  security:
+    name: Open-source security gates
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Semgrep SAST and project rules
+        run: >-
+          docker run --rm
+          -v "${{ github.workspace }}:/src"
+          -w /src
+          semgrep/semgrep
+          semgrep scan --error
+          --config p/owasp-top-ten
+          --config .semgrep.yml
+      - name: Trivy repository scan
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
   deploy_backend_production:
     name: Deploy backend production
-    needs: verify
+    needs: [verify, security]
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     concurrency:

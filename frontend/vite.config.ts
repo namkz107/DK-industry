@@ -14,6 +14,19 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.ts"],
     restoreMocks: true,
     clearMocks: true,
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "lcov"],
+      reportsDirectory: "./coverage",
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: ["src/test/**", "src/**/*.d.ts", "src/main.tsx"],
+      thresholds: {
+        statements: 8,
+        branches: 4,
+        functions: 7,
+        lines: 10,
+      },
+    },
   },
   server: {
     port: 3000,

@@ -2,7 +2,9 @@
   "name": "dk-industry",
   "version": "1.0.0",
   "private": true,
-  "engines": { "node": ">=20.19" },
+  "engines": {
+    "node": ">=20.19"
+  },
   "scripts": {
     "start": "concurrently \"npm start --prefix frontend\" \"npm run dev --prefix backend\"",
     "install:all": "npm install --prefix frontend && npm install --prefix backend",
@@ -10,6 +12,7 @@
     "frontend": "npm start --prefix frontend",
     "backend": "npm run dev --prefix backend",
     "build": "npm run build --prefix frontend",
+    "check:architecture": "depcruise frontend/src backend/src --config .dependency-cruiser.cjs",
     "check": "npm run lint --prefix frontend && npm test --prefix frontend && npm test --prefix backend && npm run test:preflight && npm run test:backup-security && npm run test:deployment-security && npm run build --prefix frontend && npm run scan:client-bundle && npm run test:e2e --prefix frontend",
     "test:preflight": "node --test scripts/preflight.test.js",
     "test:backup-security": "node --test scripts/backup-security.test.js",
@@ -27,6 +30,8 @@
     "migrate:lead-service": "npm run migrate:lead-service --prefix backend"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "dependency-cruiser": "^18.7.0",
+    "typescript": "~5.9.3"
   }
 }

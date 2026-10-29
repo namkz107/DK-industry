@@ -4,6 +4,7 @@ const SupportMessage = require('../models/SupportMessage');
 const { verifySupportSocketToken } = require('../services/authService');
 const { conversationRoom, emitSupportEvent, setSupportNamespace } = require('../services/supportRealtimeService');
 const { isSocketSessionActive, registerSocketSession } = require('../services/socketSessionService');
+const { authenticatedUser } = require('./socketAuth');
 
 async function authorizedConversation(conversationId, socket) {
   if (!conversationId || !mongoose.isValidObjectId(conversationId)) return false;
@@ -24,7 +25,6 @@ function initializeSupportGateway(io) {
     try {
       const { token, supportToken } = socket.handshake.auth || {};
       if (token) {
-        const { authenticatedUser } = require('./chatGateway');
         const authenticated = await authenticatedUser(token);
         socket.data.user = authenticated.user;
         socket.data.expiresAt = authenticated.expiresAt;
