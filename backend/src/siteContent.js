@@ -41,12 +41,18 @@ const defaultOrgUnits = [
   { name: 'Xí nghiệp xây lắp 2', note: 'Thi công và lắp đặt', tier: 4 }
 ];
 
+function publicImageUrl(value) {
+  const image = String(value || '');
+  const legacyLocal = image.match(/^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?(\/uploads\/content\/[A-Za-z0-9._-]+)$/i);
+  return legacyLocal ? legacyLocal[1] : image;
+}
+
 function presentSiteSetting(setting) {
   const equipment = setting && Array.isArray(setting.equipment)
     ? setting.equipment.map(item => {
       const fallback = defaultEquipment.find(machine => machine.name === item.name);
       const images = (Array.isArray(item.images) ? item.images : [])
-        .map(src => previousEquipmentImages[src] || src)
+        .map(src => publicImageUrl(previousEquipmentImages[src] || src))
         .filter(Boolean);
       return {
         name: item.name,
@@ -61,10 +67,10 @@ function presentSiteSetting(setting) {
     ? setting.orgUnits.map(item => ({ name: item.name, note: item.note || '', tier: item.tier }))
     : defaultOrgUnits;
   return {
-    leaderImage: setting && setting.leaderImage ? setting.leaderImage : null,
+    leaderImage: setting && setting.leaderImage ? publicImageUrl(setting.leaderImage) : null,
     equipment,
     orgUnits
   };
 }
 
-module.exports = { defaultEquipment, defaultOrgUnits, presentSiteSetting };
+module.exports = { defaultEquipment, defaultOrgUnits, presentSiteSetting, publicImageUrl };

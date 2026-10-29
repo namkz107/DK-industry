@@ -122,7 +122,7 @@ async function sendStoredFile(res, attachment) {
   return res.download(path.join(customerDirectory(), safeName), attachment.originalName);
 }
 
-async function storeContentImage(file, baseUrl) {
+async function storeContentImage(file) {
   const extension = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' }[file.mimetype];
   if (storageDriver() === 'cloudinary') {
     const result = await uploadBuffer(file.buffer, { public_id: `dk-industry/content/${crypto.randomUUID()}`, resource_type: 'image', type: 'upload', overwrite: false });
@@ -131,7 +131,10 @@ async function storeContentImage(file, baseUrl) {
   await fs.promises.mkdir(contentDirectory(), { recursive: true });
   const filename = `${crypto.randomUUID()}${extension}`;
   await fs.promises.writeFile(path.join(contentDirectory(), filename), file.buffer, { flag: 'wx' });
-  return { url: `${baseUrl}/uploads/content/${filename}`, filename };
+  // Keep local content URLs origin-independent. An absolute URL built from the
+  // container request host can otherwise persist localhost/internal hostnames
+  // and break as mixed content after deployment.
+  return { url: `/uploads/content/${filename}`, filename };
 }
 
 async function removeContentImage(filename) {

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { completeMachines } from "@/content/site-content"
 import { usePageMeta } from "@/hooks/use-page-meta"
 import { api } from "@/lib/api"
+import { publicAssetUrl } from "@/lib/assets"
 import type { WorkshopMachine } from "@/types/admin"
 import type { Service } from "@/types"
 
@@ -66,7 +67,7 @@ function WorkshopGallery({ machines }: { machines: WorkshopMachine[] }) {
     </div>
     <ul className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
       {machines.map((machine, index) => {
-        const src = machine.images[0]
+        const src = publicAssetUrl(machine.images[0])
         return <li key={`${machine.name}-${index}`}>
           <article className="catalog-card group flex h-full cursor-pointer flex-col overflow-hidden rounded-card border border-slate-200 bg-white" role="button" tabIndex={0} onClick={() => setSelected(machine)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelected(machine) } }}>
             <div className="relative aspect-[16/10] overflow-hidden bg-slate-200">
@@ -92,7 +93,7 @@ function WorkshopGallery({ machines }: { machines: WorkshopMachine[] }) {
 }
 
 function MachineDialog({ machine, onClose }: { machine: WorkshopMachine | null; onClose: () => void }) {
-  const src = machine?.images[0]
+  const src = publicAssetUrl(machine?.images[0])
   const facts = [
     { label: "Đây là máy gì", text: machine?.summary },
     { label: "Công dụng", text: machine?.purpose },

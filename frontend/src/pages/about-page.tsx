@@ -4,6 +4,7 @@ import { Link } from "react-router-dom"
 import { FadeContent } from "@/components/react-bits/fade-content"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
+import { publicAssetUrl } from "@/lib/assets"
 
 const services = [
   { icon: DraftingCompass, title: "Tư vấn & thiết kế", text: "Khảo sát, phân tích yêu cầu và thiết kế giải pháp kỹ thuật phù hợp với từng công trình." },
@@ -20,7 +21,7 @@ const values = [
 
 export function AboutPage() {
   const aboutSettings = useQuery({ queryKey: ["site-settings", "about"], queryFn: api.aboutSettings, staleTime: 60_000 })
-  const ceoImage = aboutSettings.data?.data?.leaderImage ?? import.meta.env.VITE_CLOUDINARY_CEO_IMAGE_URL
+  const ceoImage = publicAssetUrl(aboutSettings.data?.data?.leaderImage ?? import.meta.env.VITE_CLOUDINARY_CEO_IMAGE_URL)
   return <>
     <section className="industrial-hero text-white">
       <img className="industrial-hero__image" src="/images/heroes/about-hero.jpg" alt="" fetchPriority="high"/>

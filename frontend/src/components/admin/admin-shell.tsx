@@ -1,4 +1,4 @@
-import { Boxes, ClipboardClock, Image, LayoutDashboard, ShieldCheck, UserCog } from "lucide-react"
+import { Boxes, ClipboardClock, Factory, Image, LayoutDashboard, ShieldCheck, UserCog } from "lucide-react"
 import type { PropsWithChildren, ReactNode } from "react"
 import { WorkspaceFrame } from "@/components/workspace-frame"
 import { useAuth } from "@/contexts/auth-context"
@@ -7,7 +7,8 @@ const navigation = [
   { to: "/admin", label: "Tổng quan", icon: LayoutDashboard, end: true },
   { to: "/admin/nhan-su", label: "Nhân sự", icon: UserCog },
   { to: "/admin/noi-dung", label: "Nội dung website", icon: Boxes },
-  { to: "/admin/gioi-thieu", label: "Giới thiệu & xưởng", icon: Image },
+  { to: "/admin/gioi-thieu", label: "Giới thiệu", icon: Image },
+  { to: "/admin/xuong", label: "Máy móc tại xưởng", icon: Factory },
   { to: "/admin/nhat-ky", label: "Nhật ký", icon: ClipboardClock },
   { to: "/admin/quyen-rieng-tu", label: "Quyền riêng tư", icon: ShieldCheck },
 ]

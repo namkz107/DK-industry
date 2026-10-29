@@ -32,6 +32,7 @@ const roleOptions: SelectOption[] = [{ value: "customer", label: "Khách hàng" 
 const statusOptions: SelectOption[] = [{ value: "active", label: "Hoạt động" }, { value: "blocked", label: "Khóa tài khoản" }]
 const roleFilterOptions: SelectOption[] = [{ value: "", label: "Mọi vai trò" }, ...roleOptions]
 const statusFilterOptions: SelectOption[] = [{ value: "", label: "Mọi trạng thái" }, { value: "active", label: "Hoạt động" }, { value: "blocked", label: "Đã khóa" }]
+const usersPerPage = 5
 
 export function AdminUsersPage() {
   usePageMeta("Quản lý nhân sự", "Tạo tài khoản, cấp quyền và kiểm soát trạng thái truy cập.")
@@ -41,7 +42,7 @@ export function AdminUsersPage() {
   const [selected, setSelected] = useState<AdminUser | null>(null)
   const [creating, setCreating] = useState(false)
   const [password, setPassword] = useState("")
-  const users = useQuery({ queryKey: ["admin", "users", filters, page], queryFn: () => adminClient.users({ ...filters, page }) })
+  const users = useQuery({ queryKey: ["admin", "users", filters, page, usersPerPage], queryFn: () => adminClient.users({ ...filters, page, limit: usersPerPage }) })
   useEffect(() => setPage(1), [filters])
   const refresh = () => { void queryClient.invalidateQueries({ queryKey: ["admin", "users"] }); void queryClient.invalidateQueries({ queryKey: ["admin", "dashboard"] }) }
   const create = useMutation({ mutationFn: adminClient.createUser, onSuccess: result => { toast.success(result.message || "Đã tạo tài khoản"); refresh(); form.reset(); setCreating(false) } })

@@ -78,7 +78,7 @@ test('Admin quản lý nhân sự, nội dung và nhật ký đúng quyền', { 
     if (storageDriver() === 'cloudinary') assert.match(uploadBody.data.url, /^https:\/\/res\.cloudinary\.com\//);
     else assert.match(uploadBody.data.url, /\/uploads\/content\/[a-f0-9-]+\.png$/);
     createdIds.uploads.push(uploadBody.data.filename);
-    assert.equal((await fetch(uploadBody.data.url)).status, 200);
+    assert.equal((await fetch(new URL(uploadBody.data.url, baseUrl))).status, 200);
 
     const fakeImage = new FormData(); fakeImage.append('image', new Blob(['khong-phai-anh'], { type: 'image/png' }), 'gia-mao.png');
     assert.equal((await call('/admin/uploads/images', adminToken, { method: 'POST', body: fakeImage })).status, 400);

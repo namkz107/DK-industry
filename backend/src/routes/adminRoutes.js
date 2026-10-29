@@ -277,7 +277,7 @@ router.post('/uploads/images', imageUpload.single('image'), async (req, res, nex
     if (!validateImageFile(req.file)) {
       fail('Nội dung tệp không phải ảnh hợp lệ');
     }
-    const stored = await storeContentImage(req.file, `${req.protocol}://${req.get('host')}`);
+    const stored = await storeContentImage(req.file);
     res.status(201).json({ success: true, message: 'Đã tải ảnh lên', data: stored });
   } catch (error) { next(error); }
 });

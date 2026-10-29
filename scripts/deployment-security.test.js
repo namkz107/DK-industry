@@ -28,6 +28,11 @@ test('Nginx preserves client-facing HTTPS when proxying to the API', () => {
   assert.doesNotMatch(nginx, /proxy_set_header X-Forwarded-Proto \$scheme;/);
 });
 
+test('Nginx proxies same-origin public content uploads to the API', () => {
+  const nginx = read('frontend/nginx.conf');
+  assert.match(nginx, /location \/uploads\/content\/\s*\{[\s\S]*?proxy_pass http:\/\/api:5000;/);
+});
+
 test('ClamAV is private and the API waits for scanner health', () => {
   const compose = read('compose.production.yml');
   assert.match(compose, /clamav:[\s\S]*image:\s*clamav\/clamav:/);

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { defaultOrgUnits, orgTierLabels } from "@/content/site-content"
 import { usePageMeta } from "@/hooks/use-page-meta"
 import { api } from "@/lib/api"
+import { publicAssetUrl } from "@/lib/assets"
 import { cn } from "@/lib/utils"
 import type { OrgUnit } from "@/types/admin"
 
@@ -26,7 +27,7 @@ const values = [
 export function AboutPage() {
   usePageMeta("Giới thiệu", "Năng lực cơ điện, cơ cấu tổ chức và cách Cơ khí Đăng Khoa triển khai công trình.")
   const aboutSettings = useQuery({ queryKey: ["site-settings", "about"], queryFn: api.aboutSettings, staleTime: 60_000 })
-  const ceoImage = aboutSettings.data?.data?.leaderImage ?? import.meta.env.VITE_CLOUDINARY_CEO_IMAGE_URL
+  const ceoImage = publicAssetUrl(aboutSettings.data?.data?.leaderImage ?? import.meta.env.VITE_CLOUDINARY_CEO_IMAGE_URL)
   const orgUnits = aboutSettings.data?.data?.orgUnits ?? defaultOrgUnits
 
   return <>
