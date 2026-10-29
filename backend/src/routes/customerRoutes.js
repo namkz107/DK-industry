@@ -605,7 +605,10 @@ router.post('/requests', requireVerifiedEmail, upload.array('attachments', 5), a
     });
     filesCommitted = true;
     await RequestMessage.create({ request: request._id, sender: req.user._id, senderRole: 'customer', visibility: 'customer', content: description, readByCustomerAt: new Date() });
-    await notifyQuoteWatchers({ type: 'request.created', title: `Yêu cầu mới ${request.code}`, message: `${req.user.name}: ${request.title}`, link: `/staff/requests?requestId=${request._id}&view=new`, metadata: { requestId: request._id } });
+    await Promise.all([
+      notifyQuoteWatchers({ type: 'request.created', title: `Yêu cầu mới ${request.code}`, message: `${req.user.name}: ${request.title}`, link: `/staff/requests?requestId=${request._id}&view=new`, metadata: { requestId: request._id } }),
+      createNotification({ recipient: req.user._id, type: 'request.received', title: `Đã tiếp nhận yêu cầu ${request.code}`, message: 'Yêu cầu của bạn đã được ghi nhận. Đội ngũ kỹ thuật sẽ phản hồi trong giờ làm việc.', link: `/tai-khoan/yeu-cau?requestId=${request._id}`, email: req.user.email, metadata: { requestId: request._id } })
+    ]);
     dispatchSoon();
     res.status(201).json({ success: true, message: 'Đã gửi yêu cầu, kỹ thuật sẽ phản hồi trong giờ làm việc', data: { id: request._id, code: request.code, status: request.status } });
   } catch (error) { if (!filesCommitted) await removeStoredFiles(storedFiles); next(error); }

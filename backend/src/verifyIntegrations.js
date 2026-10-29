@@ -1,6 +1,6 @@
 require('dotenv').config();
 const nodemailer = require('nodemailer');
-const { mailTransport, smtpConfigured } = require('./services/notificationService');
+const { mailTransport, sendDirectEmail, smtpConfigured } = require('./services/notificationService');
 const { renderBrandedEmail } = require('./services/emailTemplateService');
 const { searchLocations } = require('./services/locationService');
 
@@ -23,14 +23,15 @@ async function verifySmtp() {
     cta: { label: 'Mở website', url: website },
     notice: 'Đây là email kiểm tra tự động, không phải giao dịch của khách hàng.'
   });
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM || process.env.EMAIL_FROM,
+  const info = await sendDirectEmail({
     to: recipient,
     subject: `Bản xem trước email thương hiệu - ${new Date().toLocaleTimeString('vi-VN')}`,
     text: content.text,
-    html: content.html
+    html: content.html,
+    category: 'integration.test',
+    referenceId: `smtp-test-${Date.now()}`
   });
-  console.log(`SMTP: OK; đã gửi email kiểm tra tới ${recipient}`);
+  console.log(`SMTP: OK; đã gửi email kiểm tra tới ${recipient}; messageId=${info.messageId}; accepted=${(info.accepted || []).join(',') || 'unknown'}`);
 }
 
 async function verifyLocations() {

@@ -7,7 +7,7 @@ const backend = {
   CLIENT_URL: 'https://dk.example', JWT_SECRET: 'j'.repeat(64), MFA_ENCRYPTION_KEY: 'm'.repeat(64),
   COOKIE_SECURE: 'true', COOKIE_SAME_SITE: 'lax', TRUST_PROXY: '1', ENFORCE_SESSION_CHECK: 'true',
   FILE_STORAGE_DRIVER: 'cloudinary', CLOUDINARY_URL: 'cloudinary://key:secret@cloud', CLAMAV_HOST: 'clamav', BACKUP_AGE_RECIPIENT: `age1${'q'.repeat(58)}`,
-  SMTP_HOST: 'smtp.example.vn', SMTP_PORT: '587', SMTP_SECURE: 'false', SMTP_USER: 'mail@example.vn', SMTP_PASS: 'secret-app-password', EMAIL_FROM: 'DK <mail@example.vn>',
+  SMTP_HOST: 'smtp.example.vn', SMTP_PORT: '587', SMTP_SECURE: 'false', SMTP_REQUIRE_TLS: 'true', SMTP_USER: 'mail@example.vn', SMTP_PASS: 'secret-app-password', EMAIL_FROM: 'DK <mail@example.vn>', QUOTE_ADMIN_EMAIL: 'quotes@example.vn',
   COMPANY_NAME: 'DK Industry', COMPANY_PHONE: '0900000000', COMPANY_EMAIL: 'hello@example.vn', COMPANY_ADDRESS: 'Ha Noi',
   SUPPORT_AI_ENABLED: 'false', TERMS_VERSION: '2026-10-14'
 };
@@ -44,11 +44,11 @@ test('unsafe deployment values are rejected with actionable errors', () => {
 
 test('rejects malformed email, SMTP, storage and map configuration', () => {
   const result = validateProduction(
-    { ...backend, SMTP_PORT: '99999', SMTP_SECURE: 'sometimes', COMPANY_EMAIL: 'not-an-email', CLOUDINARY_URL: 'https://cloudinary.example/key' },
+    { ...backend, SMTP_PORT: '99999', SMTP_SECURE: 'sometimes', SMTP_REQUIRE_TLS: 'sometimes', COMPANY_EMAIL: 'not-an-email', QUOTE_ADMIN_EMAIL: 'not-an-email', CLOUDINARY_URL: 'https://cloudinary.example/key' },
     { ...frontend, VITE_COMPANY_EMAIL: 'not-an-email', VITE_CLOUDINARY_LOGO_URL: 'http://example.com/logo.png', VITE_COMPANY_MAP_DESTINATION: '91,181' },
   );
   assert.equal(result.ok, false);
-  for (const key of ['SMTP_PORT', 'SMTP_SECURE', 'COMPANY_EMAIL', 'CLOUDINARY_URL', 'VITE_CLOUDINARY_LOGO_URL', 'VITE_COMPANY_MAP_DESTINATION']) {
+  for (const key of ['SMTP_PORT', 'SMTP_SECURE', 'SMTP_REQUIRE_TLS', 'COMPANY_EMAIL', 'QUOTE_ADMIN_EMAIL', 'CLOUDINARY_URL', 'VITE_CLOUDINARY_LOGO_URL', 'VITE_COMPANY_MAP_DESTINATION']) {
     assert.ok(result.errors.some(value => value.includes(key)), `missing validation error for ${key}`);
   }
 });

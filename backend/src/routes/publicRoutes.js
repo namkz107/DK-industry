@@ -103,7 +103,7 @@ router.post('/leads', async (req, res, next) => {
 
 async function deliverLeadNotice(lead) {
   const summary = `${lead.name} · ${lead.phone} · ${lead.email}. ${lead.serviceType || 'Tư vấn'}. ${lead.message || ''}`.slice(0, 1000);
-  await notifyQuoteWatchers({
+  const watcherResult = await notifyQuoteWatchers({
     type: 'lead.created',
     title: `Yêu cầu báo giá mới ${lead.code}`,
     message: summary,
@@ -113,10 +113,13 @@ async function deliverLeadNotice(lead) {
   const acknowledgement = leadAcknowledgementEmail(lead);
   const operations = leadOperationsEmail(lead);
   const company = String(process.env.COMPANY_EMAIL || '').trim();
-  const deliveries = [sendDirectEmail({ to: lead.email, subject: acknowledgement.subject, text: acknowledgement.text, html: acknowledgement.html })];
-  if (company && company.toLowerCase() !== quoteAdminEmail()) deliveries.push(sendDirectEmail({ to: company, subject: operations.subject, text: operations.text, html: operations.html }));
-  await Promise.all(deliveries);
+  const covered = new Set([...(watcherResult?.coveredAddresses || []), quoteAdminEmail()].filter(Boolean).map(value => value.toLowerCase()));
+  const deliveries = [sendDirectEmail({ to: lead.email, subject: acknowledgement.subject, text: acknowledgement.text, html: acknowledgement.html, category: 'lead.acknowledgement', referenceId: lead.code })];
+  if (company && !covered.has(company.toLowerCase())) deliveries.push(sendDirectEmail({ to: company, subject: operations.subject, text: operations.text, html: operations.html, category: 'lead.operations', referenceId: lead.code }));
   dispatchSoon();
+  const results = await Promise.allSettled(deliveries);
+  const failures = results.filter(result => result.status === 'rejected');
+  if (failures.length) throw new Error(`${failures.length} direct lead email(s) failed: ${failures.map(result => result.reason?.message || 'unknown error').join('; ')}`);
 }
 
 module.exports = router;
