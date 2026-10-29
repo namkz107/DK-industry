@@ -34,8 +34,8 @@ npm run audit:prod
 ```powershell
 Copy-Item compose.production.env.example compose.production.env
 docker compose --env-file compose.production.env -f compose.production.yml config
-docker compose --env-file compose.production.env -f compose.production.yml build
-docker compose --env-file compose.production.env -f compose.production.yml up -d
+docker compose --env-file compose.production.env -f compose.production.yml build --pull api web
+docker compose --env-file compose.production.env -f compose.production.yml up -d --force-recreate api web
 docker compose --env-file compose.production.env -f compose.production.yml ps
 ```
 
@@ -70,6 +70,16 @@ Sau khi đăng nhập và bật MFA thành công, xóa `ADMIN_SEED_PASSWORD` kh�
 ```powershell
 npm run smoke:production -- https://ten-mien-thuc-te.vn
 ```
+
+Truyền commit đang deploy để smoke test từ chối backend cũ (tránh frontend mới
+gọi route chưa có trong API container):
+
+```powershell
+npm run smoke:production -- https://ten-mien-thuc-te.vn --expect-release=<git-commit-sha>
+```
+
+Health response phải có `apiContract >= 2`; contract này bao gồm các route theo
+dõi dự án `/api/customer/projects` và `/api/admin/work-orders`.
 
 Smoke test xác minh website, security headers, API liveness/readiness, SPA fallback, robots và sitemap. Sau đó chạy toàn bộ [UAT-CHECKLIST.md](UAT-CHECKLIST.md) bằng bốn tài khoản thử.
 

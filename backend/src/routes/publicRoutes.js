@@ -12,11 +12,15 @@ const packageInfo = require('../../package.json');
 
 const router = express.Router();
 const parseBoolean = value => value === undefined ? undefined : value === 'true';
+// Increment this whenever a frontend release starts depending on new API routes.
+// The production smoke test uses it to reject a stale API container.
+const apiContract = 2;
 
 const serviceIdentity = () => ({
   service: 'DK Industry API',
   version: process.env.APP_VERSION || packageInfo.version,
-  release: process.env.RELEASE_SHA || 'local'
+  release: process.env.RELEASE_SHA || 'local',
+  apiContract
 });
 
 router.get('/live', (req, res) => {

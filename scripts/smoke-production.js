@@ -2,6 +2,7 @@ const crypto = require('crypto');
 
 const args = process.argv.slice(2);
 const allowHttp = args.includes('--allow-http');
+const expectedRelease = args.find(value => value.startsWith('--expect-release='))?.split('=')[1] || process.env.SMOKE_EXPECTED_RELEASE;
 const baseArg = args.find(value => !value.startsWith('--')) || process.env.SMOKE_BASE_URL;
 if (!baseArg) {
   console.error('Usage: npm run smoke:production -- https://your-domain.example');
@@ -39,7 +40,14 @@ async function main() {
   });
   await check('API liveness', '/api/live', async (response, text) => {
     if (response.status !== 200) return `HTTP ${response.status}`;
-    try { return JSON.parse(text).status === 'alive' ? '' : 'status không phải alive'; } catch { return 'response không phải JSON'; }
+    try {
+      const body = JSON.parse(text);
+      if (body.status !== 'alive') return 'status không phải alive';
+      const apiContract = Number(body.apiContract);
+      if (!Number.isFinite(apiContract) || apiContract < 2) return 'API container quá cũ, thiếu contract project-tracking (cần apiContract >= 2)';
+      if (expectedRelease && body.release !== expectedRelease) return `backend release ${body.release || 'không xác định'} không khớp ${expectedRelease}`;
+      return '';
+    } catch { return 'response không phải JSON'; }
   });
   await check('API readiness', '/api/ready', async (response, text) => {
     if (response.status !== 200) return `HTTP ${response.status}`;

@@ -12,6 +12,7 @@ test('liveness stays available while readiness reports database state', async ()
     const live = await liveResponse.json();
     assert.equal(liveResponse.status, 200);
     assert.equal(live.status, 'alive');
+    assert.equal(live.apiContract, 2);
     assert.match(live.service, /DK Industry/);
     assert.equal(liveResponse.headers.get('cache-control'), 'no-store');
     assert.equal(live.version, '1.0.0');
