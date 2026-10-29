@@ -23,7 +23,7 @@ export function SiteHeader({ onQuote }: { onQuote: () => void }) {
     try { await logout() } finally { setOpen(false); setLoggingOut(false); navigate("/dang-nhap", { replace: true }) }
   }
   const cart = useQuery({ queryKey: ["customer", "cart"], queryFn: customerClient.cart, enabled: user?.role === "customer", staleTime: 30_000 })
-  const notifications = useQuery({ queryKey: ["notifications"], queryFn: notificationClient.list, enabled: Boolean(user), staleTime: 30_000, refetchInterval: 60_000 })
+  const notifications = useQuery({ queryKey: ["notifications"], queryFn: () => notificationClient.list(), enabled: Boolean(user), staleTime: 30_000, refetchInterval: 60_000 })
   const cartCount = cart.data?.data.itemCount || 0
   const unread = notifications.data?.data.unread || 0
   const canRequestQuote = ready && (!user || user.role === "customer")

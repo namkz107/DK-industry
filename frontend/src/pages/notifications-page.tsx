@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Bell, CheckCheck, ChevronRight, ClipboardList, FileText, FolderKanban, Inbox, MessageSquare, Package, Shield, type LucideIcon } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
+import { Pagination } from "@/components/pagination"
 import { usePageMeta } from "@/hooks/use-page-meta"
 import { notificationClient, type NotificationItem } from "@/lib/notification-client"
 import { cn } from "@/lib/utils"
@@ -78,15 +79,25 @@ export function NotificationsPage() {
   const navigate = useNavigate()
   const client = useQueryClient()
   const [filter, setFilter] = useState<Filter>("all")
-  const query = useQuery({ queryKey: ["notifications"], queryFn: notificationClient.list, refetchInterval: 60_000 })
+  const [page, setPage] = useState(1)
+  const query = useQuery({ queryKey: ["notifications", filter, page], queryFn: () => notificationClient.list({ page, limit: 10, unread: filter === "unread" }), refetchInterval: 60_000 })
   const refresh = () => void client.invalidateQueries({ queryKey: ["notifications"] })
   const read = useMutation({ mutationFn: (item: NotificationItem) => notificationClient.read(item._id), onSuccess: (_, item) => { refresh(); if (item.link) navigate(item.link) } })
   const readAll = useMutation({ mutationFn: notificationClient.readAll, onSuccess: refresh })
-  const items = query.data?.data.items ?? []
   const unread = query.data?.data.unread ?? 0
-  const visible = filter === "unread" ? items.filter(item => !item.readAt) : items
-  const groups = useMemo(() => groupItems(visible), [visible])
+  const allTotal = query.data?.data.allTotal ?? 0
+  const pages = query.data?.data.pages ?? 1
+  const groups = useMemo(() => groupItems(query.data?.data.items ?? []), [query.data?.data.items])
   const actionError = read.error || readAll.error
+
+  useEffect(() => {
+    if (page > pages) setPage(pages)
+  }, [page, pages])
+
+  const changePage = (nextPage: number) => {
+    setPage(nextPage)
+    document.getElementById("notification-list")?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
 
   return <div className="bg-stone-50 pb-20 pt-8 sm:pt-12">
     <div className="container-page">
@@ -101,11 +112,11 @@ export function NotificationsPage() {
         </div>
       </header>
 
-      <section className="mt-6 overflow-hidden rounded-card border border-slate-200 bg-white shadow-[0_18px_40px_-28px_rgb(2_44_34/0.45)]" aria-busy={query.isLoading}>
+      <section id="notification-list" className="mt-6 scroll-mt-24 overflow-hidden rounded-card border border-slate-200 bg-white shadow-[0_18px_40px_-28px_rgb(2_44_34/0.45)]" aria-busy={query.isLoading}>
         <div className="h-1 bg-gradient-to-r from-emerald-800 via-emerald-600 to-orange-500" />
         <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div className="inline-flex w-fit rounded-full bg-stone-100 p-1" role="group" aria-label="Lọc thông báo">
-            {([["all", "Tất cả", items.length], ["unread", "Chưa đọc", unread]] as const).map(([id, label, count]) => <button key={id} type="button" aria-pressed={filter === id} onClick={() => setFilter(id)} className={cn("inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition", filter === id ? "bg-white text-emerald-950 shadow-sm" : "text-slate-500 hover:text-emerald-950")}>{label}{query.data && <span className={cn("text-xs tabular-nums", filter === id ? "text-emerald-700" : id === "unread" && count > 0 ? "text-orange-600" : "text-slate-400")}>{count}</span>}</button>)}
+            {([["all", "Tất cả", allTotal], ["unread", "Chưa đọc", unread]] as const).map(([id, label, count]) => <button key={id} type="button" aria-pressed={filter === id} onClick={() => { setFilter(id); setPage(1) }} className={cn("inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition", filter === id ? "bg-white text-emerald-950 shadow-sm" : "text-slate-500 hover:text-emerald-950")}>{label}{query.data && <span className={cn("text-xs tabular-nums", filter === id ? "text-emerald-700" : id === "unread" && count > 0 ? "text-orange-600" : "text-slate-400")}>{count}</span>}</button>)}
           </div>
           <Button variant="outline" size="sm" className="w-full bg-white sm:w-auto" disabled={!unread || readAll.isPending} onClick={() => readAll.mutate()}><CheckCheck className="size-4" />{readAll.isPending ? "Đang cập nhật..." : "Đánh dấu tất cả đã đọc"}</Button>
         </div>
@@ -119,8 +130,9 @@ export function NotificationsPage() {
           <ul className="divide-y divide-slate-100">{group.items.map(item => <li key={item._id}><NotificationRow item={item} pending={read.isPending && read.variables?._id === item._id} onOpen={() => read.mutate(item)} /></li>)}</ul>
         </div>)}
 
-        {!query.isLoading && !query.error && !items.length && <EmptyState title="Bạn chưa có thông báo nào." detail="Khi có báo giá, đơn hàng hoặc cập nhật dự án, nội dung sẽ hiện tại đây." />}
-        {!query.isLoading && !query.error && Boolean(items.length) && !visible.length && <EmptyState title="Bạn đã đọc hết thông báo." detail="Bộ lọc đang chỉ các mục chưa đọc. Chuyển sang Tất cả để xem lại lịch sử." />}
+        {!query.isLoading && !query.error && filter === "all" && allTotal === 0 && <EmptyState title="Bạn chưa có thông báo nào." detail="Khi có báo giá, đơn hàng hoặc cập nhật dự án, nội dung sẽ hiện tại đây." />}
+        {!query.isLoading && !query.error && filter === "unread" && unread === 0 && <EmptyState title="Bạn đã đọc hết thông báo." detail="Bộ lọc đang chỉ các mục chưa đọc. Chuyển sang Tất cả để xem lại lịch sử." />}
+        {!query.isLoading && !query.error && query.data && query.data.data.total > 0 && <div className="border-t border-slate-100 px-4 pb-4 sm:px-5"><Pagination page={query.data.data.page} pages={pages} onChange={changePage} /></div>}
       </section>
     </div>
   </div>

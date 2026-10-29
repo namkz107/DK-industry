@@ -6,12 +6,17 @@ const router = express.Router();
 
 router.get('/', async (req, res, next) => {
   try {
-    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 30));
-    const [items, unread] = await Promise.all([
-      Notification.find({ recipient: req.user._id }).sort({ createdAt: -1 }).limit(limit).lean(),
-      Notification.countDocuments({ recipient: req.user._id, readAt: null })
+    const page = Math.max(1, Math.floor(Number(req.query.page)) || 1);
+    const limit = Math.min(100, Math.max(1, Math.floor(Number(req.query.limit)) || 10));
+    const recipientQuery = { recipient: req.user._id };
+    const listQuery = req.query.unread === 'true' ? { ...recipientQuery, readAt: null } : recipientQuery;
+    const [items, unread, allTotal] = await Promise.all([
+      Notification.find(listQuery).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+      Notification.countDocuments({ ...recipientQuery, readAt: null }),
+      Notification.countDocuments(recipientQuery)
     ]);
-    res.json({ success: true, data: { items, unread } });
+    const total = req.query.unread === 'true' ? unread : allTotal;
+    res.json({ success: true, data: { items, unread, total, allTotal, page, pages: Math.max(1, Math.ceil(total / limit)) } });
   } catch (error) { next(error); }
 });
 
