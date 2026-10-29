@@ -19,7 +19,7 @@ function brand() {
   return {
     name: String(process.env.COMPANY_NAME || 'CTY CPTV ĐẦU TƯ XD TM ĐĂNG KHOA').trim(),
     displayName: String(process.env.EMAIL_BRAND_NAME || 'Cơ khí Đăng Khoa').trim(),
-    phone: String(process.env.COMPANY_PHONE_LABEL || process.env.COMPANY_PHONE || '098 368 8336').trim(),
+    phone: String(process.env.COMPANY_PHONE_LABEL || process.env.COMPANY_PHONE || '098 3688326').trim(),
     email: String(process.env.COMPANY_EMAIL || process.env.SMTP_USER || '').trim(),
     address: String(process.env.COMPANY_ADDRESS || '').trim(),
     website,

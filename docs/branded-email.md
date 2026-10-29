@@ -10,12 +10,12 @@ Thiết lập tại môi trường backend:
 EMAIL_FROM="Cơ khí Đăng Khoa <support@tencongty.vn>"
 EMAIL_BRAND_NAME="Cơ khí Đăng Khoa"
 COMPANY_NAME="CTY CPTV ĐẦU TƯ XD TM ĐĂNG KHOA"
-COMPANY_PHONE=0983688336
-COMPANY_PHONE_LABEL="098 368 8336"
+COMPANY_PHONE=0983688326
+COMPANY_PHONE_LABEL="098 3688326"
 COMPANY_EMAIL=support@tencongty.vn
 COMPANY_ADDRESS="Địa chỉ doanh nghiệp"
 COMPANY_LOGO_URL=https://cdn.tencongty.vn/logo-email.png
-COMPANY_ZALO_URL=https://zalo.me/...
+COMPANY_ZALO_URL=https://zalo.me/0983688326
 CLIENT_URL=https://tencongty.vn
 ```
 

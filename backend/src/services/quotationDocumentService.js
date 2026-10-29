@@ -11,7 +11,7 @@ const letterhead = {
   englishName: process.env.COMPANY_ENGLISH_NAME || 'DANG KHOA CIC AND T.,JSC',
   legalName: process.env.COMPANY_LEGAL_NAME || 'CÔNG TY CỔ PHẦN TƯ VẤN ĐẦU TƯ XÂY DỰNG VÀ THƯƠNG MẠI ĐĂNG KHOA.',
   address: process.env.COMPANY_QUOTE_ADDRESS || 'CỤM 3 - DUYEN TRUONG - DUYEN THAI - THUONG TIN - HA NOI',
-  phones: process.env.COMPANY_QUOTE_PHONES || '098 3688 326     097 7361 298',
+  phones: process.env.COMPANY_QUOTE_PHONES || '098 3688326',
   taxCode: process.env.COMPANY_TAX_CODE || '0106426038',
   email: process.env.COMPANY_QUOTE_EMAIL || process.env.COMPANY_EMAIL || 'ctydangkhoa8386@gmail.com'
 };
