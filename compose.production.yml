@@ -46,9 +46,9 @@ services:
     ports:
       # Set explicitly in compose.production.env. Use 127.0.0.1 when a local
       # reverse proxy terminates TLS; use a private interface for a remote proxy.
-      - "${WEB_BIND_ADDRESS:?Set WEB_BIND_ADDRESS explicitly}:${WEB_PORT:-8080}:80"
+      - "${WEB_BIND_ADDRESS:?Set WEB_BIND_ADDRESS explicitly}:${WEB_PORT:-8080}:8080"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
       interval: 30s
       timeout: 5s
       retries: 3

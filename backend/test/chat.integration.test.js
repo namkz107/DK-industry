@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const http = require('node:http');
 const path = require('node:path');
 const mongoose = require('mongoose');
@@ -9,7 +10,7 @@ const { io: createClient } = require('socket.io-client');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 require('../test-utils/integrationDatabase');
 process.env.NODE_ENV = 'test';
-process.env.JWT_SECRET ||= 'local_chat_integration_secret_longer_than_32_characters';
+process.env.JWT_SECRET ||= crypto.randomBytes(48).toString('base64url');
 
 const app = require('../src/app');
 const Notification = require('../src/models/Notification');

@@ -33,6 +33,7 @@ compose.production.env
 # misc
 .DS_Store
 .tmp/
+tmp/
 output/*.docx
 .env.local
 .env.development.local

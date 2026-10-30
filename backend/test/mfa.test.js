@@ -20,6 +20,8 @@ test('MFA secret được mã hóa xác thực trước khi lưu', () => {
   ciphertext[0] ^= 0xff;
   const tampered = `${parts[0]}.${parts[1]}.${ciphertext.toString('base64url')}`;
   assert.throws(() => decryptSecret(tampered));
+  const shortTag = Buffer.from(parts[1], 'base64url').subarray(0, 12).toString('base64url');
+  assert.throws(() => decryptSecret(`${parts[0]}.${shortTag}.${parts[2]}`), /MFA secret is invalid/);
 });
 
 test('mã khôi phục chỉ lưu hash', () => {

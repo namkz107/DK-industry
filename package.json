@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "engines": {
-    "node": ">=20.19"
+    "node": ">=22.13"
   },
   "scripts": {
     "start": "concurrently \"npm start --prefix frontend\" \"npm run dev --prefix backend\"",

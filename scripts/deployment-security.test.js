@@ -12,6 +12,17 @@ test('production Compose requires an explicit origin bind address', () => {
   assert.doesNotMatch(compose, /-\s*["']?8080:80/);
 });
 
+test('frontend container runs Nginx as non-root on an unprivileged port', () => {
+  const dockerfile = read('frontend/Dockerfile');
+  const compose = read('compose.production.yml');
+  const nginx = read('frontend/nginx.conf');
+  assert.match(dockerfile, /\nUSER nginx\s*\n/);
+  assert.match(dockerfile, /EXPOSE 8080/);
+  assert.match(nginx, /listen 8080;/);
+  assert.match(compose, /\$\{WEB_PORT:-8080\}:8080/);
+  assert.match(compose, /127\.0\.0\.1:8080\/healthz/);
+});
+
 test('Nginx sends HSTS only for client-facing HTTPS requests', () => {
   const nginx = read('frontend/nginx.conf');
   assert.match(nginx, /map \$http_x_forwarded_proto \$hsts_header/);
@@ -26,6 +37,14 @@ test('Nginx preserves client-facing HTTPS when proxying to the API', () => {
   assert.match(nginx, /map \$http_x_forwarded_proto \$forwarded_proto/);
   assert.match(nginx, /proxy_set_header X-Forwarded-Proto \$forwarded_proto;/);
   assert.doesNotMatch(nginx, /proxy_set_header X-Forwarded-Proto \$scheme;/);
+});
+
+test('Nginx does not forward attacker-controlled Host or upgrade headers', () => {
+  const nginx = read('frontend/nginx.conf');
+  assert.doesNotMatch(nginx, /proxy_set_header Host \$(?:host|http_host);/);
+  assert.doesNotMatch(nginx, /proxy_set_header Upgrade \$http_upgrade;/);
+  assert.match(nginx, /map \$http_upgrade \$safe_upgrade \{[\s\S]*?\~\*\^websocket\$ websocket;/);
+  assert.match(nginx, /proxy_set_header Upgrade \$safe_upgrade;/);
 });
 
 test('Nginx proxies same-origin public content uploads to the API', () => {

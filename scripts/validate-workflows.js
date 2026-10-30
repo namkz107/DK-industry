@@ -10,6 +10,7 @@ for (const file of files) {
   const relative = `.github/workflows/${file}`;
   const text = fs.readFileSync(path.join(workflowDir, file), 'utf8');
   if (/runs-on:\s*ubuntu-latest\b/.test(text)) errors.push(`${relative}: pin the runner image instead of ubuntu-latest`);
+  if (/node-version:\s*['"]?20(?:[.'"]|\s|$)/.test(text)) errors.push(`${relative}: Node 20 is below the tooling runtime requirement; use Node 22 or newer`);
   for (const match of text.matchAll(/^\s*-?\s*uses:\s*([^\s#]+)(?:\s+#.*)?$/gm)) {
     const reference = match[1];
     if (reference.startsWith('./') || reference.startsWith('docker://')) continue;

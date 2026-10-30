@@ -35,7 +35,7 @@ function generateSecret() {
 
 function encryptSecret(secret) {
   const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', encryptionKey(), iv);
+  const cipher = crypto.createCipheriv('aes-256-gcm', encryptionKey(), iv, { authTagLength: 16 });
   const ciphertext = Buffer.concat([cipher.update(secret, 'utf8'), cipher.final()]);
   return [iv, cipher.getAuthTag(), ciphertext].map(value => value.toString('base64url')).join('.');
 }
@@ -43,8 +43,15 @@ function encryptSecret(secret) {
 function decryptSecret(value) {
   const [ivValue, tagValue, ciphertextValue] = String(value || '').split('.');
   if (!ivValue || !tagValue || !ciphertextValue) throw new Error('MFA secret is invalid');
-  const decipher = crypto.createDecipheriv('aes-256-gcm', encryptionKey(), Buffer.from(ivValue, 'base64url'));
-  decipher.setAuthTag(Buffer.from(tagValue, 'base64url'));
+  const authenticationTag = Buffer.from(tagValue, 'base64url');
+  if (authenticationTag.length !== 16) throw new Error('MFA secret is invalid');
+  const decipher = crypto.createDecipheriv(
+    'aes-256-gcm',
+    encryptionKey(),
+    Buffer.from(ivValue, 'base64url'),
+    { authTagLength: 16 }
+  );
+  decipher.setAuthTag(authenticationTag);
   return Buffer.concat([decipher.update(Buffer.from(ciphertextValue, 'base64url')), decipher.final()]).toString('utf8');
 }
 

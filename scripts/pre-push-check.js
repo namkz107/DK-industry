@@ -2,6 +2,12 @@ const path = require('path');
 const os = require('os');
 const { spawnSync } = require('child_process');
 
+const nodeMajor = Number(process.versions.node.split('.')[0]);
+if (nodeMajor < 22) {
+  console.error(`Node.js 22 or newer is required; current runtime is ${process.version}`);
+  process.exit(1);
+}
+
 const root = path.resolve(__dirname, '..');
 const npmCli = process.env.npm_execpath;
 const npmCommand = npmCli ? process.execPath : (process.platform === 'win32' ? 'npm.cmd' : 'npm');
