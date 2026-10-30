@@ -79,7 +79,7 @@ function validateProduction(backend, frontend) {
   } else if (!/^cloudinary:\/\/[^:\s]+:[^@\s]+@[^/\s]+$/.test(cloudinaryUrl)) {
     errors.push('backend.CLOUDINARY_URL không đúng định dạng cloudinary://api_key:api_secret@cloud_name');
   }
-  for (const key of ['SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE', 'SMTP_REQUIRE_TLS', 'SMTP_USER', 'SMTP_PASS', 'EMAIL_FROM', 'QUOTE_ADMIN_EMAIL', 'COMPANY_NAME', 'COMPANY_PHONE', 'COMPANY_EMAIL', 'COMPANY_ADDRESS', 'TERMS_VERSION']) requireValue('backend', backend, key);
+  for (const key of ['SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE', 'SMTP_REQUIRE_TLS', 'SMTP_USER', 'SMTP_PASS', 'EMAIL_FROM', 'EMAIL_DKIM_SELECTOR', 'QUOTE_ADMIN_EMAIL', 'COMPANY_NAME', 'COMPANY_PHONE', 'COMPANY_EMAIL', 'COMPANY_ADDRESS', 'TERMS_VERSION']) requireValue('backend', backend, key);
   const smtpPort = Number(backend.SMTP_PORT);
   if (!Number.isInteger(smtpPort) || smtpPort < 1 || smtpPort > 65535) errors.push('backend.SMTP_PORT phải là cổng hợp lệ từ 1 đến 65535');
   if (!isBoolean(backend.SMTP_SECURE)) errors.push('backend.SMTP_SECURE phải là true hoặc false');
@@ -89,6 +89,7 @@ function validateProduction(backend, frontend) {
   if (smtpPort === 587 && backend.SMTP_SECURE === 'true') warnings.push('SMTP cổng 587 thường dùng SMTP_SECURE=false và STARTTLS');
   if (!isEmail(backend.COMPANY_EMAIL)) errors.push('backend.COMPANY_EMAIL phải là email hợp lệ');
   if (!isEmail(backend.QUOTE_ADMIN_EMAIL)) errors.push('backend.QUOTE_ADMIN_EMAIL phải là email hợp lệ');
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$/.test(String(backend.EMAIL_DKIM_SELECTOR || ''))) errors.push('backend.EMAIL_DKIM_SELECTOR phải là DKIM selector hợp lệ');
   const fromAddress = String(backend.EMAIL_FROM || '').match(/<([^>]+)>/)?.[1] || backend.EMAIL_FROM;
   if (!isEmail(fromAddress)) errors.push('backend.EMAIL_FROM phải chứa email hợp lệ');
   const fromDomain = String(fromAddress || '').toLowerCase().split('@').pop();

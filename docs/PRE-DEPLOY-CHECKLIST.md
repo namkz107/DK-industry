@@ -34,7 +34,7 @@ Mặc định script restore yêu cầu nhập chính xác `RESTORE`. Chỉ dùn
 
 ## Cấu hình phải điền trước deploy
 
-- Backend: đặt `NODE_ENV=production`, `CLIENT_URL=https://...`, `COOKIE_SECURE=true`, `COOKIE_SAME_SITE=lax` (cùng site) hoặc `none` (khác site), `TRUST_PROXY`, SMTP và `COMPANY_EMAIL` thật để nhận diện yêu cầu Nominatim.
+- Backend: đặt `NODE_ENV=production`, `CLIENT_URL=https://...`, `COOKIE_SECURE=true`, `COOKIE_SAME_SITE=lax` (cùng site) hoặc `none` (khác site), `TRUST_PROXY`, SMTP, `SMTP_REQUIRE_TLS=true`, `EMAIL_DKIM_SELECTOR`, `QUOTE_ADMIN_EMAIL` và `COMPANY_EMAIL` thật.
 - Scanner: `CLAMAV_HOST` phải trỏ tới daemon trong private network, không publish cổng 3310; kiểm thử clean, EICAR, timeout và scanner unavailable trên staging. Attachment cũ chưa có kết quả `clean` phải được rescan hoặc giữ cách ly. Chi tiết lệnh: [`STAGING-RUNBOOK.md`](STAGING-RUNBOOK.md).
 - Lưu tệp: đặt `FILE_STORAGE_DRIVER=cloudinary` cùng `CLOUDINARY_URL`, hoặc bộ ba `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`. Tuyệt đối không đưa API secret sang frontend.
 - Frontend: điền `VITE_API_URL`, `VITE_SOCKET_URL`, `VITE_SITE_URL`, hình Cloudinary công khai và thông tin pháp lý/liên hệ `VITE_COMPANY_*`.
@@ -45,7 +45,7 @@ Mặc định script restore yêu cầu nhập chính xác `RESTORE`. Chỉ dùn
 
 Các mục sau không thể tự điền bằng code vì cần hợp đồng, tài khoản hoặc dữ liệu pháp lý thật:
 
-- SMTP/email gửi thật và địa chỉ người nhận thông báo vận hành.
+- SMTP/email gửi thật, địa chỉ người nhận thông báo vận hành và quyền sửa DNS để cấu hình SPF, DKIM, DMARC. Chỉ nghiệm thu sau khi `verify:integrations` chạy trong môi trường deploy và thư nhận được hiển thị SPF/DKIM/DMARC `PASS`.
 - Người chịu trách nhiệm theo dõi tính ổn định/chính sách Nominatim và phương án chuyển sang dịch vụ tự host hoặc trả phí nếu lưu lượng tăng.
 - Tên pháp lý, mã số thuế/đăng ký, người đại diện, địa chỉ, hotline và nội dung chính sách đã được duyệt.
 - Cổng thanh toán, hãng vận chuyển, hóa đơn điện tử và quy tắc đối soát/hoàn tiền.

@@ -1,6 +1,6 @@
 # Báo cáo readiness gần nhất
 
-Thời điểm kiểm tra: **2026-10-13 (Asia/Bangkok)**.
+Thời điểm kiểm tra gốc: **2026-10-13 (Asia/Bangkok)**. Cập nhật email: **2026-10-30**.
 
 ## Cổng chất lượng
 
@@ -16,7 +16,8 @@ Thời điểm kiểm tra: **2026-10-13 (Asia/Bangkok)**.
 ## Tích hợp và dữ liệu
 
 - MongoDB Atlas ping: đạt.
-- SMTP authentication: đạt; bước kiểm tra không gửi email.
+- SMTP development: xác thực và gửi email thử thành công; hệ thống in `messageId`/địa chỉ SMTP accepted, bắt buộc TLS 1.2+, thử lại mail trực tiếp và giữ notification ở hàng đợi khi SMTP tạm mất.
+- DNS production: **chưa đạt** tại lần kiểm tra 2026-10-30 vì `dkindustry.app` chưa tồn tại trên DNS, nên chưa thể xác nhận SPF/DKIM/DMARC hoặc cam kết tránh Spam. Đây là blocker hạ tầng trước go-live, không thể hoàn tất chỉ bằng code trong repository.
 - Bản đồ/địa chỉ: hiển thị, điểm ghim và chỉ đường dùng Google Maps không key; tìm kiếm và reverse geocoding dùng Nominatim/OpenStreetMap miễn phí với cache và giới hạn một yêu cầu mỗi giây. Không cần Google billing.
 - Cloudinary upload/download/cleanup: đạt.
 - Backup `dk-industry-20261013-083503.archive.gz`: SHA-256 khớp.

@@ -110,6 +110,7 @@ function validateRuntimeConfig() {
   if (!smtpConfigured()) warnings.push('SMTP is incomplete; SMTP_HOST, SMTP_USER, SMTP_PASS and EMAIL_FROM/SMTP_FROM are required');
   if (process.env.QUOTE_ADMIN_EMAIL && !emailPattern.test(process.env.QUOTE_ADMIN_EMAIL.trim())) errors.push('QUOTE_ADMIN_EMAIL must be a valid email address');
   if (production && !process.env.QUOTE_ADMIN_EMAIL) warnings.push('QUOTE_ADMIN_EMAIL is missing; only active Staff/Admin accounts will receive quote alerts');
+  if (production && !process.env.EMAIL_DKIM_SELECTOR) warnings.push('EMAIL_DKIM_SELECTOR is missing; integration verification cannot check the DKIM DNS record');
   const fromDomain = emailDomain(process.env.SMTP_FROM || process.env.EMAIL_FROM);
   const smtpDomain = emailDomain(process.env.SMTP_USER);
   if (smtpConfigured() && fromDomain && smtpDomain && fromDomain !== smtpDomain) warnings.push('EMAIL_FROM domain differs from SMTP_USER; verify SPF/DKIM/DMARC alignment with the SMTP provider');

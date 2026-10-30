@@ -1,8 +1,33 @@
 require('dotenv').config();
+const dns = require('dns').promises;
 const nodemailer = require('nodemailer');
 const { mailTransport, sendDirectEmail, smtpConfigured } = require('./services/notificationService');
 const { renderBrandedEmail } = require('./services/emailTemplateService');
 const { searchLocations } = require('./services/locationService');
+
+const senderAddress = () => String(process.env.SMTP_FROM || process.env.EMAIL_FROM || '').match(/<([^>]+)>/)?.[1]?.trim() || String(process.env.SMTP_FROM || process.env.EMAIL_FROM || '').trim();
+
+async function txtRecords(name) {
+  return (await dns.resolveTxt(name)).map(parts => parts.join(''));
+}
+
+async function verifyEmailDns() {
+  const address = senderAddress();
+  const domain = address.toLowerCase().split('@').pop();
+  if (!domain || domain === address.toLowerCase()) throw new Error('EMAIL_FROM không chứa tên miền hợp lệ');
+  const [rootRecords, dmarcRecords] = await Promise.all([txtRecords(domain), txtRecords(`_dmarc.${domain}`)]);
+  if (!rootRecords.some(value => /^v=spf1\b/i.test(value))) throw new Error(`Không tìm thấy SPF tại ${domain}`);
+  if (!dmarcRecords.some(value => /^v=dmarc1\b/i.test(value))) throw new Error(`Không tìm thấy DMARC tại _dmarc.${domain}`);
+  const selector = String(process.env.EMAIL_DKIM_SELECTOR || '').trim();
+  if (selector) {
+    const dkimName = `${selector}._domainkey.${domain}`;
+    const dkimRecords = await txtRecords(dkimName);
+    if (!dkimRecords.some(value => /(?:^|;)\s*p\s*=/i.test(value))) throw new Error(`Không tìm thấy DKIM public key tại ${dkimName}`);
+    console.log(`Email DNS: OK; SPF, DKIM (${selector}) và DMARC tồn tại cho ${domain}`);
+    return;
+  }
+  console.log(`Email DNS: SPF và DMARC tồn tại cho ${domain}; chưa đặt EMAIL_DKIM_SELECTOR nên chưa kiểm tra được DKIM selector`);
+}
 
 async function verifySmtp() {
   if (!smtpConfigured()) throw new Error('SMTP chưa đủ cấu hình. Cần SMTP_HOST, SMTP_USER, SMTP_PASS và EMAIL_FROM/SMTP_FROM.');
@@ -40,7 +65,7 @@ async function verifyLocations() {
   console.log('Địa chỉ: OK; Nominatim trả về dữ liệu hợp lệ, liên kết hiển thị dùng Google Maps');
 }
 
-Promise.allSettled([verifySmtp(), verifyLocations()]).then(results => {
+Promise.allSettled([verifySmtp(), verifyEmailDns(), verifyLocations()]).then(results => {
   for (const result of results) if (result.status === 'rejected') console.error(`FAILED: ${result.reason.message}`);
   if (results.some(result => result.status === 'rejected')) process.exitCode = 1;
 });

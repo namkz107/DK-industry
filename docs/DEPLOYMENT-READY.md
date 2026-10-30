@@ -44,7 +44,7 @@ npm run check
 npm run audit:prod
 ```
 
-`preflight:production` phải kết thúc với `"ok": true`. Script kiểm tra HTTPS, database, secret, cookie, SMTP, Cloudinary, thông tin doanh nghiệp, phiên bản chính sách và sự đồng bộ origin frontend/backend mà không in giá trị bí mật.
+`preflight:production` phải kết thúc với `"ok": true`. Script kiểm tra HTTPS, database, secret, cookie, SMTP/TLS, DKIM selector, Cloudinary, thông tin doanh nghiệp, phiên bản chính sách và sự đồng bộ origin frontend/backend mà không in giá trị bí mật. Sau khi DNS thật đã hoạt động, chạy `npm run verify:integrations --prefix backend` trong đúng môi trường deploy; lệnh phải tìm thấy SPF, DKIM, DMARC và gửi được email thử. Preflight tĩnh không thay thế kiểm tra DNS này.
 
 ## 3. Chạy staging bằng Docker Compose
 

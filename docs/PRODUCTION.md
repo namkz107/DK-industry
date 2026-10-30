@@ -24,7 +24,8 @@ Tài liệu này phân biệt phần hệ thống đã kiểm soát trong mã ng
 
 ## Email, tệp và bản đồ
 
-- Cấu hình SMTP để xác minh email, khôi phục mật khẩu và gửi thông báo nghiệp vụ. Nếu không có SMTP, thông báo trong ứng dụng vẫn hoạt động nhưng email sẽ không được gửi. Thông báo email lỗi tạm thời được thử gửi lại tối đa `EMAIL_MAX_ATTEMPTS` lần (mặc định 5); khi đã hết lượt cần xử lý thủ công.
+- Cấu hình SMTP để xác minh email, khôi phục mật khẩu và gửi thông báo nghiệp vụ. Đặt `SMTP_REQUIRE_TLS=true`, `QUOTE_ADMIN_EMAIL` là hộp thư vận hành thật và không dùng fallback hard-code. Thông báo nghiệp vụ có địa chỉ người nhận được giữ ở trạng thái `pending` ngay cả khi SMTP tạm mất, rồi thử lại tối đa `EMAIL_MAX_ATTEMPTS` lần; email trực tiếp thử lại tối đa `DIRECT_EMAIL_MAX_ATTEMPTS` lần và báo lỗi rõ thay vì giả vờ thành công.
+- Trước go-live phải hoàn tất SPF, DKIM 2048-bit, DMARC có địa chỉ nhận báo cáo và Google Postmaster Tools theo [`branded-email.md`](branded-email.md). Kiểm tra thư thử có SPF/DKIM/DMARC `PASS` và aligned; SMTP `accepted` không đồng nghĩa thư chắc chắn vào Inbox.
 - Bản đồ Google, điểm ghim và chỉ đường không cần API key. Tìm kiếm/đổi GPS thành địa chỉ dùng Nominatim công cộng; cấu hình `COMPANY_EMAIL` thật, giữ attribution OpenStreetMap và kiểm tra luồng nhập địa chỉ thủ công khi dịch vụ bên ngoài tạm lỗi.
 - Compose mẫu có ClamAV private, quarantine logic và download gate theo `scanStatus`. Phải chạy EICAR/failure drill trên staging trước production. Môi trường nhiều API instance còn cần object storage chung, Socket.IO adapter/pub-sub cho thu hồi session và quy trình quarantine dùng chung; unit test scanner mock không thay thế integration test ClamAV thật.
 
@@ -54,3 +55,4 @@ Không đánh dấu thanh toán thành công từ callback phía trình duyệt.
 3. Thử lại các luồng: đăng ký/xác minh/khôi phục mật khẩu; tư vấn → chuyển đổi yêu cầu; báo giá → chấp nhận → lệnh sản xuất; đặt hàng → thanh toán → giao → hậu mãi; hủy và hoàn tiền.
 4. Kiểm tra phân quyền bằng ít nhất bốn tài khoản: khách, hai nhân viên khác nhau và quản trị viên.
 5. Thử webhook trùng, đặt hàng nhấn hai lần, thiếu tồn kho, email lỗi, upload sai định dạng, MongoDB mất kết nối và khôi phục backup.
+6. Tắt SMTP tạm thời, tạo một notification nghiệp vụ, bật lại SMTP và xác nhận hàng đợi gửi bù; kiểm tra không có người nhận trùng giữa Staff/Admin, `QUOTE_ADMIN_EMAIL` và `COMPANY_EMAIL`.
