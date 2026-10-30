@@ -9,6 +9,7 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 test('production Compose requires an explicit origin bind address', () => {
   const compose = read('compose.production.yml');
   assert.match(compose, /WEB_BIND_ADDRESS:\?Set WEB_BIND_ADDRESS explicitly/);
+  assert.match(compose, /API_BIND_ADDRESS:\?Set API_BIND_ADDRESS explicitly/);
   assert.doesNotMatch(compose, /-\s*["']?8080:80/);
 });
 

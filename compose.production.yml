@@ -7,6 +7,9 @@ services:
     restart: unless-stopped
     expose:
       - "5000"
+    ports:
+      # Host reverse proxy (api.cokhidangkhoa.com) targets this; keep it on loopback.
+      - "${API_BIND_ADDRESS:?Set API_BIND_ADDRESS explicitly}:${API_PORT:-5050}:5000"
     environment:
       RELEASE_SHA: "${RELEASE_SHA:?Set RELEASE_SHA to the deployed Git commit}"
       CLAMAV_HOST: clamav
