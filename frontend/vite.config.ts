@@ -5,6 +5,8 @@ import react from "@vitejs/plugin-react"
 import { defineConfig } from "vitest/config"
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url))
+const outDir = process.env.FRONTEND_DIST_DIR || "dist"
+const coverageDirectory = process.env.FRONTEND_COVERAGE_DIR || "./coverage"
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -17,7 +19,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],
-      reportsDirectory: "./coverage",
+      reportsDirectory: coverageDirectory,
       include: ["src/**/*.{ts,tsx}"],
       exclude: ["src/test/**", "src/**/*.d.ts", "src/main.tsx"],
       thresholds: {
@@ -33,6 +35,7 @@ export default defineConfig({
     open: true,
   },
   build: {
+    outDir,
     target: "es2020",
     cssCodeSplit: true,
     sourcemap: false,

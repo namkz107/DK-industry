@@ -6,7 +6,7 @@ on:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       mongodb:
         # mongo:8 exits on the current GitHub runner kernel (SERVER-121912). 7.0 does not use that allocator.
@@ -34,8 +34,8 @@ jobs:
       RUN_STAFF_INTEGRATION: '1'
       RUN_SUPPORT_INTEGRATION: '1'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
           cache: npm
@@ -63,23 +63,23 @@ jobs:
 
   security:
     name: Open-source security gates
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Semgrep SAST and project rules
         run: >-
           docker run --rm
           -v "${{ github.workspace }}:/src"
           -w /src
-          semgrep/semgrep
+          semgrep/semgrep:1.183.0@sha256:2e45517a85e13a9cca14a2a00df6bb48affd66b8ebfae1b0991cd57578362fb0
           semgrep scan --error
           --config p/owasp-top-ten
           --config .semgrep.yml
       - name: Trivy repository scan
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -91,8 +91,8 @@ jobs:
   deploy_backend_production:
     name: Deploy backend production
     needs: [verify, security]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master' && vars.PRODUCTION_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-24.04
     concurrency:
       group: production-backend
       cancel-in-progress: false

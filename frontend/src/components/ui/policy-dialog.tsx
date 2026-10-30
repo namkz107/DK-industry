@@ -1,8 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog"
 import { FileText, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import type { Policy } from "@/pages/policy-page"
-import { policyVersion } from "@/pages/policy-page"
+import { policyVersion, type Policy } from "@/content/policies"
 
 type PolicyDialogProps = {
   open: boolean

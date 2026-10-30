@@ -31,6 +31,22 @@ test('transactional mail uses an aligned Message-ID and trace headers', () => wi
   assert.ok(options.date instanceof Date);
 }));
 
+test('mail headers use safe fallbacks when optional sender metadata is absent', () => withEnv({
+  SMTP_FROM: 'robot@example.com'
+}, () => {
+  const options = buildMailOptions({
+    to: 'customer@example.com',
+    subject: 'Test',
+    text: 'Test',
+    category: 'quote created / urgent',
+    referenceId: 'REQ 001/2026'
+  });
+  assert.equal(options.replyTo, undefined);
+  assert.match(options.messageId, /^<[0-9a-f-]+@example\.com>$/);
+  assert.equal(options.headers['X-Transactional-Category'], 'quote-created---urgent');
+  assert.equal(options.headers['X-Entity-Ref-ID'], 'REQ-001-2026');
+}));
+
 test('SMTP transport requires modern TLS on submission port', () => withEnv({
   SMTP_HOST: 'smtp.example.com', SMTP_PORT: '587', SMTP_SECURE: 'false', SMTP_REQUIRE_TLS: 'true', SMTP_USER: 'mail@example.com', SMTP_PASS: 'secret'
 }, () => {
@@ -41,8 +57,24 @@ test('SMTP transport requires modern TLS on submission port', () => withEnv({
   assert.equal(captured.tls.servername, 'smtp.example.com');
 }));
 
+test('implicit TLS transport does not require SMTP auth or STARTTLS', () => withEnv({
+  SMTP_HOST: 'smtp.example.com', SMTP_PORT: '465', SMTP_SECURE: 'true'
+}, () => {
+  let captured;
+  mailTransport({ createTransport: options => { captured = options; return {}; } });
+  assert.equal(captured.secure, true);
+  assert.equal(captured.requireTLS, false);
+  assert.equal(captured.auth, undefined);
+}));
+
 test('extra quote mailbox has no personal hard-coded fallback', () => withEnv({}, () => {
   assert.equal(quoteAdminEmail(), '');
+}));
+
+test('extra quote mailbox is normalized before recipient comparison', () => withEnv({
+  QUOTE_ADMIN_EMAIL: '  Quotes@Example.COM  '
+}, () => {
+  assert.equal(quoteAdminEmail(), 'quotes@example.com');
 }));
 
 test('direct email fails explicitly when SMTP is unavailable', () => withEnv({}, async () => {
@@ -63,3 +95,26 @@ test('notification remains pending during an SMTP outage instead of being skippe
     Notification.create = originalCreate;
   }
 }));
+
+test('notification without an email is stored without requesting delivery', async () => {
+  const originalCreate = Notification.create;
+  let stored;
+  Notification.create = async documents => {
+    [stored] = documents;
+    return [{ ...stored, _id: 'notification-2' }];
+  };
+  try {
+    const notification = await createNotification({
+      recipient: '507f1f77bcf86cd799439011',
+      type: 'request.created',
+      title: 'Yêu cầu mới',
+      message: 'Kiểm tra',
+      email: ''
+    });
+    assert.equal(stored.email.address, '');
+    assert.equal(stored.email.status, 'not_requested');
+    assert.equal(notification._id, 'notification-2');
+  } finally {
+    Notification.create = originalCreate;
+  }
+});

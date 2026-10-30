@@ -11,7 +11,7 @@ import { useToast } from "@/components/ui/toast"
 import { usePageMeta } from "@/hooks/use-page-meta"
 import { customerClient } from "@/lib/customer-client"
 import { formatPrice } from "@/lib/utils"
-import { policies } from "@/pages/policy-page"
+import { policies } from "@/content/policies"
 
 type CheckoutPolicy = "dieu-khoan" | "thanh-toan"
 

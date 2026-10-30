@@ -21,16 +21,8 @@ module.exports = {
       severity: "error",
       from: {
         path: "^frontend/src/(components|hooks|lib|types)/",
-        pathNot: "^frontend/src/components/ui/policy-dialog[.]tsx$",
       },
       to: { path: "^frontend/src/pages/" },
-    },
-    {
-      name: "policy-data-should-leave-page-layer",
-      comment: "Known debt: move shared policy data from policy-page into the content layer.",
-      severity: "warn",
-      from: { path: "^frontend/src/components/ui/policy-dialog[.]tsx$" },
-      to: { path: "^frontend/src/pages/policy-page[.]tsx$" },
     },
     {
       name: "backend-models-must-not-import-routes",

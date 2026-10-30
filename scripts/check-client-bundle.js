@@ -2,7 +2,9 @@ const fs = require('fs');
 const path = require('path');
 
 const root = path.resolve(__dirname, '..');
-const dist = path.join(root, 'frontend', 'dist');
+const dist = process.env.FRONTEND_DIST_DIR
+  ? path.resolve(root, 'frontend', process.env.FRONTEND_DIST_DIR)
+  : path.join(root, 'frontend', 'dist');
 const patterns = [
   ['private key', /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/],
   ['MongoDB credential URI', /mongodb(?:\+srv)?:\/\/[^/\s:@]+:[^@\s/]+@/i],

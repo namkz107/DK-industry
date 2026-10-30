@@ -3,7 +3,9 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 
 const frontendRoot = path.dirname(fileURLToPath(import.meta.url))
-const dist = path.join(frontendRoot, "dist")
+const dist = process.env.FRONTEND_DIST_DIR
+  ? path.resolve(frontendRoot, process.env.FRONTEND_DIST_DIR)
+  : path.join(frontendRoot, "dist")
 
 function parseEnv(file) {
   if (!fs.existsSync(file)) return {}

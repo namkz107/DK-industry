@@ -57,8 +57,9 @@ test('Vercel serves the Vite application for direct SPA routes', () => {
 test('production backend deploy waits for verification and pins the release', () => {
   const workflow = read('.github/workflows/ci.yml');
   const compose = read('compose.production.yml');
-  assert.match(workflow, /deploy_backend_production:[\s\S]*needs: verify/);
+  assert.match(workflow, /deploy_backend_production:[\s\S]*needs:\s*\[[^\]]*verify[^\]]*security[^\]]*\]/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/master'/);
+  assert.match(workflow, /vars\.PRODUCTION_DEPLOY_ENABLED == 'true'/);
   assert.match(workflow, /git pull --ff-only origin master/);
   assert.match(workflow, /PRODUCTION_KNOWN_HOSTS/);
   assert.match(workflow, /body\.release === expectedRelease/);
