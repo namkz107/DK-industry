@@ -1,0 +1,30 @@
+---
+description: Safety constraints for optional, read-only use of the existing DK Industry Graphify pilot
+alwaysApply: true
+---
+
+# Optional Graphify use
+
+Graphify is optional. Do not require it for every task.
+
+Before using Graphify, read `.cursor/rules/graphify-dk-pilot.mdc`. If that rule
+cannot be accessed, do not use Graphify; fall back to `rg`, editor/LSP references,
+and direct source inspection.
+
+These rules authorize only read-only queries against the existing pilot graph.
+Without a separate explicit request, do not run extraction, update, merge,
+integration installation, watch mode, hooks, Cloud, MCP, semantic processing,
+or any data upload.
+
+Before every permitted Graphify command, set both:
+
+- `GRAPHIFY_BACKEND=none`
+- `GRAPHIFY_QUERY_LOG_DISABLE=1`
+
+For graph-reading commands that support `--graph`, always pass the approved graph
+path explicitly. Do not apply `--graph` mechanically to commands that do not
+support it.
+
+Use `rg`, LSP, tests, and direct source inspection as authoritative fallbacks.
+Never use a graph alone to prove correctness, access control, transaction or
+rollback behavior, concurrency safety, dependency direction, or complete impact.

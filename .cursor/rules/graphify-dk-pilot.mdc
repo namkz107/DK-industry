@@ -1,0 +1,71 @@
+---
+description: Scope, invocation, and known limitations of the existing DK Industry Graphify pilot graph
+alwaysApply: false
+---
+
+# DK Industry pilot graph
+
+This rule permits only read-only queries of the existing pilot graph. It does not
+authorize extraction, update, merge, integration installation, watch mode, hooks,
+Cloud, MCP, semantic processing, or data upload without a separate explicit request.
+
+Executable:
+
+`C:\Users\LOQ\.local\bin\graphify.exe`
+
+Approved graph:
+
+`C:\Autumn2026\CTDK\dk-industry\.tmp\graphify-pilot\combined.json`
+
+Example of a permitted query using an exact node ID:
+
+```powershell
+$env:GRAPHIFY_BACKEND = 'none'
+$env:GRAPHIFY_QUERY_LOG_DISABLE = '1'
+& 'C:\Users\LOQ\.local\bin\graphify.exe' explain `
+  'backend::models_quotation' `
+  --graph 'C:\Autumn2026\CTDK\dk-industry\.tmp\graphify-pilot\combined.json'
+```
+
+Set both environment variables immediately before every Graphify invocation.
+Pass the approved graph path explicitly to each graph-reading command that
+supports `--graph`.
+
+## Freshness
+
+Git cleanliness and file mtimes are not sufficient evidence of freshness. This
+pilot has no retained extraction-time snapshot or hash set covering every source
+and resolution input. Unless such a comparison is available, mark freshness as
+unverified and inspect the directly relevant current source before concluding.
+Include tracked, untracked, and uncommitted changes in any freshness review.
+
+## Graph semantics and query discipline
+
+`combined.json` was normalized into an undirected simple graph during merge. Do
+not use edge direction, `affected`, or `path` results from this graph to assert
+dependency direction or complete impact without checking source or the relevant
+original per-corpus graph.
+
+Prefer exact node IDs when symbols share a name. If output is truncated, narrow
+the symbol, relation, corpus, or depth; do not infer from omitted results. Verify
+important edges against their source file, source location, target node ID, and
+current source.
+
+## Verified coverage and limits
+
+Coverage is limited to the examples inspected during the pilot:
+
+- One frontend TypeScript alias import resolved correctly.
+- Selected backend route-to-model and route-to-service imports resolved correctly.
+- Imports from `backend/test` into `backend/src` remained external placeholders.
+
+Do not generalize these observations to every internal dependency. Parent
+resolution configs are outside the corpus manifests. `auth.test.js` and
+`runtime.test.js` were excluded. The graph covers only `frontend/src`,
+`backend/src`, and the filtered `backend/test` corpus.
+
+No application workflow was verified at runtime. Use `rg`, LSP, current source,
+and appropriate tests for correctness, authorization, transactions, rollback,
+concurrency, expiry races, partial writes, duplicate-key behavior, notifications,
+realtime delivery, and end-to-end behavior. These are unverified risks, not
+reproduced bugs.
