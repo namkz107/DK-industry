@@ -13,8 +13,10 @@ export function ContactPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [quoteOpen, setQuoteOpen] = useState(false)
-  const openContactForm = () => {
+  const [quoteTrigger, setQuoteTrigger] = useState<HTMLElement | null>(null)
+  const openContactForm = (trigger?: HTMLElement) => {
     if (user?.role === "customer") { navigate("/tai-khoan/yeu-cau?product=Y%C3%AAu%20c%E1%BA%A7u%20t%C6%B0%20v%E1%BA%A5n"); return }
+    setQuoteTrigger(trigger || null)
     setQuoteOpen(true)
   }
 
@@ -25,7 +27,7 @@ export function ContactPage() {
           <div className="eyebrow-pill"><Sparkles className="size-4"/>Kết nối với chúng tôi</div>
           <h1 className="heading-hero mt-7 max-w-3xl">Bắt đầu từ một cuộc <span className="text-orange-400">trao&nbsp;đổi rõ&nbsp;ràng.</span></h1>
           <p className="mt-7 max-w-xl text-lg leading-8 text-emerald-50/70">Chia sẻ bài toán, bản vẽ hoặc nhu cầu thực tế. Đội ngũ Đăng Khoa sẽ cùng bạn làm rõ yêu cầu và lựa chọn hướng triển khai phù hợp.</p>
-          <div className="mt-9 flex flex-wrap gap-3"><Button asChild size="lg"><a href={`tel:${company.phone}`}>Gọi {company.phoneLabel}<Phone className="size-5"/></a></Button><Button type="button" size="lg" variant="outline" className="border-white bg-transparent text-white hover:bg-white hover:text-emerald-950" onClick={openContactForm}>Gửi yêu cầu<ArrowRight className="size-5"/></Button></div>
+          <div className="mt-9 flex flex-wrap gap-3"><Button asChild size="lg"><a href={`tel:${company.phone}`}>Gọi {company.phoneLabel}<Phone className="size-5"/></a></Button><Button type="button" size="lg" variant="outline" className="border-white bg-transparent text-white hover:bg-white hover:text-emerald-950" onClick={event => openContactForm(event.currentTarget)}>Gửi yêu cầu<ArrowRight className="size-5"/></Button></div>
           <div className="mt-10 flex flex-wrap gap-x-8 gap-y-4 border-t border-white/10 pt-7 text-sm font-semibold text-emerald-50/65"><span className="flex items-center gap-2"><ShieldCheck className="size-5 text-orange-400"/>Bảo mật thông tin yêu cầu</span><span className="flex items-center gap-2"><CalendarCheck2 className="size-5 text-orange-400"/>Chủ động hẹn lịch khảo sát</span></div>
         </div>
         <div className="relative hidden min-h-[500px] lg:block">
@@ -51,15 +53,15 @@ export function ContactPage() {
 
     <section className="bg-white py-16 sm:py-20"><div className="container-page grid gap-6 lg:grid-cols-[1.05fr_.95fr]">
       <article className="relative overflow-hidden rounded-panel bg-emerald-950 p-7 text-white sm:p-10"><span className="relative grid size-14 place-items-center rounded-card bg-white/10 text-orange-400"><Clock3 className="size-7"/></span><p className="relative mt-8 text-xs font-black uppercase tracking-[.18em] text-orange-400">Hẹn lịch làm việc</p><h2 className="heading-section relative mt-3 max-w-xl text-white">Một cuộc hẹn trước giúp buổi trao đổi hiệu quả hơn.</h2><p className="relative mt-5 max-w-xl text-lg leading-8 text-emerald-50/65">Cho chúng tôi biết loại công trình, nội dung cần khảo sát hoặc thiết bị cần xem. Đội ngũ kỹ thuật sẽ chuẩn bị đúng người và thông tin cần thiết.</p></article>
-      <article className="flex flex-col justify-between rounded-panel border border-slate-200 bg-[#f8f9f7] p-7 sm:p-10"><div><p className="text-xs font-black uppercase tracking-[.18em] text-orange-600">Kênh liên hệ ưu tiên</p><h2 className="heading-section mt-3">Bạn cần phản hồi nhanh?</h2><p className="mt-4 leading-7 text-slate-600">Gọi trực tiếp để trao đổi sơ bộ. Với bản vẽ hoặc hồ sơ kỹ thuật, hãy gửi qua biểu mẫu để chúng tôi tiếp nhận và phản hồi đầy đủ.</p></div><div className="mt-8 grid gap-3 sm:grid-cols-2"><Button asChild size="lg"><a href={`tel:${company.phone}`}><Phone className="size-5"/>Gọi hotline</a></Button><Button type="button" size="lg" variant="outline" onClick={openContactForm}><Mail className="size-5"/>Gửi yêu cầu</Button></div></article>
+      <article className="flex flex-col justify-between rounded-panel border border-slate-200 bg-[#f8f9f7] p-7 sm:p-10"><div><p className="text-xs font-black uppercase tracking-[.18em] text-orange-600">Kênh liên hệ ưu tiên</p><h2 className="heading-section mt-3">Bạn cần phản hồi nhanh?</h2><p className="mt-4 leading-7 text-slate-600">Gọi trực tiếp để trao đổi sơ bộ. Với bản vẽ hoặc hồ sơ kỹ thuật, hãy gửi qua biểu mẫu để chúng tôi tiếp nhận và phản hồi đầy đủ.</p></div><div className="mt-8 grid gap-3 sm:grid-cols-2"><Button asChild size="lg"><a href={`tel:${company.phone}`}><Phone className="size-5"/>Gọi hotline</a></Button><Button type="button" size="lg" variant="outline" onClick={event => openContactForm(event.currentTarget)}><Mail className="size-5"/>Gửi yêu cầu</Button></div></article>
     </div></section>
-    <QuoteDialog open={quoteOpen} onOpenChange={setQuoteOpen}/>
+    <QuoteDialog open={quoteOpen} onOpenChange={setQuoteOpen} returnFocusTo={quoteTrigger}/>
   </>
 }
 
-function ContactCard({ icon: Icon, eyebrow, title, href, action, external = false, onClick }: { icon: typeof Phone; eyebrow: string; title: string; href?: string; action: string; external?: boolean; onClick?: () => void }) {
+function ContactCard({ icon: Icon, eyebrow, title, href, action, external = false, onClick }: { icon: typeof Phone; eyebrow: string; title: string; href?: string; action: string; external?: boolean; onClick?: (trigger: HTMLButtonElement) => void }) {
   const content = <><span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-orange-50 text-orange-700 transition group-hover:bg-orange-600 group-hover:text-white"><Icon className="size-5"/></span><span className="min-w-0 text-left"><span className="block text-xs font-black uppercase tracking-[.14em] text-slate-400">{eyebrow}</span><strong className="mt-1 block truncate text-base text-emerald-950">{title}</strong><span className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-orange-700">{action}<ArrowRight className="size-3.5"/></span></span></>
   const className = "group flex min-w-0 items-center gap-4 rounded-card border border-transparent p-4 transition hover:border-slate-200 hover:bg-slate-50"
-  if (onClick) return <button type="button" className={className} onClick={onClick}>{content}</button>
+  if (onClick) return <button type="button" className={className} onClick={event => onClick(event.currentTarget)}>{content}</button>
   return <a className={className} href={href} target={external ? "_blank" : undefined} rel={external ? "noreferrer" : undefined}>{content}</a>
 }

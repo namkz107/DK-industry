@@ -16,6 +16,7 @@ export function AppLayout() {
   const navigate = useNavigate()
   const [quoteOpen, setQuoteOpen] = useState(false)
   const [quoteProduct, setQuoteProduct] = useState<string>()
+  const [quoteTrigger, setQuoteTrigger] = useState<HTMLElement | null>(null)
   const canRequestQuote = ready && (!user || user.role === "customer")
   const openQuote = (value?: string) => {
     if (user?.role === "customer") {
@@ -23,8 +24,9 @@ export function AppLayout() {
       return
     }
     if (user) return
+    setQuoteTrigger(document.activeElement instanceof HTMLElement ? document.activeElement : null)
     setQuoteProduct(value)
     setQuoteOpen(true)
   }
-  return <><GlobalLoading /><a href="#main" className="skip-link">Chuyển đến nội dung chính</a><SiteHeader onQuote={() => openQuote()} /><main id="main"><Suspense fallback={<div className="grid min-h-[45vh] place-items-center" role="status" aria-label="Đang tải trang"><div className="flex items-center gap-3 font-semibold text-emerald-900"><LoaderCircle className="size-6 animate-spin"/>Đang tải trang...</div></div>}><Outlet context={{ openQuote, canRequestQuote } satisfies LayoutContext} /></Suspense></main><SiteFooter /><Suspense fallback={null}><SupportChatWidget/></Suspense><QuoteDialog open={quoteOpen} product={quoteProduct} onOpenChange={setQuoteOpen} /><ScrollRestoration /></>
+  return <><GlobalLoading /><a href="#main" className="skip-link">Chuyển đến nội dung chính</a><SiteHeader onQuote={() => openQuote()} /><main id="main"><Suspense fallback={<div className="grid min-h-[45vh] place-items-center" role="status" aria-label="Đang tải trang"><div className="flex items-center gap-3 font-semibold text-emerald-900"><LoaderCircle className="size-6 animate-spin"/>Đang tải trang...</div></div>}><Outlet context={{ openQuote, canRequestQuote } satisfies LayoutContext} /></Suspense></main><SiteFooter /><Suspense fallback={null}><SupportChatWidget/></Suspense><QuoteDialog open={quoteOpen} product={quoteProduct} onOpenChange={setQuoteOpen} returnFocusTo={quoteTrigger} /><ScrollRestoration /></>
 }

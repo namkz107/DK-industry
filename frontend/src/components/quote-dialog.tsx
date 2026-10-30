@@ -2,7 +2,7 @@ import * as Dialog from "@radix-ui/react-dialog"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation } from "@tanstack/react-query"
 import { CheckCircle2, LoaderCircle, Send, X } from "lucide-react"
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { api } from "@/lib/api"
@@ -25,20 +25,38 @@ type QuoteData = z.infer<typeof quoteSchema>
 
 const emptyQuote = (product?: string): QuoteData => ({ name: "", phone: "", email: "", serviceType: product ? "Cung ứng thiết bị" : "", budget: "Chưa xác định", message: product ? `Tôi cần báo giá: ${product}` : "", consent: false })
 
-export function QuoteDialog({ open, onOpenChange, product }: { open: boolean; onOpenChange: (value: boolean) => void; product?: string }) {
+export function QuoteDialog({ open, onOpenChange, product, returnFocusTo }: { open: boolean; onOpenChange: (value: boolean) => void; product?: string; returnFocusTo?: HTMLElement | null }) {
   const toast = useToast()
+  const openerRef = useRef<HTMLElement | null>(null)
   const form = useForm<QuoteData>({ resolver: zodResolver(quoteSchema), defaultValues: emptyQuote(product) })
   useEffect(() => { if (open) form.reset(emptyQuote(product)) }, [open, product, form])
-  const mutation = useMutation({ mutationFn: api.createLead, onSuccess: result => { form.reset(); onOpenChange(false); toast.success(`${result.message}. Mã tiếp nhận: ${result.data.code}. Chúng tôi sẽ phản hồi qua email hoặc số điện thoại bạn đã cung cấp.`, { title: "Đã tiếp nhận yêu cầu" }) }, onError: error => toast.error(error.message, { title: "Không thể gửi yêu cầu" }) })
+  useEffect(() => { if (open && returnFocusTo) openerRef.current = returnFocusTo }, [open, returnFocusTo])
+  const changeOpen = (value: boolean) => {
+    onOpenChange(value)
+    if (value) return
+    const opener = returnFocusTo || openerRef.current
+    window.setTimeout(() => {
+      if (opener?.isConnected) opener.focus()
+    }, 0)
+  }
+  const mutation = useMutation({ mutationFn: api.createLead, onSuccess: result => { form.reset(); changeOpen(false); toast.success(`${result.message}. Mã tiếp nhận: ${result.data.code}. Chúng tôi sẽ phản hồi qua email hoặc số điện thoại bạn đã cung cấp.`, { title: "Đã tiếp nhận yêu cầu" }) }, onError: error => toast.error(error.message, { title: "Không thể gửi yêu cầu" }) })
   const submit = form.handleSubmit(data => {
     const params = new URLSearchParams(window.location.search)
     mutation.mutate({ ...data, sourceDetails: { landingPage: window.location.href, referrer: document.referrer, utmSource: params.get("utm_source"), utmMedium: params.get("utm_medium"), utmCampaign: params.get("utm_campaign") } })
   })
 
-  return <Dialog.Root open={open} onOpenChange={onOpenChange}>
+  return <Dialog.Root open={open} onOpenChange={changeOpen}>
     <Dialog.Portal>
       <Dialog.Overlay className="fixed inset-0 z-50 bg-emerald-950/75 data-[state=open]:animate-in" />
-      <Dialog.Content className="fixed left-1/2 top-1/2 z-50 grid max-h-[94vh] w-[min(960px,calc(100%-24px))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-panel bg-white shadow-float outline-none lg:grid-cols-[.8fr_1.2fr]">
+      <Dialog.Content
+        className="fixed left-1/2 top-1/2 z-50 grid max-h-[94vh] w-[min(960px,calc(100%-24px))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-panel bg-white shadow-float outline-none lg:grid-cols-[.8fr_1.2fr]"
+        onOpenAutoFocus={() => {
+          openerRef.current = returnFocusTo || (document.activeElement instanceof HTMLElement ? document.activeElement : null)
+        }}
+        onCloseAutoFocus={event => {
+          event.preventDefault()
+        }}
+      >
         <div className="hidden bg-emerald-950 p-10 text-white lg:block">
           <p className="mb-5 text-xs font-bold uppercase tracking-[.2em] text-orange-400">Yêu cầu tư vấn</p>
           <Dialog.Title className="font-display text-4xl font-semibold leading-tight">Cho chúng tôi biết bài toán của bạn.</Dialog.Title>

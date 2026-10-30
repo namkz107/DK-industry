@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { useState } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { QuoteDialog } from "@/components/quote-dialog"
 import { ToastProvider } from "@/components/ui/toast"
@@ -19,6 +20,24 @@ function renderQuote(product?: string) {
     </QueryClientProvider>,
   )
   return { onOpenChange }
+}
+
+function renderQuoteWithTriggers() {
+  const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
+  function Harness() {
+    const [open, setOpen] = useState(false)
+    const [trigger, setTrigger] = useState<HTMLElement | null>(null)
+    return <>
+      <button type="button" onClick={event => { setTrigger(event.currentTarget); setOpen(true) }}>Mở yêu cầu đầu trang</button>
+      <button type="button" onClick={event => { setTrigger(event.currentTarget); setOpen(true) }}>Mở yêu cầu cuối trang</button>
+      <QuoteDialog open={open} onOpenChange={setOpen} returnFocusTo={trigger} />
+    </>
+  }
+  render(
+    <QueryClientProvider client={client}>
+      <ToastProvider><Harness /></ToastProvider>
+    </QueryClientProvider>,
+  )
 }
 
 async function fillValidQuote(user: ReturnType<typeof userEvent.setup>) {
@@ -93,5 +112,27 @@ describe("QuoteDialog", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Gửi yêu cầu" })).toBeEnabled()
     expect(onOpenChange).not.toHaveBeenCalled()
+  })
+
+  it("trả focus về đúng nút mở sau khi đóng và vẫn mở lại được", async () => {
+    const user = userEvent.setup()
+    renderQuoteWithTriggers()
+    const firstTrigger = screen.getByRole("button", { name: "Mở yêu cầu đầu trang" })
+    const secondTrigger = screen.getByRole("button", { name: "Mở yêu cầu cuối trang" })
+
+    await user.click(firstTrigger)
+    await user.click(screen.getByRole("button", { name: "Gửi yêu cầu" }))
+    expect(screen.getByText("Vui lòng nhập họ và tên")).toBeInTheDocument()
+    await user.keyboard("{Escape}")
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+    await waitFor(() => expect(firstTrigger).toHaveFocus())
+
+    await user.click(secondTrigger)
+    await user.click(screen.getByRole("button", { name: "Đóng" }))
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+    await waitFor(() => expect(secondTrigger).toHaveFocus())
+
+    await user.keyboard("{Enter}")
+    expect(screen.getByRole("dialog")).toBeInTheDocument()
   })
 })
