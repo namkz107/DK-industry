@@ -10,7 +10,7 @@ COPY .env.production ./.env.production
 RUN npm run build
 
 FROM nginx:1.27-alpine
-RUN sed -i 's#/var/run/nginx.pid#/tmp/nginx.pid#' /etc/nginx/nginx.conf \
+RUN sed -i 's#pid[[:space:]].*;#pid /tmp/nginx.pid;#' /etc/nginx/nginx.conf \
   && chown -R nginx:nginx /var/cache/nginx /var/log/nginx /etc/nginx/conf.d
 COPY --chown=nginx:nginx nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build --chown=nginx:nginx /app/dist /usr/share/nginx/html
