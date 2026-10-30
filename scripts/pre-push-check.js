@@ -6,6 +6,7 @@ const root = path.resolve(__dirname, '..');
 const npmCli = process.env.npm_execpath;
 const npmCommand = npmCli ? process.execPath : (process.platform === 'win32' ? 'npm.cmd' : 'npm');
 const npmPrefix = npmCli ? [npmCli] : [];
+const npmNeedsShell = !npmCli && process.platform === 'win32';
 const temporaryRoot = path.join(os.tmpdir(), `dk-industry-prepush-${process.pid}`);
 const gateEnv = {
   ...process.env,
@@ -32,7 +33,12 @@ const steps = [
 
 for (const [label, args] of steps) {
   console.log(`\n=== ${label} ===`);
-  const result = spawnSync(npmCommand, [...npmPrefix, ...args], { cwd: root, stdio: 'inherit', env: gateEnv });
+  const result = spawnSync(npmCommand, [...npmPrefix, ...args], {
+    cwd: root,
+    stdio: 'inherit',
+    env: gateEnv,
+    shell: npmNeedsShell,
+  });
   if (result.status !== 0) {
     if (result.error) console.error(result.error.message);
     console.error(`\nPre-push gate stopped at: ${label}`);

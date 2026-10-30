@@ -1,4 +1,5 @@
 const path = require('path');
+const os = require('os');
 const { spawnSync } = require('child_process');
 
 require(path.resolve(__dirname, '../backend/node_modules/dotenv')).config({ path: path.resolve(__dirname, '../backend/.env') });
@@ -18,11 +19,17 @@ if (!/(?:^|[_-])test$/i.test(databaseName)) {
 
 const env = { ...process.env, NODE_ENV: 'test', MONGODB_URI: testUri, TEST_MONGODB_URI: testUri };
 for (const name of ['ADMIN', 'AUTH', 'CHAT', 'CUSTOMER', 'LEAD', 'STAFF', 'SUPPORT']) env[`RUN_${name}_INTEGRATION`] = '1';
-const npmCli = process.env.npm_execpath;
-const npmCommand = npmCli ? process.execPath : (process.platform === 'win32' ? 'npm.cmd' : 'npm');
-const args = npmCli
-  ? [npmCli, 'run', 'test:coverage', '--prefix', 'backend']
-  : ['run', 'test:coverage', '--prefix', 'backend'];
-const result = spawnSync(npmCommand, args, { cwd: path.resolve(__dirname, '..'), env, stdio: 'inherit' });
+const backendRoot = path.resolve(__dirname, '../backend');
+const c8Cli = path.join(backendRoot, 'node_modules', 'c8', 'bin', 'c8.js');
+const reportsDirectory = path.join(os.tmpdir(), `dk-industry-backend-coverage-${process.pid}`);
+const args = [
+  c8Cli,
+  '--reporter=text', '--reporter=lcov',
+  '--reports-dir', reportsDirectory,
+  '--check-coverage',
+  '--statements', '40', '--branches', '55', '--functions', '35', '--lines', '40',
+  process.execPath, '--test'
+];
+const result = spawnSync(process.execPath, args, { cwd: backendRoot, env, stdio: 'inherit' });
 if (result.error) console.error(result.error.message);
 process.exit(result.status ?? 1);

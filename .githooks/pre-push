@@ -1,5 +1,4 @@
-#!/bin/sh
-set -eu
+#!/usr/bin/env node
 
-echo "Running DK Industry pre-push quality gate..."
-npm run check:push
+console.log('Running DK Industry pre-push quality gate...');
+require('../scripts/pre-push-check.js');
