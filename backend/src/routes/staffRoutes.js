@@ -98,7 +98,7 @@ function quotationInput(req) {
     paymentTerms: depositPercent === null ? clean(req.body.paymentTerms, 1000) : `Đặt cọc ${depositPercent}%`,
     incoterm: clean(req.body.incoterm, 300),
     notes: clean(req.body.notes, 2000),
-    senderName: clean(req.body.senderName, 120) || req.user.name,
+    senderName: req.user.name,
     senderPhone: clean(req.body.senderPhone, 30) || req.user.phone || '',
     senderFax: clean(req.body.senderFax, 30),
     recipientCompany: clean(req.body.recipientCompany, 200),
@@ -567,7 +567,8 @@ router.post('/requests/:id/quotations', async (req, res, next) => {
     const status = req.body.status === 'sent' ? 'sent' : 'draft';
     const quotation = await Quotation.create({
       request: request._id, customer: request.customer, version: sequenced.quotationSequence, ...quote,
-      status, sentAt: status === 'sent' ? new Date() : undefined, createdBy: req.user._id
+      status, sentAt: status === 'sent' ? new Date() : undefined, createdBy: req.user._id,
+      ...(status === 'sent' ? { senderName: req.user.name, senderPhone: req.user.phone || '' } : {})
     });
     if (status === 'sent') {
       await Quotation.updateMany({ request: request._id, _id: { $ne: quotation._id }, status: { $in: ['sent', 'draft'] } }, { status: 'superseded' });
@@ -600,6 +601,8 @@ router.patch('/requests/:requestId/quotations/:quotationId/send', async (req, re
     if (quotation.validUntil <= new Date()) fail('Báo giá đã hết hiệu lực', 409);
     await Quotation.updateMany({ request: request._id, _id: { $ne: quotation._id }, status: { $in: ['sent', 'draft'] } }, { status: 'superseded' });
     quotation.status = 'sent'; quotation.sentAt = new Date();
+    quotation.senderName = req.user.name;
+    quotation.senderPhone = req.user.phone || '';
     transitionServiceRequest(request, 'quoted', { actor: req.user._id, actorType: 'staff', message: `Đã gửi báo giá ${quotation.code}.` });
     request.lastStaffMessageAt = new Date();
     await Promise.all([quotation.save(), request.save(), RequestMessage.create({ request: request._id, sender: req.user._id, senderRole: req.user.role, visibility: 'customer', content: `Cơ khí Đăng Khoa đã gửi báo giá ${quotation.code} (phiên bản ${quotation.version}).`, readByStaffAt: new Date() })]);

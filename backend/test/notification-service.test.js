@@ -2,9 +2,50 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const Notification = require('../src/models/Notification');
 const User = require('../src/models/User');
-const { buildMailOptions, createNotification, mailTransport, quoteAdminEmail, sendDirectEmail } = require('../src/services/notificationService');
+const Quotation = require('../src/models/Quotation');
+const ServiceRequest = require('../src/models/ServiceRequest');
+const nodemailer = require('nodemailer');
+const { dispatchPendingEmails } = require('../src/services/notificationService');
+const { buildMailOptions, createNotification, mailTransport, notifyAdmins, notifyOperations, quoteAdminEmail, sendDirectEmail } = require('../src/services/notificationService');
 
 const managedKeys = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE', 'SMTP_REQUIRE_TLS', 'SMTP_USER', 'SMTP_PASS', 'EMAIL_FROM', 'SMTP_FROM', 'COMPANY_EMAIL', 'QUOTE_ADMIN_EMAIL'];
+
+test('retrying an initial quotation email after acceptance never attaches the director stamp', () => withEnv({
+  SMTP_HOST: 'smtp.example.com', SMTP_USER: 'robot@example.com', SMTP_PASS: 'test-only', EMAIL_FROM: 'robot@example.com'
+}, async () => {
+  const originals = {
+    updateMany: Notification.updateMany, findOneAndUpdate: Notification.findOneAndUpdate,
+    quote: Quotation.findById, request: ServiceRequest.findById, transport: nodemailer.createTransport
+  };
+  const mails = [];
+  const notes = ['quotation.sent', 'quotation.confirmed'].map(type => ({
+    type, title: type, metadata: { quotationId: 'quote', requestId: 'request' },
+    email: { address: 'customer@example.com' },
+    recipient: { name: 'Customer' }, populate: async () => {}, save: async () => {}
+  }));
+  Notification.updateMany = async () => ({});
+  Notification.findOneAndUpdate = async () => notes.shift();
+  Quotation.findById = () => ({ lean: async () => ({
+    status: 'accepted', code: 'BG-RETRY', senderName: 'Staff', total: 100,
+    items: [{ description: 'Item', quantity: 1, unit: 'cái', unitPrice: 100, lineTotal: 100 }],
+    validUntil: new Date('2027-01-01')
+  }) });
+  ServiceRequest.findById = () => ({ select: () => ({ lean: async () => ({ title: 'Request' }) }) });
+  nodemailer.createTransport = () => ({ sendMail: async mail => { mails.push(mail); } });
+  try {
+    assert.deepEqual(await dispatchPendingEmails(2), { sent: 2, failed: 0 });
+    assert.match(mails[0].attachments[0].filename, /^Bao-gia-BG/);
+    assert.doesNotMatch(mails[0].attachments[0].content.toString('latin1'), /\/DCTDecode/);
+    assert.match(mails[1].attachments[0].filename, /^Bao-gia-da-xac-nhan/);
+    assert.match(mails[1].attachments[0].content.toString('latin1'), /\/DCTDecode/);
+  } finally {
+    Notification.updateMany = originals.updateMany;
+    Notification.findOneAndUpdate = originals.findOneAndUpdate;
+    Quotation.findById = originals.quote;
+    ServiceRequest.findById = originals.request;
+    nodemailer.createTransport = originals.transport;
+  }
+}));
 
 function withEnv(values, work) {
   const previous = Object.fromEntries(managedKeys.map(key => [key, process.env[key]]));
@@ -116,5 +157,25 @@ test('notification without an email is stored without requesting delivery', asyn
     assert.equal(notification._id, 'notification-2');
   } finally {
     Notification.create = originalCreate;
+  }
+});
+
+test('role notifications only target active users with verified email addresses', async () => {
+  const originalFind = User.find;
+  const capturedFilters = [];
+  User.find = filter => {
+    capturedFilters.push(filter);
+    return { select: () => ({ lean: () => Promise.resolve([]) }) };
+  };
+  try {
+    const payload = { type: 'request.created', title: 'Yêu cầu mới', message: 'Kiểm tra' };
+    await notifyOperations(payload);
+    await notifyAdmins(payload);
+    assert.deepEqual(capturedFilters, [
+      { role: 'staff', status: 'active', emailVerifiedAt: { $exists: true, $ne: null } },
+      { role: 'admin', status: 'active', emailVerifiedAt: { $exists: true, $ne: null } }
+    ]);
+  } finally {
+    User.find = originalFind;
   }
 });

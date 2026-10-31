@@ -115,7 +115,7 @@ function leadAcknowledgementEmail(lead) {
       lead.serviceType && { label: 'Nhu cầu', value: lead.serviceType },
       lead.budget && { label: 'Ngân sách', value: lead.budget }
     ].filter(Boolean),
-    cta: { label: 'Xem thông tin liên hệ', url: `${company.website}/lien-he` },
+    cta: { label: 'Về trang chủ', url: company.website },
     notice: 'Nếu bạn không gửi yêu cầu này, hãy bỏ qua email.'
   });
   return { subject: `Đã tiếp nhận yêu cầu ${lead.code} - ${company.displayName}`, ...content };

@@ -4,11 +4,15 @@ const mapDestination = import.meta.env.VITE_COMPANY_MAP_DESTINATION || "20.89580
 const [mapLatitude = "20.895803", mapLongitude = "105.862915"] = mapDestination.split(",").map((value: string) => value.trim())
 const publicPhone = "0983688326"
 const publicPhoneLabel = "098 3688326"
+const publicPhone2 = import.meta.env.VITE_COMPANY_PHONE_2 || "0979096700"
+const publicPhone2Label = import.meta.env.VITE_COMPANY_PHONE_2_LABEL || "0979 096 700"
 
 export const company = {
   name: import.meta.env.VITE_COMPANY_NAME || "CTY CPTV ĐẦU TƯ XD TM ĐĂNG KHOA",
   phone: publicPhone,
   phoneLabel: publicPhoneLabel,
+  phone2: publicPhone2,
+  phone2Label: publicPhone2Label,
   email: import.meta.env.VITE_COMPANY_EMAIL || "namkz107@gmail.com",
   address: import.meta.env.VITE_COMPANY_ADDRESS || "Cụm 3, thôn Duyên Trường, xã Hồng Vân, thành phố Hà Nội, Việt Nam",
   mapDestination,

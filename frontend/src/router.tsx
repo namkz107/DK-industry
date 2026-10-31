@@ -6,6 +6,12 @@ import { RequireStaff } from "@/components/require-staff"
 import { RequireAdmin } from "@/components/require-admin"
 import { RouteErrorPage } from "@/pages/route-error-page"
 
+// Old emails contained a double slash before lien-he. Recover these links
+// before the router evaluates the pathname, including existing bookmarks.
+if (/^\/{2,}lien-he\/?$/i.test(window.location.pathname)) {
+  window.history.replaceState(window.history.state, "", "/")
+}
+
 export const router = createBrowserRouter([{ element: <AppLayout />, errorElement: <RouteErrorPage/>, children: [
   { path: "/", lazy: async () => { const module = await import("@/pages/home-page"); return { Component: module.HomePage } } },
   { path: "/gioi-thieu", lazy: async () => { const module = await import("@/pages/about-redesign-page"); return { Component: module.AboutPage } } },

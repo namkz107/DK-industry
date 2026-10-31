@@ -42,7 +42,7 @@ export function QuotationForm({ busy, submitLabel, defaults, onSubmit }: { busy:
   const { user } = useAuth()
   const [items, setItems] = useState<QuoteLine[]>(() => copiedLines(defaults))
   const [workTitle, setWorkTitle] = useState(defaults.workTitle)
-  const [senderName, setSenderName] = useState(defaults.senderName || user?.name || "")
+  const senderName = user?.name || ""
   const [senderPhone, setSenderPhone] = useState(defaults.senderPhone || user?.phone || "")
   const [senderFax, setSenderFax] = useState(defaults.senderFax || "")
   const [recipientCompany, setRecipientCompany] = useState(defaults.recipientCompany)
@@ -105,7 +105,7 @@ export function QuotationForm({ busy, submitLabel, defaults, onSubmit }: { busy:
     <div className="space-y-4 px-4 py-5 sm:px-6">
       <Field label="Supplier/ Công ty gửi báo giá"><Input value={legalName} readOnly className="bg-slate-50"/></Field>
       <div className="grid gap-4 md:grid-cols-2">
-        <Field label="PIC/ Người gửi báo giá *"><Input value={senderName} onChange={event => setSenderName(event.target.value)}/></Field>
+        <Field label="PIC/ Người phụ trách báo giá"><Input value={senderName} readOnly className="bg-slate-50"/></Field>
         <Field label="Hand phone/ Số điện thoại"><Input value={senderPhone} onChange={event => setSenderPhone(event.target.value)}/></Field>
         <Field label="Quotation Date/ Ngày báo giá"><Input value={today} readOnly className="bg-slate-50"/></Field>
         <Field label="Fax No/ Số Fax"><Input value={senderFax} onChange={event => setSenderFax(event.target.value)} placeholder="Để trống nếu không có"/></Field>

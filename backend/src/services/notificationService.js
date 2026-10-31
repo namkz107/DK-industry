@@ -98,7 +98,11 @@ async function createNotification({ recipient, type, title, message, link = '', 
 
 async function notifyRole(role, payload, session = null) {
   try {
-    const query = User.find({ role, status: 'active' }).select('_id email').lean();
+    const query = User.find({
+      role,
+      status: 'active',
+      emailVerifiedAt: { $exists: true, $ne: null }
+    }).select('_id email').lean();
     if (session) query.session(session);
     const recipients = await query;
     return Promise.all(recipients.map(user => createNotification({ ...payload, recipient: user._id, email: user.email, session })));
@@ -171,14 +175,18 @@ async function dispatchPendingEmails(limit = 25) {
       const actionUrl = notification.link ? `${baseUrl.replace(/\/$/, '')}${notification.link.startsWith('/') ? notification.link : `/${notification.link}`}` : '';
       let emailContent;
       let attachments;
-      if (notification.type === 'quotation.sent' && notification.metadata?.quotationId) {
+      if (['quotation.sent', 'quotation.confirmed'].includes(notification.type) && notification.metadata?.quotationId) {
         const [quotation, request] = await Promise.all([
           Quotation.findById(notification.metadata.quotationId).lean(),
           ServiceRequest.findById(notification.metadata.requestId).select('code title').lean()
         ]);
         if (!quotation || !request) throw new Error('Không tìm thấy dữ liệu để tạo email báo giá');
-        emailContent = quotationEmail({ quotation, request, customer: notification.recipient, actionUrl });
-        attachments = [{ filename: `Bao-gia-${quotation.code}.pdf`, content: await generateQuotationPdf({ quotation, request, customer: notification.recipient }), contentType: 'application/pdf' }];
+        // A retried initial email must remain unsigned even after acceptance.
+        const confirmed = notification.type === 'quotation.confirmed';
+        if (confirmed && quotation.status !== 'accepted') throw new Error('Chỉ được phát hành bản có dấu sau khi khách chấp thuận');
+        const documentQuotation = { ...quotation, status: confirmed ? 'accepted' : 'sent' };
+        emailContent = quotationEmail({ quotation: documentQuotation, request, customer: notification.recipient, actionUrl });
+        attachments = [{ filename: `${confirmed ? 'Bao-gia-da-xac-nhan' : 'Bao-gia'}-${quotation.code}.pdf`, content: await generateQuotationPdf({ quotation: documentQuotation, request, customer: notification.recipient }), contentType: 'application/pdf' }];
       } else {
         emailContent = notificationEmail({ notification, recipientName: notification.recipient?.name, actionUrl });
       }

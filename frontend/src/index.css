@@ -86,6 +86,10 @@
 
 @keyframes global-loading-spin { to { transform: rotate(360deg); } }
 @keyframes global-logo-pulse { 0%, 100% { opacity: .85; } 50% { opacity: 1; } }
+@keyframes support-dock-attention { 0%, 60%, 100% { box-shadow: 0 14px 30px rgba(6, 29, 23, .30), 0 0 0 0 rgba(249, 115, 22, 0); } 72% { box-shadow: 0 14px 30px rgba(6, 29, 23, .30), 0 0 0 12px rgba(249, 115, 22, .32); } 86% { box-shadow: 0 14px 30px rgba(6, 29, 23, .30), 0 0 0 22px rgba(249, 115, 22, 0); } }
+.support-dock-attention { animation: support-dock-attention 2.4s ease-out infinite; }
+.support-dock-attention-delay { animation-delay: 1.2s; }
+@media (prefers-reduced-motion: reduce) { .support-dock-attention { animation: none; } }
 @keyframes toast-enter { from { opacity: 0; transform: translate3d(0, -.35rem, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
 .toast-enter { animation: toast-enter .28s cubic-bezier(.2,.75,.2,1) both; }
 @media (hover: hover) {
@@ -95,6 +99,13 @@
   .motion-card:hover img, .motion-card:focus-within img, .industrial-product-card:hover img, .catalog-card:hover img { transform: scale(1.03); }
 }
 @media (min-width: 1024px) {
+  button[class*="grid-cols-[minmax(0,1.4fr)"] {
+    grid-template-columns: minmax(0,1.4fr) minmax(180px,.75fr) 140px 200px 150px !important;
+  }
+  button[class*="grid-cols-[minmax(0,1.4fr)"] > span:last-child {
+    min-width: max-content;
+    white-space: nowrap;
+  }
   .project-accordion { height: 26rem; }
   .project-accordion__panel { min-height: 0; flex: 1; align-items: flex-end; justify-content: flex-start; cursor: pointer; transition: flex .5s; }
   .project-accordion__panel:hover, .project-accordion__panel:focus-visible { flex: 4; }

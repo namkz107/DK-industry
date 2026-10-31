@@ -731,6 +731,14 @@ router.patch('/requests/:requestId/quotations/:quotationId/respond', async (req,
       };
       await notifyQuoteWatchers(revisionNotice);
     } else {
+      await createNotification({
+        recipient: req.user._id,
+        type: 'quotation.confirmed',
+        title: `Báo giá đã xác nhận ${quotation.code}`,
+        message: `Báo giá ${quotation.code} đã được xác nhận theo đúng phiên bản bạn chấp thuận. File PDF có xác nhận của Giám đốc được đính kèm email này.`,
+        link: `/tai-khoan/yeu-cau?requestId=${req.params.requestId}`,
+        metadata: { requestId: req.params.requestId, quotationId: quotation._id, workOrderId: workOrder?._id }
+      });
       await notifyQuoteWatchers({ type: `quotation.${decision}`, title: `Báo giá ${quotation.code} đã được phản hồi`, message: `Khách hàng đã đồng ý. Dự án ${workOrder?.code || ''} đã được khởi tạo.`, link: staffLink, metadata: { requestId: req.params.requestId, quotationId: quotation._id, workOrderId: workOrder?._id } });
     }
     dispatchSoon();

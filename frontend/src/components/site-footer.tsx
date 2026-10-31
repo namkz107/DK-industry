@@ -28,6 +28,7 @@ export function SiteFooter() {
         <h2 className="footer-title">Liên hệ</h2>
         <ul className="mt-7 space-y-4">
           <li><ContactItem icon={Phone} label="Hotline" value={company.phoneLabel} href={`tel:${company.phone}`}/></li>
+          <li><ContactItem icon={Phone} label="Hotline 2" value={company.phone2Label} href={`tel:${company.phone2}`}/></li>
           <li><ContactItem icon={Mail} label="Email" value={company.email} href={`mailto:${company.email}`}/></li>
           {company.taxCode ? <li><ContactItem icon={Hash} label="Mã số thuế" value={company.taxCode}/></li> : null}
           <li><ContactItem icon={MapPin} label="Khu vực phục vụ" value="Hà Nội và các tỉnh miền Bắc"/></li>

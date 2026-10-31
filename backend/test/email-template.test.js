@@ -9,6 +9,8 @@ test('lead emails include the request code and submitted contact details', () =>
   assert.match(acknowledgement.subject, /LD-261021-ABC123/);
   assert.match(acknowledgement.text, /0912345678/);
   assert.match(acknowledgement.html, /Gia công cơ khí/);
+  assert.match(acknowledgement.text, /Về trang chủ:/);
+  assert.doesNotMatch(acknowledgement.text, /\/lien-he/);
   assert.match(operations.text, /email@congty\.vn/);
   assert.match(operations.text, /Cần gia công 20 chi tiết/);
   assert.match(operations.html, /staff\/leads\?leadId=507f1f77bcf86cd799439011/);

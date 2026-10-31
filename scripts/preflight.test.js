@@ -8,7 +8,7 @@ const backend = {
   COOKIE_SECURE: 'true', COOKIE_SAME_SITE: 'lax', TRUST_PROXY: '1', ENFORCE_SESSION_CHECK: 'true',
   FILE_STORAGE_DRIVER: 'cloudinary', CLOUDINARY_URL: 'cloudinary://key:secret@cloud', CLAMAV_HOST: 'clamav', BACKUP_AGE_RECIPIENT: `age1${'q'.repeat(58)}`,
   SMTP_HOST: 'smtp.example.vn', SMTP_PORT: '587', SMTP_SECURE: 'false', SMTP_REQUIRE_TLS: 'true', SMTP_USER: 'mail@example.vn', SMTP_PASS: 'secret-app-password', EMAIL_FROM: 'DK <mail@example.vn>', EMAIL_DKIM_SELECTOR: 'google', QUOTE_ADMIN_EMAIL: 'quotes@example.vn',
-  COMPANY_NAME: 'DK Industry', COMPANY_PHONE: '0900000000', COMPANY_EMAIL: 'hello@example.vn', COMPANY_ADDRESS: 'Ha Noi',
+  COMPANY_NAME: 'DK Industry', COMPANY_LEGAL_REPRESENTATIVE: 'Nguyen Van A', COMPANY_PHONE: '0900000000', COMPANY_EMAIL: 'hello@example.vn', COMPANY_ADDRESS: 'Ha Noi',
   SUPPORT_AI_ENABLED: 'false', TERMS_VERSION: '2026-10-14'
 };
 const frontend = {

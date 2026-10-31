@@ -79,7 +79,7 @@ function validateProduction(backend, frontend) {
   } else if (!/^cloudinary:\/\/[^:\s]+:[^@\s]+@[^/\s]+$/.test(cloudinaryUrl)) {
     errors.push('backend.CLOUDINARY_URL không đúng định dạng cloudinary://api_key:api_secret@cloud_name');
   }
-  for (const key of ['SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE', 'SMTP_REQUIRE_TLS', 'SMTP_USER', 'SMTP_PASS', 'EMAIL_FROM', 'EMAIL_DKIM_SELECTOR', 'QUOTE_ADMIN_EMAIL', 'COMPANY_NAME', 'COMPANY_PHONE', 'COMPANY_EMAIL', 'COMPANY_ADDRESS', 'TERMS_VERSION']) requireValue('backend', backend, key);
+  for (const key of ['SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE', 'SMTP_REQUIRE_TLS', 'SMTP_USER', 'SMTP_PASS', 'EMAIL_FROM', 'EMAIL_DKIM_SELECTOR', 'QUOTE_ADMIN_EMAIL', 'COMPANY_NAME', 'COMPANY_LEGAL_REPRESENTATIVE', 'COMPANY_PHONE', 'COMPANY_EMAIL', 'COMPANY_ADDRESS', 'TERMS_VERSION']) requireValue('backend', backend, key);
   const smtpPort = Number(backend.SMTP_PORT);
   if (!Number.isInteger(smtpPort) || smtpPort < 1 || smtpPort > 65535) errors.push('backend.SMTP_PORT phải là cổng hợp lệ từ 1 đến 65535');
   if (!isBoolean(backend.SMTP_SECURE)) errors.push('backend.SMTP_SECURE phải là true hoặc false');

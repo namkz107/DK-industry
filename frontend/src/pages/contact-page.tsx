@@ -10,7 +10,7 @@ export function ContactPage() {
     <PageHero variant="contact" eyebrow="Kết nối với chúng tôi" title="Liên hệ Cơ khí Đăng Khoa" description="Trao đổi trực tiếp với đội ngũ kỹ thuật hoặc đến nhà xưởng để khảo sát năng lực sản xuất."/>
     <section className="section-space bg-stone-50"><div className="container-page grid gap-7 lg:grid-cols-[.8fr_1.2fr]">
       <div className="reveal-list space-y-4">
-        <ContactItem icon={Phone} title="Hotline"><a className="font-bold text-emerald-800 hover:text-orange-700" href={`tel:${company.phone}`}>{company.phoneLabel}</a></ContactItem>
+        <ContactItem icon={Phone} title="Hotline"><div className="flex flex-col gap-1"><a className="font-bold text-emerald-800 hover:text-orange-700" href={`tel:${company.phone}`}>{company.phoneLabel}</a><a className="font-bold text-emerald-800 hover:text-orange-700" href={`tel:${company.phone2}`}>{company.phone2Label}</a></div></ContactItem>
         <ContactItem icon={Mail} title="Email"><a className="break-all font-bold text-emerald-800 hover:text-orange-700" href={`mailto:${company.email}`}>{company.email}</a></ContactItem>
         <ContactItem icon={MapPin} title="Trụ sở & nhà xưởng (Cụm 3 thôn Duyên Trường, Xã Hồng Vân, Thành Phố Hà Nội Việt Nam)"><address className="not-italic leading-7 text-slate-600">{company.address}</address><a className="mt-3 inline-flex items-center gap-2 font-bold text-orange-700" href={companyMapUrl} target="_blank" rel="noreferrer"><Navigation className="size-4"/>Mở chỉ đường</a></ContactItem>
         <ContactItem icon={Clock3} title="Hẹn lịch làm việc"><p className="leading-7 text-slate-600">Vui lòng liên hệ trước khi đến để đội ngũ kỹ thuật sắp xếp tiếp đón tại nhà xưởng.</p></ContactItem>

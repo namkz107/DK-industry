@@ -34,8 +34,21 @@ function validityText(quotation) {
   return date(quotation.validUntil);
 }
 
+function documentPresentation(quotation) {
+  const confirmed = quotation.status === 'accepted';
+  return {
+    confirmed,
+    title: confirmed ? 'BÁO GIÁ ĐÃ XÁC NHẬN' : 'BÁO GIÁ',
+    signerName: confirmed
+      ? String(process.env.COMPANY_LEGAL_REPRESENTATIVE || '').trim()
+      : String(quotation.senderName || quotation.createdBy?.name || '').trim(),
+    signerRole: confirmed ? 'GIÁM ĐỐC' : 'NGƯỜI PHỤ TRÁCH BÁO GIÁ'
+  };
+}
+
 function generateQuotationPdf({ quotation, request, customer }) {
   return new Promise((resolve, reject) => {
+    const presentation = documentPresentation(quotation);
     const doc = new PDFDocument({ size: 'A4', margin: 32, bufferPages: true, info: { Title: `Báo giá ${quotation.code}`, Author: letterhead.legalName } });
     const chunks = [];
     doc.on('data', chunk => chunks.push(chunk));
@@ -99,6 +112,9 @@ function generateQuotationPdf({ quotation, request, customer }) {
     text(`TEL: ${letterhead.phones}`, left + 86, y + 34, { width: width - 86, align: 'center', size: 9 });
     text(`MST: ${letterhead.taxCode}      Email: ${letterhead.email}`, left + 86, y + 48, { width: width - 86, align: 'center', size: 9 });
     y += 74;
+
+    text(presentation.title, left, y, { width, align: 'center', bold: true, size: 16, color: presentation.confirmed ? '#9f1239' : ink });
+    y += 26;
 
     const senderName = quotation.senderName || quotation.createdBy?.name || '';
     const senderPhone = quotation.senderPhone || '';
@@ -186,16 +202,29 @@ function generateQuotationPdf({ quotation, request, customer }) {
     }
 
     y += 12;
-    if (fs.existsSync(stampPath)) {
+    const signatureWidth = 220;
+    // Keep the complete recorded name on both lines; reserve enough height
+    // for long names to wrap without clipping or crossing the page footer.
+    const signatureNameHeight = doc.font('Bold').fontSize(12).heightOfString(presentation.signerName, { width: signatureWidth, lineGap: 1 });
+    const fullNameHeight = doc.font('Bold').fontSize(10).heightOfString(presentation.signerName, { width: signatureWidth, lineGap: 1 });
+    ensure(presentation.confirmed ? 155 : 70 + signatureNameHeight + fullNameHeight);
+    const signatureX = left + width - signatureWidth;
+    text(presentation.signerRole, signatureX, y, { width: signatureWidth, align: 'center', bold: true, size: 10 });
+    if (!presentation.confirmed) {
+      text('Xác nhận điện tử bởi tài khoản người gửi', signatureX, y + 24, { width: signatureWidth, align: 'center', size: 8 });
+      text(presentation.signerName, signatureX, y + 50, { width: signatureWidth, align: 'center', bold: true, size: 12 });
+      text(presentation.signerName, signatureX, y + 60 + signatureNameHeight, { width: signatureWidth, align: 'center', bold: true, size: 10 });
+    }
+    if (presentation.confirmed && fs.existsSync(stampPath)) {
       const stampWidth = 210;
       if (y + 120 > bottom) {
         doc.addPage();
         y = 32;
       }
-      doc.image(stampPath, left + width - stampWidth, y, { fit: [stampWidth, 120] });
+      doc.image(stampPath, left + width - stampWidth, y + 18, { fit: [stampWidth, 120] });
     }
     doc.end();
   });
 }
 
-module.exports = { generateQuotationPdf, letterhead };
+module.exports = { documentPresentation, generateQuotationPdf, letterhead };
