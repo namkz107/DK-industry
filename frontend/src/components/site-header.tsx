@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils"
 const links = [{ to: "/", label: "Trang chủ" }, { to: "/gioi-thieu", label: "Giới thiệu" }, { to: "/dich-vu", label: "Dịch vụ" }, { to: "/du-an", label: "Dự án" }, { to: "/san-pham", label: "Sản phẩm" }, { to: "/lien-he", label: "Liên hệ" }]
 const logoUrl = import.meta.env.VITE_CLOUDINARY_LOGO_URL || "https://res.cloudinary.com/dgbounqav/image/upload/f_auto,q_auto/logo_dk_uhmnyn"
 const roleHome = (role?: "customer" | "staff" | "admin") => role === "admin" ? "/admin" : role === "staff" ? "/staff" : "/tai-khoan"
-const headerBtn = "h-8 min-h-8 px-2.5 text-[12px] font-semibold"
+const headerBtn = "h-9 min-h-9 px-9 text-[13px] font-semibold"
 const headerIconBtn = "size-8 min-h-8 p-0"
 
 export function SiteHeader({ onQuote }: { onQuote: () => void }) {
@@ -35,16 +35,16 @@ export function SiteHeader({ onQuote }: { onQuote: () => void }) {
       <nav className="hidden min-w-0 items-center justify-center  gap-3 lg:flex xl:gap-4" aria-label="Điều hướng chính">{links.map(link => <NavLink key={link.to} to={link.to} className={({ isActive }) => cn("whitespace-nowrap rounded-md px-2 py-1.5 text-[13px] font-bold text-slate-600 uppercase transition hover:bg-slate-100 hover:text-emerald-950", isActive && "bg-emerald-50 font-semibold text-emerald-800")}>{link.label}</NavLink>)}</nav>
       <div className="hidden min-w-0 items-center justify-end gap-1 lg:flex">
           <div className="hidden min-w-0 items-center rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm lg:flex">
-          <a href={`tel:${company.phone}`} className="flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-[11px] font-medium text-emerald-950 transition hover:bg-slate-100"><Phone className="size-3.5 text-orange-600"/>{company.phoneLabel}</a>
+          <a href={`tel:${company.phone}`} className="flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-[13px] font-medium text-emerald-950 transition hover:bg-slate-100"><Phone className="size-4 text-orange-600"/>{company.phoneLabel}</a>
           <span className="hidden h-4 w-px bg-slate-200 xl:block" aria-hidden="true"/>
-          <a href={`mailto:${company.email}`} className="hidden h-7 min-w-0 max-w-[170px] items-center gap-1.5 truncate rounded-md px-2 text-[11px] font-medium text-emerald-950 transition hover:bg-slate-100 xl:flex"><Mail className="size-3.5 shrink-0 text-orange-600"/>{company.email}</a>
+          <a href={`mailto:${company.email}`} className="hidden h-8 min-w-0 max-w-[190px] items-center gap-1.5 truncate rounded-md px-2 text-[13px] font-medium text-emerald-950 transition hover:bg-slate-100 xl:flex"><Mail className="size-4 shrink-0 text-orange-600"/>{company.email}</a>
         </div>
         {user && <Button asChild size="icon" variant="ghost" className={cn("relative shrink-0", headerIconBtn)}><Link to="/thong-bao" aria-label={unread > 0 ? `Thông báo, ${unread} chưa đọc` : "Thông báo"}><Bell className="size-4"/>{unread > 0 && <span className="absolute -right-0.5 -top-0.5 grid min-h-4 min-w-4 place-items-center rounded-full bg-red-600 px-1 text-[9px] font-black text-white">{Math.min(unread, 99)}</span>}</Link></Button>}
         {user?.role === "customer" && <Button asChild size="icon" variant="ghost" className={cn("relative shrink-0", headerIconBtn)}><Link to="/gio-hang" aria-label={cartCount > 0 ? `Giỏ hàng, ${cartCount} sản phẩm` : "Giỏ hàng"}><ShoppingCart className="size-4"/>{cartCount > 0 && <span className="absolute -right-0.5 -top-0.5 grid min-h-4 min-w-4 place-items-center rounded-full bg-orange-600 px-1 text-[9px] font-black text-white">{Math.min(cartCount, 99)}</span>}</Link></Button>}
         {ready && (user ? <>
-          <Button asChild variant="outline" className={cn("max-w-36 shrink-0 whitespace-nowrap", headerBtn)}><Link to={roleHome(user.role)}><UserRound className="size-3.5 shrink-0"/><span className="hidden truncate xl:inline">{user.name}</span></Link></Button>
-          <Button className={cn("shrink-0 whitespace-nowrap", headerBtn)} variant="ghost" onClick={signOut} disabled={loggingOut} aria-label={loggingOut ? "Đang đăng xuất" : "Đăng xuất"}><LogOut className="size-3.5 shrink-0"/><span className="hidden 2xl:inline">Đăng xuất</span></Button>
-        </> : <Button asChild variant="ghost" className={cn("shrink-0 whitespace-nowrap", headerBtn)}><Link to="/dang-nhap"><LogIn className="size-3.5"/>Đăng nhập</Link></Button>)}
+          <Button asChild variant="outline" className={cn("max-w-36 shrink-0 whitespace-nowrap", headerBtn)}><Link to={roleHome(user.role)}><UserRound className="size-4 shrink-0"/><span className="hidden truncate xl:inline">{user.name}</span></Link></Button>
+          <Button className={cn("shrink-0 whitespace-nowrap", headerBtn)} variant="ghost" onClick={signOut} disabled={loggingOut} aria-label={loggingOut ? "Đang đăng xuất" : "Đăng xuất"}><LogOut className="size-4 shrink-0"/><span className="hidden 2xl:inline">Đăng xuất</span></Button>
+        </> : <Button asChild variant="ghost" className={cn("shrink-0 whitespace-nowrap", headerBtn)}><Link to="/dang-nhap"><LogIn className="size-4"/>Đăng nhập</Link></Button>)}
         {canRequestQuote && <Button className={cn("shrink-0 whitespace-nowrap uppercase tracking-[.02em]", headerBtn, "px-3")} onClick={onQuote}>Nhận báo giá</Button>}
       </div>
       <button className="col-start-3 grid size-10 place-items-center justify-self-end rounded-control border border-slate-200 bg-white lg:hidden" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={open ? "Đóng menu" : "Mở menu"}>{open ? <X className="size-5"/> : <Menu className="size-5"/>}</button>
