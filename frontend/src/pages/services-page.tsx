@@ -1,6 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog"
 import { useQuery } from "@tanstack/react-query"
-import { ArrowRight, BadgeCheck, CheckCircle2, ClipboardCheck, Cog, DraftingCompass, Factory, ShieldCheck, Sparkles, X, ZoomIn } from "lucide-react"
+import { ArrowRight, CheckCircle2, ClipboardCheck, DraftingCompass, Factory, ShieldCheck, Sparkles, X, ZoomIn } from "lucide-react"
 import { useState } from "react"
 import { Link, useOutletContext } from "react-router-dom"
 import type { LayoutContext } from "@/components/app-layout"
@@ -36,10 +36,11 @@ export function ServicesPage() {
   const activePage = Math.min(page, pages)
   const visibleServices = services.slice((activePage - 1) * servicesPerPage, activePage * servicesPerPage)
   return <>
-    <section className="relative isolate overflow-hidden bg-[#071d18] text-white">
-      <div className="container-page relative grid min-h-[600px] items-start gap-12 pb-24 pt-10 lg:grid-cols-[1.04fr_.96fr] lg:items-center lg:py-24">
-        <div><div className="eyebrow-pill"><Sparkles className="size-4"/>Năng lực sản xuất</div><h1 className="heading-hero mt-7 max-w-3xl">Từ bản vẽ đến <span className="text-orange-400">giải&nbsp;pháp vận&nbsp;hành.</span></h1><p className="mt-7 max-w-2xl text-lg leading-8 text-emerald-50/70">Một đầu mối cho đường ống, ống gió, bảo ôn, hook-up cơ điện, kết cấu cơ khí và bảo dưỡng công trình.</p><div className="mt-9 flex flex-wrap gap-3">{canRequestQuote ? <Button size="lg" onClick={() => openQuote("Tư vấn dịch vụ cơ khí")}>Trao đổi nhu cầu<ArrowRight className="size-5"/></Button> : <Button asChild size="lg"><Link to="/lien-he">Trao đổi nhu cầu<ArrowRight className="size-5"/></Link></Button>}<Button asChild size="lg" variant="outline" className="border-white bg-transparent text-white hover:bg-white hover:text-emerald-950"><a href="#danh-sach-dich-vu">Xem năng lực</a></Button></div><div className="mt-10 flex flex-wrap gap-x-10 gap-y-4 border-t border-white/10 pt-7"><HeroFact value={services.length || "—"} label="Nhóm dịch vụ"/><HeroFact value="4" label="Bước triển khai"/><HeroFact value="01" label="Đầu mối xuyên suốt"/></div></div>
-        <div className="relative hidden min-h-[470px] lg:block"><div className="hero-frame absolute inset-y-4 right-0 w-[88%]"><img className="size-full object-cover" src="/images/heroes/services-hero.jpg" alt="Xưởng sản xuất và gia công cơ khí"/><div className="absolute inset-0 bg-gradient-to-t from-[#071d18]/90 via-transparent to-transparent"/><div className="absolute bottom-0 p-8"><span className="grid size-12 place-items-center rounded-2xl bg-orange-600"><Cog className="size-6"/></span><p className="mt-5 max-w-sm font-display text-2xl font-bold">Đúng công nghệ. Đúng vật liệu. Đúng mục tiêu vận hành.</p></div></div><div className="hero-note absolute left-0 top-10 p-5"><BadgeCheck className="size-6 text-orange-400"/><p className="mt-3 text-sm font-bold">Kiểm soát từng công đoạn</p></div></div>
+    <section className="relative isolate overflow-hidden bg-slate-950 text-white">
+      <img className="absolute inset-0 -z-20 size-full object-cover object-[58%_center]" src="/images/equipment/cat-laser.jpg" alt="Nhân viên vận hành máy cắt laser tại xưởng cơ khí" fetchPriority="high"/>
+      <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(2,6,23,.96)_0%,rgba(2,6,23,.88)_44%,rgba(2,6,23,.40)_72%,rgba(2,6,23,.20)_100%)]"/>
+      <div className="container-page relative flex min-h-[38rem] items-center py-16 sm:min-h-[42rem] lg:min-h-[46rem] lg:py-24">
+        <div className="max-w-[780px]"><div className="eyebrow-pill"><Sparkles className="size-4"/>Năng lực sản xuất</div><h1 className="heading-hero mt-7 max-w-3xl">Từ bản vẽ đến <span className="text-orange-400">giải pháp vận hành.</span></h1><p className="mt-7 max-w-2xl text-lg leading-8 text-slate-100/78">Một đầu mối cho đường ống, ống gió, bảo ôn, hook-up cơ điện, kết cấu cơ khí và bảo dưỡng công trình.</p><div className="mt-9 flex flex-wrap gap-3">{canRequestQuote ? <Button size="lg" onClick={() => openQuote("Tư vấn dịch vụ cơ khí")}>Trao đổi nhu cầu<ArrowRight className="size-5"/></Button> : <Button asChild size="lg"><Link to="/lien-he">Trao đổi nhu cầu<ArrowRight className="size-5"/></Link></Button>}<Button asChild size="lg" variant="outline" className="border-white bg-transparent text-white hover:bg-white hover:text-slate-950"><a href="#danh-sach-dich-vu">Xem năng lực</a></Button></div><div className="mt-10 flex flex-wrap gap-x-10 gap-y-4 border-t border-white/15 pt-7"><HeroFact value={services.length || "—"} label="Nhóm dịch vụ"/><HeroFact value="4" label="Bước triển khai"/><HeroFact value="01" label="Đầu mối xuyên suốt"/></div></div>
       </div>
     </section>
 

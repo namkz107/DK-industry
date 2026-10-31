@@ -105,7 +105,7 @@ export function NotificationsPage() {
         <div>
           <p className="text-xs font-black uppercase tracking-[.22em] text-orange-700">Trung tâm cập nhật</p>
           <div className="mt-2 flex flex-wrap items-center gap-3">
-            <h1 className="font-display text-4xl font-bold tracking-tight text-emerald-950">Thông báo</h1>
+            <h1 className="page-title text-4xl text-emerald-950">Thông báo</h1>
             {unread > 0 && <span className="rounded-full bg-orange-600 px-2.5 py-1 text-xs font-black text-white">{unread} mới</span>}
           </div>
           <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">Báo giá, đơn hàng và tiến độ dự án được gom về một nơi.</p>

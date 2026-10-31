@@ -5,7 +5,7 @@ const catalogProducts = [
     sku: 'DK-SP-001',
     category: 'Bảo ôn',
     unit: 'hạng mục',
-    featured: true,
+    featured: false,
     image: '/images/products/boc-bao-on.jpg',
     description: 'Bọc bảo ôn cho đường ống, van và thiết bị để giữ nhiệt và chống đọng sương. Vật liệu và độ dày làm theo hệ thống thực tế.',
     specifications: { 'Phạm vi': 'Ống, van, thiết bị', 'Vật liệu': 'Theo yêu cầu hệ thống', 'Thi công': 'Gia công và lắp đặt tại công trình' }
@@ -16,7 +16,7 @@ const catalogProducts = [
     sku: 'DK-SP-002',
     category: 'Nhà để xe',
     unit: 'công trình',
-    featured: true,
+    featured: false,
     image: '/images/products/nha-de-xe.jpg',
     description: 'Gia công và lắp dựng nhà để xe khung thép, mái tôn. Kích thước và kiểu mái làm theo mặt bằng.',
     specifications: { 'Kết cấu': 'Khung thép, mái tôn', 'Kích thước': 'Theo mặt bằng', 'Thi công': 'Gia công tại xưởng và lắp dựng', 'Nguồn ảnh': 'Jarkko Lauri, CC BY-SA 4.0, Wikimedia Commons' }
@@ -27,7 +27,7 @@ const catalogProducts = [
     sku: 'DK-SP-003',
     category: 'Cover máy',
     unit: 'bộ',
-    featured: true,
+    featured: false,
     image: '/images/products/cover-may.jpg',
     description: 'Chế tạo vỏ che máy, khung bảo vệ và tấm ốp. Làm theo kích thước máy và yêu cầu vận hành.',
     specifications: { 'Hình thức': 'Vỏ che, khung bảo vệ, tấm ốp', 'Kích thước': 'Theo máy thực tế', 'Vật liệu': 'Tôn hoặc inox theo yêu cầu', 'Nguồn ảnh': 'Machine4545, CC BY-SA 4.0, Wikimedia Commons' }
@@ -83,7 +83,7 @@ const catalogProducts = [
     sku: 'DK-SP-008',
     category: 'Tủ inox',
     unit: 'bộ',
-    featured: false,
+    featured: true,
     image: '/images/products/tu-locker-inox.jpg',
     description: 'Tủ locker inox nhiều ngăn để đồ nhân viên hoặc đồ dùng trong xưởng. Số ngăn và kích thước làm theo yêu cầu.',
     specifications: { 'Vật liệu': 'Inox', 'Số ngăn': 'Theo yêu cầu', 'Vị trí': 'Xưởng hoặc khu thay đồ', 'Nguồn ảnh': 'spinster cardigan, CC BY 2.0, Wikimedia Commons' }
@@ -94,7 +94,7 @@ const catalogProducts = [
     sku: 'DK-SP-009',
     category: 'Bàn inox',
     unit: 'bộ',
-    featured: false,
+    featured: true,
     image: '/images/products/ban-ghe-an-inox.jpg',
     images: ['/images/products/ban-ghe-an-inox.jpg', '/images/products/ban-ghe-an-inox-xuong.jpg'],
     description: 'Bàn và ghế inox cho khu ăn uống. Mặt bàn, chiều dài và ghế đi kèm làm theo mặt bằng, gia công tại xưởng rồi lắp đặt.',
@@ -106,7 +106,7 @@ const catalogProducts = [
     sku: 'DK-SP-010',
     category: 'Bàn inox',
     unit: 'bộ',
-    featured: false,
+    featured: true,
     image: '/images/products/ban-chau-rua-inox.jpg',
     images: ['/images/products/ban-chau-rua-inox.jpg', '/images/products/ban-chau-rua-inox-2.jpg'],
     description: 'Bàn inox có chậu rửa và khung giá phía trên, dùng để sơ chế hoặc rửa. Kích thước chậu và mặt bàn làm theo vị trí lắp.',

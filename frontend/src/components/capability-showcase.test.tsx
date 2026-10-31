@@ -16,7 +16,7 @@ describe("CapabilityShowcase", () => {
 
     expect(screen.getByRole("tab", { name: "01 Tư vấn" })).toHaveAttribute("aria-selected", "true")
     expect(screen.getByRole("heading", { name: "Khảo sát kỹ. Đề xuất đúng." })).toBeInTheDocument()
-    expect(screen.getByRole("img", { name: "Kỹ sư cầm mũ bảo hộ và xem bản vẽ" })).toHaveAttribute("src", "/images/stages/tu-van-xem-ban-ve.png")
+    expect(screen.getByRole("img", { name: "Tủ điện công nghiệp do Cơ khí Đăng Khoa cung cấp" })).toHaveAttribute("src", "/images/products/vo-tu-dien.jpg")
     expect(container.querySelectorAll(".capability-reel__track img")).toHaveLength(5)
 
     act(() => { vi.advanceTimersByTime(4200) })

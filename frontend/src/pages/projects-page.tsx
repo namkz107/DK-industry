@@ -44,17 +44,15 @@ export function ProjectsPage() {
   }, [categories.length])
 
   return <>
-    <section className="relative isolate overflow-hidden bg-[#061d17] text-white">
-      <div className="container-page relative grid min-h-[610px] items-start gap-12 pb-24 pt-10 lg:grid-cols-[1.05fr_.95fr] lg:items-center lg:py-24">
+    <section className="relative isolate overflow-hidden bg-slate-950 text-white">
+      <img className="absolute inset-0 -z-20 size-full object-cover object-center" src={projects[0]?.image || "/images/equipment/xe-nang-xuong.png"} alt="Hình ảnh thi công thực tế của Cơ khí Đăng Khoa" fetchPriority="high"/>
+      <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(2,6,23,.96)_0%,rgba(2,6,23,.86)_44%,rgba(2,6,23,.42)_72%,rgba(2,6,23,.22)_100%)]"/>
+      <div className="container-page relative flex min-h-[38rem] items-center py-16 sm:min-h-[42rem] lg:min-h-[46rem] lg:py-24">
         <div className="relative z-10 max-w-3xl">
           <div className="eyebrow-pill"><Sparkles className="size-4"/>Hồ sơ năng lực thực tế</div>
-          <h1 className="heading-hero mt-7">Năng lực được chứng minh bằng <span className="text-orange-400">công&nbsp;trình.</span></h1>
-          <p className="mt-7 max-w-2xl text-base leading-8 text-emerald-50/70 sm:text-lg">Khám phá cách chúng tôi khảo sát, thiết kế, chế tạo và bàn giao từng dự án—minh bạch từ hiện trạng ban đầu đến kết quả hoàn thiện.</p>
-          <div className="mt-10 flex flex-wrap gap-x-10 gap-y-5 border-t border-white/10 pt-7"><HeroMetric value={query.data?.total ?? query.data?.count ?? projects.length} label="Dự án công bố"/><HeroMetric value={Math.max(0, categories.length - 1)} label="Nhóm năng lực"/><HeroMetric value={latestYear || "—"} label="Cập nhật gần nhất"/></div>
-        </div>
-        <div className="relative hidden min-h-[470px] lg:block">
-          {projects[0]?.image ? <div className="hero-frame absolute inset-y-0 right-0 w-[82%] bg-emerald-900"><img className="size-full object-cover" src={projects[0].image} alt=""/><div className="absolute inset-0 bg-gradient-to-t from-[#061d17] via-transparent to-transparent"/><div className="absolute inset-x-0 bottom-0 p-8"><p className="text-xs font-black uppercase tracking-[.18em] text-orange-300">Dự án tiêu biểu</p><p className="mt-2 font-display text-2xl font-bold">{projects[0].title}</p><p className="mt-2 flex items-center gap-2 text-sm text-white/65"><MapPin className="size-4"/>{projects[0].location} · {projects[0].year}</p></div></div> : <div className="hero-frame absolute inset-y-0 right-0 w-[82%] animate-pulse bg-white/5"/>}
-          <div className="hero-note absolute bottom-10 left-2 grid size-24 place-items-center"><FolderKanban className="size-10 text-orange-400"/></div>
+          <h1 className="heading-hero mt-7">Năng lực được chứng minh bằng <span className="text-orange-400">công trình.</span></h1>
+          <p className="mt-7 max-w-2xl text-base leading-8 text-slate-100/78 sm:text-lg">Khám phá cách chúng tôi khảo sát, thiết kế, chế tạo và bàn giao từng dự án—minh bạch từ hiện trạng ban đầu đến kết quả hoàn thiện.</p>
+          <div className="mt-10 flex flex-wrap gap-x-10 gap-y-5 border-t border-white/15 pt-7"><HeroMetric value={query.data?.total ?? query.data?.count ?? projects.length} label="Dự án công bố"/><HeroMetric value={Math.max(0, categories.length - 1)} label="Nhóm năng lực"/><HeroMetric value={latestYear || "—"} label="Cập nhật gần nhất"/></div>
         </div>
       </div>
     </section>

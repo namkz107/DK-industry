@@ -21,8 +21,8 @@ const capabilities: Capability[] = [
     title: "Khảo sát kỹ. Đề xuất đúng.",
     description: "Đội ngũ kỹ thuật đi từ hiện trạng sản xuất, mục tiêu vận hành và ngân sách để xây dựng phương án khả thi ngay từ đầu.",
     points: ["Khảo sát trực tiếp", "Phương án rõ ràng", "Dự toán minh bạch"],
-    image: "/images/stages/tu-van-xem-ban-ve.png",
-    alt: "Kỹ sư cầm mũ bảo hộ và xem bản vẽ",
+    image: "/images/products/vo-tu-dien.jpg",
+    alt: "Tủ điện công nghiệp do Cơ khí Đăng Khoa cung cấp",
     icon: Ruler,
   },
   {
@@ -41,8 +41,8 @@ const capabilities: Capability[] = [
     title: "Lắp đặt đồng bộ. Bám sát tiến độ.",
     description: "Đội thi công phối hợp chặt chẽ tại công trường, quản lý an toàn và nghiệm thu theo từng hạng mục để hạn chế gián đoạn sản xuất.",
     points: ["Kế hoạch theo mốc", "An toàn công trường", "Nghiệm thu đầy đủ"],
-    image: "/images/stages/thi-cong-lap-dat.jpg",
-    alt: "Công nhân hướng dẫn lắp đặt cụm thiết bị cơ khí trong nhà xưởng",
+    image: "/images/products/ban-ghe-an-inox.jpg",
+    alt: "Hệ thống bàn ghế inox hoàn thiện cho khu công nghiệp",
     icon: Wrench,
   },
   {

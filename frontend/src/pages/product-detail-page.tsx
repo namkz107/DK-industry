@@ -27,7 +27,7 @@ export function ProductDetailPage() {
   const addToCart = () => { if (!user) navigate("/dang-nhap", { state: { from: `/san-pham/${slug}` } }); else if (user.role === "customer") add.mutate() }
 
   if (query.isLoading) return <div className="section-space container-page" role="status"><p className="rounded-card border border-slate-200 bg-white p-8 text-center font-semibold text-slate-600">Đang tải sản phẩm...</p></div>
-  if (query.error || !product) return <div className="section-space container-page"><div className="rounded-card border border-slate-200 bg-white p-10 text-center"><h1 className="font-display text-3xl font-bold text-emerald-950">Không tìm thấy sản phẩm</h1><p className="mt-3 text-slate-600">Sản phẩm có thể đã ngừng kinh doanh hoặc đường dẫn không còn đúng.</p><Button asChild className="mt-6"><Link to="/san-pham"><ArrowLeft className="size-4"/>Về danh mục</Link></Button></div></div>
+  if (query.error || !product) return <div className="section-space container-page"><div className="rounded-card border border-slate-200 bg-white p-10 text-center"><h1 className="page-title text-3xl text-emerald-950">Không tìm thấy sản phẩm</h1><p className="mt-3 text-slate-600">Sản phẩm có thể đã ngừng kinh doanh hoặc đường dẫn không còn đúng.</p><Button asChild className="mt-6"><Link to="/san-pham"><ArrowLeft className="size-4"/>Về danh mục</Link></Button></div></div>
 
   const images = [product.image, ...(product.images || [])].filter(Boolean).filter((value, index, list) => list.indexOf(value) === index)
   const activeIndex = Math.min(imageIndex, Math.max(images.length - 1, 0))

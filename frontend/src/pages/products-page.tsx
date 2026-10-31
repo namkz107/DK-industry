@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { ArrowRight, BadgeCheck, Boxes, LoaderCircle, PackageSearch, Search, ShoppingCart, Sparkles, X } from "lucide-react"
+import { ArrowRight, LoaderCircle, PackageSearch, Search, ShoppingCart, Sparkles, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Link, useNavigate, useOutletContext } from "react-router-dom"
 import type { LayoutContext } from "@/components/app-layout"
@@ -16,6 +16,18 @@ import { formatPrice } from "@/lib/utils"
 import type { Product } from "@/types"
 
 const productsPerPage = 9
+const directProductSlugs = [
+  "xe-day-long-thep",
+  "ton-tam",
+  "cau-truc",
+  "ban-chau-rua-inox",
+  "ban-ghe-an-inox",
+  "vo-tu-dien",
+  "tu-locker-inox",
+  "chi-tiet-phay-tien",
+  "chi-tiet-dap-ren",
+]
+const directProductPriority = new Map(directProductSlugs.map((slug, index) => [slug, index]))
 
 export function ProductsPage() {
   usePageMeta("Sản phẩm công nghiệp", "Bọc bảo ôn, nhà để xe, mái che, bàn inox, cầu trục, tôn tấm, khung thép, chi tiết cơ khí, tủ điện và tủ locker, gia công theo yêu cầu.")
@@ -28,7 +40,11 @@ export function ProductsPage() {
   const [category, setCategory] = useState("Tất cả")
   const [page, setPage] = useState(1)
   const query = useQuery({ queryKey: ["products"], queryFn: api.products, staleTime: 5 * 60_000, retry: 1 })
-  const products = useMemo(() => query.data?.data || [], [query.data?.data])
+  const products = useMemo(() => [...(query.data?.data || [])].sort((first, second) => {
+    const firstPriority = directProductPriority.get(first.slug || "") ?? Number.MAX_SAFE_INTEGER
+    const secondPriority = directProductPriority.get(second.slug || "") ?? Number.MAX_SAFE_INTEGER
+    return firstPriority - secondPriority
+  }), [query.data?.data])
   const categories = useMemo(() => ["Tất cả", ...new Set(products.map(item => item.category))], [products])
   const filtered = useMemo(() => products.filter(item => (category === "Tất cả" || item.category === category) && `${item.name} ${item.category}`.toLowerCase().includes(search.toLowerCase())), [products, search, category])
   const pages = Math.max(1, Math.ceil(filtered.length / productsPerPage))
@@ -58,10 +74,11 @@ export function ProductsPage() {
   const hasFilters = Boolean(search || category !== "Tất cả")
 
   return <>
-    <section className="relative isolate overflow-hidden bg-[#061d17] text-white">
-      <div className="container-page relative grid items-center gap-10 py-12 lg:grid-cols-[1.02fr_.98fr] lg:py-16">
-        <div className="relative z-10"><div className="eyebrow-pill"><Sparkles className="size-4"/>Thiết bị & vật tư công nghiệp</div><h1 className="heading-hero mt-7 max-w-3xl">Sản phẩm phù&nbsp;hợp với <span className="text-orange-400">từng nhu&nbsp;cầu vận&nbsp;hành.</span></h1><p className="mt-7 max-w-2xl text-lg leading-8 text-emerald-50/70">Các sản phẩm được gia công và lắp đặt theo kích thước, vật liệu và số lượng thực tế. Mỗi hạng mục đều nhận báo giá sau khi làm rõ yêu cầu.</p><div className="mt-9 flex flex-wrap gap-3"><Button asChild size="lg"><a href="#danh-muc-san-pham">Khám phá sản phẩm<ArrowRight className="size-5"/></a></Button><Button asChild size="lg" variant="outline" className="border-white bg-transparent text-white hover:bg-white hover:text-emerald-950"><Link to="/lien-he">Trao đổi nhu cầu</Link></Button></div><div className="mt-10 flex flex-wrap gap-x-10 gap-y-5 border-t border-white/10 pt-7"><HeroFact value={products.length || "—"} label="Sản phẩm công bố"/><HeroFact value={Math.max(0, categories.length - 1) || "—"} label="Nhóm sản phẩm"/><HeroFact value="Báo giá" label="Theo yêu cầu thực tế"/></div></div>
-        <div className="relative hidden min-h-[470px] lg:block"><div className="hero-frame absolute inset-y-3 right-0 w-[89%]"><img className="size-full object-cover" src="/images/heroes/products-hero.jpg" alt="Thiết bị và sản phẩm cơ khí công nghiệp" fetchPriority="high"/><div className="absolute inset-0 bg-gradient-to-t from-[#061d17]/90 via-transparent to-transparent"/><div className="absolute inset-x-0 bottom-0 p-8"><span className="grid size-12 place-items-center rounded-2xl bg-orange-600"><Boxes className="size-6"/></span><p className="mt-5 max-w-sm font-display text-2xl font-bold">Sẵn sàng cung ứng. Linh hoạt chế tạo theo yêu cầu.</p></div></div><div className="hero-note absolute left-0 top-10 p-5"><BadgeCheck className="size-6 text-orange-400"/><p className="mt-3 text-sm font-bold">Báo giá theo cấu hình thực tế</p></div></div>
+    <section className="relative isolate overflow-hidden bg-slate-950 text-white">
+      <img className="absolute inset-0 -z-20 size-full object-cover object-center" src="/images/equipment/chan.jpg" alt="Máy chấn tôn JFY trong xưởng sản xuất" fetchPriority="high"/>
+      <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(2,6,23,.96)_0%,rgba(2,6,23,.86)_42%,rgba(2,6,23,.36)_72%,rgba(2,6,23,.18)_100%)]"/>
+      <div className="container-page relative flex min-h-[38rem] items-center py-16 sm:min-h-[42rem] lg:min-h-[46rem] lg:py-24">
+        <div className="max-w-[780px]"><div className="eyebrow-pill"><Sparkles className="size-4"/>Thiết bị & vật tư công nghiệp</div><h1 className="heading-hero mt-7 max-w-3xl">Sản phẩm phù hợp với <span className="text-orange-400">từng nhu cầu vận hành.</span></h1><p className="mt-7 max-w-2xl text-lg leading-8 text-slate-100/78">Các sản phẩm được gia công và lắp đặt theo kích thước, vật liệu và số lượng thực tế. Mỗi hạng mục đều nhận báo giá sau khi làm rõ yêu cầu.</p><div className="mt-9 flex flex-wrap gap-3"><Button asChild size="lg"><a href="#danh-muc-san-pham">Khám phá sản phẩm<ArrowRight className="size-5"/></a></Button><Button asChild size="lg" variant="outline" className="border-white bg-transparent text-white hover:bg-white hover:text-slate-950"><Link to="/lien-he">Trao đổi nhu cầu</Link></Button></div><div className="mt-10 flex flex-wrap gap-x-10 gap-y-5 border-t border-white/15 pt-7"><HeroFact value={products.length || "—"} label="Sản phẩm công bố"/><HeroFact value={Math.max(0, categories.length - 1) || "—"} label="Nhóm sản phẩm"/><HeroFact value="Báo giá" label="Theo yêu cầu thực tế"/></div></div>
       </div>
     </section>
 
