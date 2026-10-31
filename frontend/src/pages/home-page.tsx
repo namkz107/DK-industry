@@ -18,8 +18,8 @@ export function HomePage() {
   const projects = projectQuery.data?.data || []
   const featuredProductOrder = ["ban-ghe-an-inox", "tu-locker-inox", "ban-chau-rua-inox"]
   const products = [...(productQuery.data?.data || [])].sort((a, b) => {
-    const left = featuredProductOrder.indexOf(a.slug)
-    const right = featuredProductOrder.indexOf(b.slug)
+    const left = a.slug ? featuredProductOrder.indexOf(a.slug) : -1
+    const right = b.slug ? featuredProductOrder.indexOf(b.slug) : -1
     return (left === -1 ? featuredProductOrder.length : left) - (right === -1 ? featuredProductOrder.length : right)
   })
 
